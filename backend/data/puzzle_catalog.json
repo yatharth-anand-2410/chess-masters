@@ -1,0 +1,62 @@
+{
+  "fork": [
+    {"theme": "fork", "url": "https://lichess.org/training/fork"},
+    {"theme": "doubleCheck", "url": "https://lichess.org/training/doubleCheck"},
+    {"theme": "discoveredAttack", "url": "https://lichess.org/training/discoveredAttack"}
+  ],
+  "pin": [
+    {"theme": "pin", "url": "https://lichess.org/training/pin"},
+    {"theme": "skewer", "url": "https://lichess.org/training/skewer"},
+    {"theme": "xRayAttack", "url": "https://lichess.org/training/xRayAttack"}
+  ],
+  "skewer": [
+    {"theme": "skewer", "url": "https://lichess.org/training/skewer"},
+    {"theme": "pin", "url": "https://lichess.org/training/pin"},
+    {"theme": "xRayAttack", "url": "https://lichess.org/training/xRayAttack"}
+  ],
+  "hangingPiece": [
+    {"theme": "hangingPiece", "url": "https://lichess.org/training/hangingPiece"},
+    {"theme": "capturingDefender", "url": "https://lichess.org/training/capturingDefender"},
+    {"theme": "trappedPiece", "url": "https://lichess.org/training/trappedPiece"}
+  ],
+  "discoveredAttack": [
+    {"theme": "discoveredAttack", "url": "https://lichess.org/training/discoveredAttack"},
+    {"theme": "doubleCheck", "url": "https://lichess.org/training/doubleCheck"},
+    {"theme": "xRayAttack", "url": "https://lichess.org/training/xRayAttack"}
+  ],
+  "deflection": [
+    {"theme": "deflection", "url": "https://lichess.org/training/deflection"},
+    {"theme": "interference", "url": "https://lichess.org/training/interference"},
+    {"theme": "overloaded", "url": "https://lichess.org/training/overloaded"}
+  ],
+  "intermezzo": [
+    {"theme": "intermezzo", "url": "https://lichess.org/training/intermezzo"},
+    {"theme": "attraction", "url": "https://lichess.org/training/attraction"},
+    {"theme": "defensiveMove", "url": "https://lichess.org/training/defensiveMove"}
+  ],
+  "clearance": [
+    {"theme": "clearance", "url": "https://lichess.org/training/clearance"},
+    {"theme": "quietMove", "url": "https://lichess.org/training/quietMove"},
+    {"theme": "sacrifice", "url": "https://lichess.org/training/sacrifice"}
+  ],
+  "promotion": [
+    {"theme": "promotion", "url": "https://lichess.org/training/promotion"},
+    {"theme": "advancedPawn", "url": "https://lichess.org/training/advancedPawn"},
+    {"theme": "pawnEndgame", "url": "https://lichess.org/training/pawnEndgame"}
+  ],
+  "backRank": [
+    {"theme": "backRankMate", "url": "https://lichess.org/training/backRankMate"},
+    {"theme": "mateIn1", "url": "https://lichess.org/training/mateIn1"},
+    {"theme": "mateIn2", "url": "https://lichess.org/training/mateIn2"}
+  ],
+  "vulnerableKing": [
+    {"theme": "vulnerableKing", "url": "https://lichess.org/training/vulnerableKing"},
+    {"theme": "kingsideAttack", "url": "https://lichess.org/training/kingsideAttack"},
+    {"theme": "sacrifice", "url": "https://lichess.org/training/sacrifice"}
+  ],
+  "zugzwang": [
+    {"theme": "zugzwang", "url": "https://lichess.org/training/zugzwang"},
+    {"theme": "quietMove", "url": "https://lichess.org/training/quietMove"},
+    {"theme": "equality", "url": "https://lichess.org/training/equality"}
+  ]
+}
