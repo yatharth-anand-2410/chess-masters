@@ -1,12 +1,26 @@
 import type { Metadata } from "next";
+import { DM_Sans, Fraunces } from "next/font/google";
 import "@lichess-org/chessground/assets/chessground.base.css";
 import "@lichess-org/chessground/assets/chessground.brown.css";
 import "@lichess-org/chessground/assets/chessground.cburnett.css";
 import "./globals.css";
 
+const display = Fraunces({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-display",
+});
+
+const body = DM_Sans({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-body",
+});
+
 export const metadata: Metadata = {
-  title: "AI Chess Game Analyzer",
-  description: "Paste a chess game link and get an AI coaching report in real time.",
+  title: "Rookmark · AI Chess Game Analyzer",
+  description:
+    "Paste a Lichess or Chess.com game and get an AI coaching report written around the moves you played.",
 };
 
 export default function RootLayout({
@@ -14,7 +28,7 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body className={`${display.variable} ${body.variable}`}>{children}</body>
     </html>
   );
 }

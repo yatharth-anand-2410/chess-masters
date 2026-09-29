@@ -139,7 +139,7 @@ export default function AnalyzerForm({ disabled, onSubmit }: AnalyzerFormProps) 
       </label>
 
       <button type="submit" className="btn" disabled={submitDisabled}>
-        {disabled ? "Analyzing..." : "Analyze Game"}
+        {disabled ? "Analyzing..." : "Analyze game"}
       </button>
     </form>
   );

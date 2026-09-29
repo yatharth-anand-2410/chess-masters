@@ -1,12 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import Link from "next/link";
+import { useCallback, useEffect, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 import AnalyzerForm, { type AnalysisRequest } from "../components/AnalyzerForm";
 import AnalysisStatus from "../components/AnalysisStatus";
 import AnalysisHistory from "../components/AnalysisHistory";
 import AuthButton from "../components/AuthButton";
 import CoachingReport from "../components/CoachingReport";
+import HeroBoard from "../components/HeroBoard";
 import UpgradePrompt from "../components/UpgradePrompt";
 import type { InsightsData } from "../components/insights";
 import { API_BASE, apiGet, type AnalysisSummary, type Usage } from "../lib/api";
@@ -158,6 +160,12 @@ export default function HomePage() {
     window.location.href = `/analysis/${id}`;
   }, []);
 
+  const clearSessionState = useCallback(() => {
+    setAnalyses([]);
+    setMarkdown("");
+    setInsights(null);
+  }, []);
+
   const quotaExhausted =
     usage !== null &&
     usage.plan !== "paid" &&
@@ -165,68 +173,96 @@ export default function HomePage() {
 
   return (
     <main className="dashboard">
-      <header className="header">
-        <div className="header-row">
-          <div>
-            <h1>AI Chess Game Analyzer</h1>
-            <p>Paste a Lichess or Chess.com game link and receive an AI coaching report.</p>
-          </div>
-          <AuthButton
-            user={user}
-            onAuthChange={() => {
-              setAnalyses([]);
-              setMarkdown("");
-              setInsights(null);
-            }}
-          />
+      <header className="topbar">
+        <Link href="/" className="wordmark">
+          <span className="wordmark-glyph" aria-hidden="true">
+            ♜
+          </span>
+          Rookmark
+        </Link>
+        <div className="topbar-actions">
+          {user && (
+            <Link href="/history" className="nav-link">
+              History
+            </Link>
+          )}
+          <AuthButton user={user} onAuthChange={clearSessionState} />
         </div>
       </header>
 
-      {!user ? (
-        <section className="login-prompt">
-          <h2>Sign in to get started</h2>
-          <p>
-            Sign in with Google to analyze games, keep your history, and ask questions about
-            your reports.
+      <section className="hero">
+        <div className="hero-copy">
+          <h1 className="hero-title">Turn a finished game into your next lesson.</h1>
+          <p className="hero-lede">
+            Paste a Lichess or Chess.com game and get a coaching report built around the
+            moves you actually played.
           </p>
-        </section>
-      ) : (
-        <>
-          {usage && (
-            <div className="quota-panel">
-              {usage.plan === "paid" ? (
-                <span>Paid plan — unlimited analyses and Q&amp;A</span>
-              ) : (
-                <span>
-                  Free plan · {usage.analyses_used} of {usage.free_analysis_limit} free
-                  analyses used
-                  {usage.analyses_remaining !== null && usage.analyses_remaining > 0
-                    ? ` · ${usage.analyses_remaining} remaining`
-                    : ""}
-                </span>
-              )}
+
+          {!user ? (
+            <div className="signin-card">
+              <h2>Sign in to analyze a game</h2>
+              <p>
+                Your reports, engine notes, and follow-up questions stay with your
+                account.
+              </p>
+              <AuthButton user={null} onAuthChange={clearSessionState} />
             </div>
-          )}
-
-          {quotaExhausted ? (
-            <UpgradePrompt feature="analysis" />
           ) : (
-            <AnalyzerForm disabled={isAnalyzing} onSubmit={startAnalysis} />
+            <>
+              {quotaExhausted ? (
+                <UpgradePrompt feature="analysis" />
+              ) : (
+                <AnalyzerForm disabled={isAnalyzing} onSubmit={startAnalysis} />
+              )}
+
+              {usage && (
+                <div className="quota-panel">
+                  {usage.plan === "paid" ? (
+                    <span>Paid plan: unlimited analyses and follow-up questions.</span>
+                  ) : (
+                    <span>
+                      Free plan: {usage.analyses_used} of {usage.free_analysis_limit}{" "}
+                      analyses used
+                      {usage.analyses_remaining !== null && usage.analyses_remaining > 0
+                        ? `, ${usage.analyses_remaining} remaining`
+                        : ""}
+                      .
+                    </span>
+                  )}
+                </div>
+              )}
+
+              <AnalysisStatus status={status} isAnalyzing={isAnalyzing} />
+
+              {error && <div className="error-banner">{error}</div>}
+            </>
           )}
-          <AnalysisStatus status={status} isAnalyzing={isAnalyzing} />
+        </div>
 
-          {error && <div className="error-banner">{error}</div>}
-          {markdown && <CoachingReport content={markdown} insights={insights} />}
+        <aside className="hero-visual" aria-hidden="true">
+          <HeroBoard />
+          <p className="hero-caption">Every game has a square worth fighting for.</p>
+        </aside>
+      </section>
 
-          <section className="history-panel">
-            <h2>My Recent Analyses</h2>
-            {loadingHistory && !analyses.length ? (
-              <p className="history-empty">Loading...</p>
-            ) : (
-              <AnalysisHistory analyses={analyses} onOpen={openAnalysis} />
+      {user && markdown && <CoachingReport content={markdown} insights={insights} />}
+
+      {user && (
+        <section className="history-panel">
+          <div className="section-head">
+            <h2>Recent analyses</h2>
+            {analyses.length > 0 && (
+              <Link href="/history" className="nav-link">
+                View all
+              </Link>
             )}
-          </section>
-        </>
+          </div>
+          {loadingHistory && !analyses.length ? (
+            <p className="history-empty">Loading your games...</p>
+          ) : (
+            <AnalysisHistory analyses={analyses} onOpen={openAnalysis} />
+          )}
+        </section>
       )}
     </main>
   );

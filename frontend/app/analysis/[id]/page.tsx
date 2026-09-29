@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import AuthButton from "../../../components/AuthButton";
 import AnalysisThread, { type ThreadMessage } from "../../../components/AnalysisThread";
@@ -30,6 +31,18 @@ type AnalysisDetail = {
   };
   messages: ThreadMessage[];
 };
+
+function formatDate(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+  return date.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
 
 export default function AnalysisDetailPage() {
   const params = useParams<{ id: string }>();
@@ -83,39 +96,42 @@ export default function AnalysisDetailPage() {
   if (!detail) {
     return (
       <main className="dashboard">
-        <p>Loading analysis...</p>
+        <p className="history-empty">Loading analysis...</p>
       </main>
     );
   }
 
   const analysis = detail.analysis;
   const insights = analysis.insights ?? null;
+  const platformLabel = analysis.platform === "lichess" ? "Lichess" : "Chess.com";
+  const colorLabel = analysis.player_color === "white" ? "White" : "Black";
 
   return (
     <main className="dashboard analysis-dashboard">
-      <header className="header">
-        <div className="header-row">
-          <div>
-            <h1>
-              {analysis.platform === "lichess" ? "Lichess" : "Chess.com"} ·{" "}
-              {analysis.opening_name ?? analysis.game_id}
-            </h1>
-            <p>
-              {analysis.player_color === "white" ? "White" : "Black"}
-              {analysis.result ? ` · ${analysis.result}` : ""}
-            </p>
-          </div>
-          <div className="header-actions">
-            <button type="button" className="btn btn-ghost" onClick={() => router.push("/")}>
-              Back
-            </button>
-            <AuthButton
-              user={user}
-              onAuthChange={() => router.push("/")}
-            />
-          </div>
+      <header className="topbar">
+        <Link href="/" className="wordmark">
+          <span className="wordmark-glyph" aria-hidden="true">
+            ♜
+          </span>
+          Rookmark
+        </Link>
+        <div className="topbar-actions">
+          <Link href="/" className="nav-link">
+            New analysis
+          </Link>
+          <AuthButton user={user} onAuthChange={() => router.push("/")} />
         </div>
       </header>
+
+      <div className="game-header">
+        <span className="chip">{platformLabel}</span>
+        <h1 className="game-title">{analysis.opening_name ?? analysis.game_id}</h1>
+        <p className="game-meta">
+          Played as {colorLabel}
+          {analysis.result ? `, ${analysis.result}` : ""}
+          {`, analyzed ${formatDate(analysis.created_at)}`}
+        </p>
+      </div>
 
       <div className="analysis-workspace">
         <div className="analysis-report-column">

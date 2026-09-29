@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import AuthButton from "../../components/AuthButton";
 import AnalysisHistory from "../../components/AnalysisHistory";
@@ -34,23 +35,29 @@ export default function HistoryPage() {
 
   return (
     <main className="dashboard">
-      <header className="header">
-        <div className="header-row">
-          <div>
-            <h1>My Analyses</h1>
-            <p>All games you have analyzed.</p>
-          </div>
-          <div className="header-actions">
-            <button type="button" className="btn btn-ghost" onClick={() => router.push("/")}>
-              Back
-            </button>
-            <AuthButton
-              user={user}
-              onAuthChange={() => router.push("/")}
-            />
-          </div>
+      <header className="topbar">
+        <Link href="/" className="wordmark">
+          <span className="wordmark-glyph" aria-hidden="true">
+            ♜
+          </span>
+          Rookmark
+        </Link>
+        <div className="topbar-actions">
+          <Link href="/" className="nav-link">
+            New analysis
+          </Link>
+          <AuthButton user={user} onAuthChange={() => router.push("/")} />
         </div>
       </header>
+
+      <div className="game-header">
+        <h1 className="game-title">All analyses</h1>
+        <p className="game-meta">
+          {analyses.length > 0
+            ? `${analyses.length} ${analyses.length === 1 ? "game" : "games"} analyzed`
+            : "Every game you analyze lands here."}
+        </p>
+      </div>
 
       {error && <div className="error-banner">{error}</div>}
       <AnalysisHistory
