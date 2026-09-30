@@ -315,7 +315,7 @@ export default function SubscriptionPage() {
         </p>
         <p>Pay securely by card or UPI AutoPay. Cancel anytime.</p>
         <ul>
-          <li>Unlimited game analyses</li>
+          <li>100 game analyses per month</li>
           <li>Q&amp;A with your chess coach</li>
           <li>Additional coaching features</li>
         </ul>

@@ -10,6 +10,7 @@ import type { InsightsData } from "../../../components/insights";
 import { apiGet, externalGameUrl } from "../../../lib/api";
 import type { Usage } from "../../../lib/api";
 import { createClient } from "../../../lib/supabase-client";
+import LimitReachedPrompt from "../../../components/LimitReachedPrompt";
 import UpgradePrompt from "../../../components/UpgradePrompt";
 import type { User } from "@supabase/supabase-js";
 
@@ -162,7 +163,11 @@ export default function AnalysisDetailPage() {
           <aside className="analysis-thread-column">
             <h2>Ask about this game</h2>
             {usage && !usage.qna_enabled ? (
-              <UpgradePrompt feature="qna" />
+              usage.plan === "paid" ? (
+                <LimitReachedPrompt periodEnd={usage.current_period_end} />
+              ) : (
+                <UpgradePrompt feature="qna" />
+              )
             ) : (
               <AnalysisThread
                 analysisId={analysisId}

@@ -9,6 +9,7 @@ import AnalysisHistory from "../components/AnalysisHistory";
 import AuthButton from "../components/AuthButton";
 import CoachingReport from "../components/CoachingReport";
 import HeroBoard from "../components/HeroBoard";
+import LimitReachedPrompt from "../components/LimitReachedPrompt";
 import ReviewSection from "../components/ReviewSection";
 import UpgradePrompt from "../components/UpgradePrompt";
 import type { InsightsData } from "../components/insights";
@@ -150,6 +151,13 @@ export default function HomePage() {
               setIsAnalyzing(false);
               return;
             }
+            if (code === "limit_reached") {
+              setError(message);
+              refreshUsage(token);
+              setStatus("");
+              setIsAnalyzing(false);
+              return;
+            }
             setError(message);
             setStatus("");
             setIsAnalyzing(false);
@@ -170,10 +178,7 @@ export default function HomePage() {
     setInsights(null);
   }, []);
 
-  const quotaExhausted =
-    usage !== null &&
-    usage.plan !== "paid" &&
-    (usage.analyses_remaining ?? 0) <= 0;
+  const quotaExhausted = usage !== null && usage.analyses_remaining <= 0;
 
   return (
     <main className="dashboard">
@@ -219,7 +224,11 @@ export default function HomePage() {
           ) : (
             <>
               {quotaExhausted ? (
-                <UpgradePrompt feature="analysis" />
+                usage?.plan === "paid" ? (
+                  <LimitReachedPrompt periodEnd={usage.current_period_end} />
+                ) : (
+                  <UpgradePrompt feature="analysis" />
+                )
               ) : (
                 <AnalyzerForm disabled={isAnalyzing} onSubmit={startAnalysis} />
               )}
@@ -227,12 +236,19 @@ export default function HomePage() {
               {usage && (
                 <div className="quota-panel">
                   {usage.plan === "paid" ? (
-                    <span>Paid plan: unlimited analyses and follow-up questions.</span>
+                    <span>
+                      Paid plan: {usage.analyses_used} of {usage.paid_analysis_limit}{" "}
+                      analyses used this billing period
+                      {usage.analyses_remaining > 0
+                        ? `, ${usage.analyses_remaining} remaining`
+                        : ""}
+                      .
+                    </span>
                   ) : (
                     <span>
                       Free plan: {usage.analyses_used} of {usage.free_analysis_limit}{" "}
                       analyses used
-                      {usage.analyses_remaining !== null && usage.analyses_remaining > 0
+                      {usage.analyses_remaining > 0
                         ? `, ${usage.analyses_remaining} remaining`
                         : ""}
                       .

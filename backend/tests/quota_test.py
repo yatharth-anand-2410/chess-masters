@@ -13,7 +13,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from main import _allowed_origins, _upgrade_detail, _usage_payload
+from main import _allowed_origins, _limit_reached_detail, _upgrade_detail, _usage_payload
 from services import db
 
 
@@ -37,6 +37,23 @@ def test_upgrade_detail_unknown_feature():
     assert detail["feature"] == "something"
 
 
+def test_limit_reached_detail_with_period_end():
+    detail = _limit_reached_detail("analysis", "2026-10-30T00:00:00+00:00")
+    assert detail["code"] == "limit_reached"
+    assert detail["feature"] == "analysis"
+    assert detail["limit"] == 100
+    assert "100 analyses" in detail["message"]
+    assert "October 30, 2026" in detail["message"]
+
+
+def test_limit_reached_detail_without_period_end():
+    detail = _limit_reached_detail("qna")
+    assert detail["code"] == "limit_reached"
+    assert detail["feature"] == "qna"
+    assert "100 analyses" in detail["message"]
+    assert "resets on" not in detail["message"]
+
+
 def test_usage_payload_free():
     payload = _usage_payload({"plan": "free", "analyses_used": 1, "free_analysis_limit": 2})
     assert payload["analyses_remaining"] == 1
@@ -51,7 +68,8 @@ def test_usage_payload_free_exhausted():
 
 def test_usage_payload_paid():
     payload = _usage_payload({"plan": "paid", "analyses_used": 7, "free_analysis_limit": 2})
-    assert payload["analyses_remaining"] is None
+    assert payload["analyses_remaining"] == 93
+    assert payload["paid_analysis_limit"] == 100
     assert payload["qna_enabled"] is True
 
 
@@ -65,7 +83,53 @@ def test_usage_payload_paid_active():
         }
     )
     assert payload["plan"] == "paid"
+    assert payload["analyses_remaining"] == 93
     assert payload["qna_enabled"] is True
+
+
+def test_usage_payload_paid_at_limit():
+    payload = _usage_payload(
+        {
+            "plan": "paid",
+            "analyses_used": 100,
+            "paid_analysis_limit": 100,
+            "subscription_status": "active",
+        }
+    )
+    assert payload["plan"] == "paid"
+    assert payload["analyses_remaining"] == 0
+    assert payload["qna_enabled"] is False
+
+
+def test_usage_payload_paid_new_period_resets_count():
+    payload = _usage_payload(
+        {
+            "plan": "paid",
+            "analyses_used": 100,
+            "paid_analysis_limit": 100,
+            "subscription_status": "active",
+            "current_period_end": "2026-11-30T00:00:00+00:00",
+            "usage_period_end": "2026-10-30T00:00:00+00:00",
+        }
+    )
+    assert payload["analyses_used"] == 0
+    assert payload["analyses_remaining"] == 100
+    assert payload["qna_enabled"] is True
+
+
+def test_usage_payload_paid_same_period_keeps_count():
+    payload = _usage_payload(
+        {
+            "plan": "paid",
+            "analyses_used": 40,
+            "paid_analysis_limit": 100,
+            "subscription_status": "active",
+            "current_period_end": "2026-10-30T00:00:00+00:00",
+            "usage_period_end": "2026-10-30T00:00:00+00:00",
+        }
+    )
+    assert payload["analyses_used"] == 40
+    assert payload["analyses_remaining"] == 60
 
 
 def test_usage_payload_paused_with_future_period_is_paid():

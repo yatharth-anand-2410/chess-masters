@@ -28,6 +28,7 @@ export default function AnalysisThread({
   const [replying, setReplying] = useState(false);
   const [error, setError] = useState("");
   const [upgradeRequired, setUpgradeRequired] = useState(false);
+  const [limitReached, setLimitReached] = useState(false);
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -80,6 +81,9 @@ export default function AnalysisThread({
             const payload = data as { message?: string; code?: string };
             if (payload?.code === "upgrade_required") {
               setUpgradeRequired(true);
+            } else if (payload?.code === "limit_reached") {
+              setLimitReached(true);
+              setError(payload?.message ?? "You've reached your analysis limit.");
             } else {
               setError(payload?.message ?? "Something went wrong.");
             }
@@ -88,6 +92,9 @@ export default function AnalysisThread({
         onError: (message, code) => {
           if (code === "upgrade_required") {
             setUpgradeRequired(true);
+          } else if (code === "limit_reached") {
+            setLimitReached(true);
+            setError(message);
           } else {
             setError(message);
           }
@@ -126,7 +133,7 @@ export default function AnalysisThread({
 
       {upgradeRequired ? (
         <UpgradePrompt feature="qna" />
-      ) : (
+      ) : limitReached ? null : (
         <form className="thread-composer" onSubmit={submit}>
           <input
             type="text"

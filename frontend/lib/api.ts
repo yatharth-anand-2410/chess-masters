@@ -4,7 +4,8 @@ export type Usage = {
   plan: "free" | "paid";
   analyses_used: number;
   free_analysis_limit: number;
-  analyses_remaining: number | null;
+  paid_analysis_limit: number;
+  analyses_remaining: number;
   qna_enabled: boolean;
   subscription_status?: string;
   current_period_end?: string | null;

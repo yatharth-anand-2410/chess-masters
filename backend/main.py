@@ -70,6 +70,21 @@ def _now_value() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def _parse_datetime_value(value: object) -> Optional[datetime]:
+    if not value:
+        return None
+    if isinstance(value, datetime):
+        parsed = value
+    else:
+        try:
+            parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+        except ValueError:
+            return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed
+
+
 def _upgrade_detail(feature: str) -> dict[str, str]:
     messages = {
         "analysis": "Your two free analyses have been used.",
@@ -82,20 +97,55 @@ def _upgrade_detail(feature: str) -> dict[str, str]:
     }
 
 
+def _limit_reached_detail(
+    feature: str,
+    period_end: object = None,
+    limit: int = db.PAID_ANALYSIS_LIMIT,
+) -> dict:
+    reset = _parse_datetime_value(period_end)
+    message = f"You've used all {limit} analyses for this billing period."
+    if reset is not None:
+        message = (
+            f"{message} Your quota resets on "
+            f"{reset.strftime('%B')} {reset.day}, {reset.year}."
+        )
+    return {
+        "code": "limit_reached",
+        "message": message,
+        "feature": feature,
+        "limit": limit,
+    }
+
+
 def _usage_payload(usage: dict) -> dict:
     raw_plan = usage.get("plan", "free")
     status = usage.get("subscription_status", "inactive")
     period_end = usage.get("current_period_end")
     paid = db.is_paid_plan(raw_plan, status, period_end)
     used = int(usage.get("analyses_used", 0))
-    limit = int(usage.get("free_analysis_limit", db.FREE_ANALYSIS_LIMIT))
-    remaining = None if paid else max(0, limit - used)
+    free_limit = int(usage.get("free_analysis_limit", db.FREE_ANALYSIS_LIMIT))
+    paid_limit = int(usage.get("paid_analysis_limit", db.PAID_ANALYSIS_LIMIT))
+    if paid:
+        limit = paid_limit
+        period_end_value = _parse_datetime_value(period_end)
+        usage_period_end_value = _parse_datetime_value(usage.get("usage_period_end"))
+        # A renewal advanced the billing period; the stored count belongs to
+        # the previous period, so report it as a fresh start.
+        if period_end_value is not None and (
+            usage_period_end_value is None
+            or usage_period_end_value < period_end_value
+        ):
+            used = 0
+    else:
+        limit = free_limit
+    remaining = max(0, limit - used)
     return {
         "plan": "paid" if paid else "free",
         "analyses_used": used,
-        "free_analysis_limit": limit,
+        "free_analysis_limit": free_limit,
+        "paid_analysis_limit": paid_limit,
         "analyses_remaining": remaining,
-        "qna_enabled": paid,
+        "qna_enabled": paid and remaining > 0,
         "subscription_status": status,
         "current_period_end": period_end,
     }
@@ -169,6 +219,15 @@ async def stream_analysis(
 ) -> StreamingResponse:
     usage = await asyncio.to_thread(db.consume_analysis_credit, str(user["id"]))
     if not usage.get("allowed", False):
+        if usage.get("limit_reached"):
+            raise HTTPException(
+                status_code=402,
+                detail=_limit_reached_detail(
+                    "analysis",
+                    usage.get("current_period_end"),
+                    int(usage.get("paid_analysis_limit", db.PAID_ANALYSIS_LIMIT)),
+                ),
+            )
         raise HTTPException(status_code=402, detail=_upgrade_detail("analysis"))
 
     async def event_generator() -> AsyncIterator[str]:
@@ -513,6 +572,7 @@ async def verify_billing_subscription(
         True,
         "authenticated",
     )
+    await asyncio.to_thread(db.reset_analysis_usage, str(user["id"]))
     return {"status": "authenticated"}
 
 
@@ -770,7 +830,17 @@ async def stream_message(
         raise HTTPException(status_code=404, detail="Analysis not found.")
 
     usage = await asyncio.to_thread(db.get_usage, str(user["id"]))
-    if not _usage_payload(usage)["qna_enabled"]:
+    usage_payload = _usage_payload(usage)
+    if not usage_payload["qna_enabled"]:
+        if usage_payload["plan"] == "paid":
+            raise HTTPException(
+                status_code=402,
+                detail=_limit_reached_detail(
+                    "qna",
+                    usage_payload.get("current_period_end"),
+                    usage_payload["paid_analysis_limit"],
+                ),
+            )
         raise HTTPException(status_code=402, detail=_upgrade_detail("qna"))
 
     messages = await asyncio.to_thread(db.list_messages, analysis_id)

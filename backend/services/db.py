@@ -16,6 +16,7 @@ import requests
 TIMEOUT = 12
 
 FREE_ANALYSIS_LIMIT = 2
+PAID_ANALYSIS_LIMIT = 100
 
 KNOWN_NON_PAID_STATUSES = {"pending", "halted", "cancelled", "completed", "expired"}
 
@@ -285,16 +286,20 @@ def get_usage(user_id: str) -> Dict[str, Any]:
             "plan": "free",
             "analyses_used": 0,
             "free_analysis_limit": FREE_ANALYSIS_LIMIT,
+            "paid_analysis_limit": PAID_ANALYSIS_LIMIT,
             "subscription_status": "inactive",
             "current_period_end": None,
+            "usage_period_end": None,
         }
     row = rows[0]
     return {
         "plan": row.get("plan", "free"),
         "analyses_used": row.get("analyses_used", 0),
         "free_analysis_limit": row.get("free_analysis_limit", FREE_ANALYSIS_LIMIT),
+        "paid_analysis_limit": row.get("paid_analysis_limit", PAID_ANALYSIS_LIMIT),
         "subscription_status": row.get("subscription_status", "inactive"),
         "current_period_end": row.get("current_period_end"),
+        "usage_period_end": row.get("usage_period_end"),
     }
 
 
@@ -426,6 +431,19 @@ def set_paid_access(user_id: str, paid: bool, status: str, period_end: Any = Non
     response.raise_for_status()
 
 
+def reset_analysis_usage(user_id: str) -> None:
+    """Start a fresh counting period, e.g. right after a paid upgrade."""
+    url, _key = _config()
+    response = requests.patch(
+        f"{url}/rest/v1/account_usage",
+        params={"user_id": f"eq.{user_id}"},
+        json={"analyses_used": 0, "updated_at": datetime.now(timezone.utc).isoformat()},
+        headers=_service_headers(),
+        timeout=TIMEOUT,
+    )
+    response.raise_for_status()
+
+
 def record_invoice(user_id: str, data: Dict[str, Any]) -> bool:
     url, _key = _config()
     response = requests.post(
@@ -482,11 +500,13 @@ def record_webhook_event(event_id: str, event_type: str, payload: Dict[str, Any]
 
 
 def consume_analysis_credit(user_id: str) -> Dict[str, Any]:
-    """Atomically consume one free analysis credit via the SQL function.
+    """Atomically consume one analysis credit via the SQL function.
 
     Returns the jsonb payload from ``consume_analysis_credit``, e.g.
     ``{"allowed": true, "plan": "free", "analyses_used": 1, "free_analysis_limit": 2}``.
-    The caller decides how to respond when ``allowed`` is false.
+    Paid plans consume from ``paid_analysis_limit`` (per billing cycle) and
+    return ``{"allowed": false, "plan": "paid", "limit_reached": true, ...}``
+    when exhausted. The caller decides how to respond when ``allowed`` is false.
     """
     url, _key = _config()
     if not configured():
