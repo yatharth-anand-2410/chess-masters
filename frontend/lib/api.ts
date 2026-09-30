@@ -6,6 +6,8 @@ export type Usage = {
   free_analysis_limit: number;
   analyses_remaining: number | null;
   qna_enabled: boolean;
+  subscription_status?: string;
+  current_period_end?: string | null;
 };
 
 export type ApiErrorDetail = {

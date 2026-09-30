@@ -14,6 +14,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from main import _allowed_origins, _upgrade_detail, _usage_payload
+from services import db
 
 
 def test_upgrade_detail_analysis():
@@ -52,6 +53,105 @@ def test_usage_payload_paid():
     payload = _usage_payload({"plan": "paid", "analyses_used": 7, "free_analysis_limit": 2})
     assert payload["analyses_remaining"] is None
     assert payload["qna_enabled"] is True
+
+
+def test_usage_payload_paid_active():
+    payload = _usage_payload(
+        {
+            "plan": "paid",
+            "analyses_used": 7,
+            "free_analysis_limit": 2,
+            "subscription_status": "active",
+        }
+    )
+    assert payload["plan"] == "paid"
+    assert payload["qna_enabled"] is True
+
+
+def test_usage_payload_paused_with_future_period_is_paid():
+    future = "2999-01-01T00:00:00+00:00"
+    payload = _usage_payload(
+        {
+            "plan": "paid",
+            "analyses_used": 7,
+            "free_analysis_limit": 2,
+            "subscription_status": "paused",
+            "current_period_end": future,
+        }
+    )
+    assert payload["plan"] == "paid"
+    assert payload["qna_enabled"] is True
+
+
+def test_usage_payload_paused_with_past_period_is_free():
+    past = "2000-01-01T00:00:00+00:00"
+    payload = _usage_payload(
+        {
+            "plan": "paid",
+            "analyses_used": 1,
+            "free_analysis_limit": 2,
+            "subscription_status": "paused",
+            "current_period_end": past,
+        }
+    )
+    assert payload["plan"] == "free"
+    assert payload["qna_enabled"] is False
+    assert payload["analyses_remaining"] == 1
+
+
+def test_usage_payload_cancelled_with_future_period_is_paid():
+    future = "2999-01-01T00:00:00+00:00"
+    payload = _usage_payload(
+        {
+            "plan": "paid",
+            "analyses_used": 3,
+            "free_analysis_limit": 2,
+            "subscription_status": "cancelled",
+            "current_period_end": future,
+        }
+    )
+    assert payload["plan"] == "paid"
+    assert payload["qna_enabled"] is True
+
+
+def test_usage_payload_cancelled_with_past_period_is_free():
+    past = "2000-01-01T00:00:00+00:00"
+    payload = _usage_payload(
+        {
+            "plan": "paid",
+            "analyses_used": 1,
+            "free_analysis_limit": 2,
+            "subscription_status": "cancelled",
+            "current_period_end": past,
+        }
+    )
+    assert payload["plan"] == "free"
+    assert payload["qna_enabled"] is False
+
+
+def test_usage_payload_halted_is_free():
+    payload = _usage_payload(
+        {
+            "plan": "paid",
+            "analyses_used": 2,
+            "free_analysis_limit": 2,
+            "subscription_status": "halted",
+        }
+    )
+    assert payload["plan"] == "free"
+    assert payload["qna_enabled"] is False
+
+
+def test_is_paid_plan_direct():
+    assert db.is_paid_plan("paid", "authenticated") is True
+    assert db.is_paid_plan("paid", "active") is True
+    assert db.is_paid_plan("paid", "paused", "2999-01-01T00:00:00Z") is True
+    assert db.is_paid_plan("paid", "paused", "2000-01-01T00:00:00Z") is False
+    assert db.is_paid_plan("paid", "paused") is False
+    assert db.is_paid_plan("paid", "cancelled", "2999-01-01T00:00:00Z") is True
+    assert db.is_paid_plan("paid", "cancelled", "2000-01-01T00:00:00Z") is False
+    assert db.is_paid_plan("paid", "cancelled") is False
+    assert db.is_paid_plan("free", "active") is False
 
 
 def test_allowed_origins_defaults():

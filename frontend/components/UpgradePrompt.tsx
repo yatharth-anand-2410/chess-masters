@@ -11,7 +11,7 @@ const COPY: Record<NonNullable<UpgradePromptProps["feature"]>, { title: string; 
   },
   qna: {
     title: "Ask your coach follow-up questions",
-    description: "Q&A with your chess coach is available on a paid plan.",
+    description: "Q&A with your chess coach is available on the paid plan.",
   },
 };
 
@@ -21,9 +21,9 @@ export default function UpgradePrompt({ feature = "analysis" }: UpgradePromptPro
     <div className="upgrade-prompt">
       <h3>{copy.title}</h3>
       <p>{copy.description}</p>
-      <p className="upgrade-note">Payments are being added shortly.</p>
-      <Link className="btn" href="/upgrade">
-        Learn about upgrading
+      <p className="upgrade-note">₹399/month. Cancel anytime.</p>
+      <Link className="btn" href="/subscription">
+        Subscribe
       </Link>
     </div>
   );

@@ -46,6 +46,9 @@ export default function HistoryPage() {
           <Link href="/" className="nav-link">
             New analysis
           </Link>
+          <Link href="/subscription" className="nav-link">
+            Subscription
+          </Link>
           <AuthButton user={user} onAuthChange={() => router.push("/")} />
         </div>
       </header>

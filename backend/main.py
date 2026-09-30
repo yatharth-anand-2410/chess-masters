@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import logging
 import os
@@ -15,7 +16,7 @@ from google import genai
 from google.genai import errors as genai_errors
 from pydantic import BaseModel
 
-from services import analyzer, db, engine, extractor, recommendations
+from services import analyzer, billing, db, engine, extractor, recommendations
 
 load_dotenv()
 
@@ -82,17 +83,35 @@ def _upgrade_detail(feature: str) -> dict[str, str]:
 
 
 def _usage_payload(usage: dict) -> dict:
-    plan = usage.get("plan", "free")
+    raw_plan = usage.get("plan", "free")
+    status = usage.get("subscription_status", "inactive")
+    period_end = usage.get("current_period_end")
+    paid = db.is_paid_plan(raw_plan, status, period_end)
     used = int(usage.get("analyses_used", 0))
     limit = int(usage.get("free_analysis_limit", db.FREE_ANALYSIS_LIMIT))
-    remaining = None if plan == "paid" else max(0, limit - used)
+    remaining = None if paid else max(0, limit - used)
     return {
-        "plan": plan,
+        "plan": "paid" if paid else "free",
         "analyses_used": used,
         "free_analysis_limit": limit,
         "analyses_remaining": remaining,
-        "qna_enabled": plan == "paid",
+        "qna_enabled": paid,
+        "subscription_status": status,
+        "current_period_end": period_end,
     }
+
+
+def _unix_to_iso(value: object) -> Optional[str]:
+    if not value:
+        return None
+    try:
+        return datetime.fromtimestamp(int(value), timezone.utc).isoformat()
+    except (TypeError, ValueError):
+        return None
+
+
+def _billing_error(exc: billing.BillingError) -> HTTPException:
+    return HTTPException(status_code=503, detail=str(exc))
 
 
 async def get_current_user(request: Request) -> Dict[str, object]:
@@ -297,6 +316,330 @@ async def account_usage(
     return _usage_payload(usage)
 
 
+class BillingVerifyRequest(BaseModel):
+    razorpay_payment_id: str
+    razorpay_subscription_id: str
+    razorpay_signature: str
+
+
+@app.get("/api/billing/config")
+async def billing_config(
+    user: Dict[str, object] = Depends(get_current_user),
+) -> dict:
+    try:
+        return billing.public_config()
+    except billing.BillingError as exc:
+        raise _billing_error(exc) from exc
+
+
+@app.post("/api/billing/subscription")
+async def create_billing_subscription(
+    user: Dict[str, object] = Depends(get_current_user),
+) -> dict:
+    user_id = str(user["id"])
+    existing = await asyncio.to_thread(db.get_current_subscription, user_id)
+    if existing:
+        if existing.get("status") in {"created", "pending"}:
+            return {
+                "subscription_id": existing["razorpay_subscription_id"],
+                **billing.public_config(),
+            }
+        if existing.get("status") == "paused":
+            raise HTTPException(
+                status_code=409,
+                detail="Your subscription is paused. Resume it instead of subscribing again.",
+            )
+        raise HTTPException(status_code=409, detail="You already have an active subscription.")
+    try:
+        subscription = await asyncio.to_thread(
+            billing.create_subscription,
+            user_id,
+            str(user.get("email") or "") or None,
+        )
+        await asyncio.to_thread(
+            db.create_subscription,
+            user_id,
+            {
+                "razorpay_subscription_id": subscription["id"],
+                "razorpay_plan_id": subscription.get("plan_id", ""),
+                "status": subscription.get("status", "created"),
+                "amount": billing.SUBSCRIPTION_AMOUNT,
+                "currency": billing.SUBSCRIPTION_CURRENCY,
+            },
+        )
+        return {
+            "subscription_id": subscription["id"],
+            **billing.public_config(),
+        }
+    except billing.BillingError as exc:
+        raise _billing_error(exc) from exc
+
+
+@app.post("/api/billing/verify")
+async def verify_billing_subscription(
+    payload: BillingVerifyRequest,
+    user: Dict[str, object] = Depends(get_current_user),
+) -> dict:
+    subscription = await asyncio.to_thread(
+        db.get_subscription, str(user["id"]), payload.razorpay_subscription_id
+    )
+    if not subscription:
+        raise HTTPException(status_code=404, detail="Subscription not found.")
+    if not billing.verify_checkout_signature(
+        payload.razorpay_payment_id,
+        payload.razorpay_subscription_id,
+        payload.razorpay_signature,
+    ):
+        raise HTTPException(status_code=400, detail="Invalid Razorpay payment signature.")
+    await asyncio.to_thread(
+        db.update_subscription,
+        payload.razorpay_subscription_id,
+        {"status": "authenticated"},
+    )
+    await asyncio.to_thread(
+        db.set_paid_access,
+        str(user["id"]),
+        True,
+        "authenticated",
+    )
+    return {"status": "authenticated"}
+
+
+@app.get("/api/billing/status")
+async def billing_status(user: Dict[str, object] = Depends(get_current_user)) -> dict:
+    usage = await asyncio.to_thread(db.get_usage, str(user["id"]))
+    subscription = await asyncio.to_thread(db.get_latest_subscription, str(user["id"]))
+    return {
+        "plan": usage.get("plan", "free"),
+        "status": usage.get("subscription_status", "inactive"),
+        "current_period_end": usage.get("current_period_end"),
+        "subscription": subscription,
+    }
+
+
+@app.get("/api/billing/invoices")
+async def billing_invoices(
+    user: Dict[str, object] = Depends(get_current_user),
+) -> list[dict]:
+    stored = await asyncio.to_thread(db.list_invoices_db, str(user["id"]))
+    if stored:
+        return stored
+    subscription = await asyncio.to_thread(db.get_latest_subscription, str(user["id"]))
+    if not subscription:
+        return []
+    try:
+        return await asyncio.to_thread(
+            billing.list_invoices,
+            subscription["razorpay_subscription_id"],
+        )
+    except billing.BillingError:
+        return []
+
+
+@app.post("/api/billing/pause")
+async def pause_billing_subscription(
+    user: Dict[str, object] = Depends(get_current_user),
+) -> dict:
+    subscription = await asyncio.to_thread(db.get_current_subscription, str(user["id"]))
+    if not subscription:
+        raise HTTPException(status_code=404, detail="No subscription found.")
+    if subscription.get("status") != "active":
+        raise HTTPException(
+            status_code=409, detail="Only active subscriptions can be paused."
+        )
+    try:
+        result = await asyncio.to_thread(
+            billing.pause_subscription,
+            subscription["razorpay_subscription_id"],
+        )
+    except billing.BillingError as exc:
+        raise _billing_error(exc) from exc
+    status = result.get("status", "paused")
+    period_end = _unix_to_iso(result.get("current_end")) or subscription.get("current_end")
+    await asyncio.to_thread(
+        db.update_subscription,
+        subscription["razorpay_subscription_id"],
+        {"status": status, "paused_at": _now_value()},
+    )
+    await asyncio.to_thread(
+        db.set_paid_access,
+        str(user["id"]),
+        db.is_paid_plan("paid", status, period_end),
+        status,
+        period_end,
+    )
+    return {"status": status}
+
+
+@app.post("/api/billing/resume")
+async def resume_billing_subscription(
+    user: Dict[str, object] = Depends(get_current_user),
+) -> dict:
+    subscription = await asyncio.to_thread(db.get_current_subscription, str(user["id"]))
+    if not subscription:
+        raise HTTPException(status_code=404, detail="No subscription found.")
+    if subscription.get("status") != "paused":
+        raise HTTPException(
+            status_code=409, detail="Only paused subscriptions can be resumed."
+        )
+    try:
+        result = await asyncio.to_thread(
+            billing.resume_subscription,
+            subscription["razorpay_subscription_id"],
+        )
+    except billing.ResumeNotAllowedError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except billing.BillingError as exc:
+        raise _billing_error(exc) from exc
+    status = result.get("status", "active")
+    period_end = _unix_to_iso(result.get("current_end")) or subscription.get("current_end")
+    await asyncio.to_thread(
+        db.update_subscription,
+        subscription["razorpay_subscription_id"],
+        {"status": status},
+    )
+    await asyncio.to_thread(
+        db.set_paid_access,
+        str(user["id"]),
+        db.is_paid_plan("paid", status, period_end),
+        status,
+        period_end,
+    )
+    return {"status": status}
+
+
+@app.post("/api/billing/cancel")
+async def cancel_billing_subscription(
+    user: Dict[str, object] = Depends(get_current_user),
+) -> dict:
+    subscription = await asyncio.to_thread(db.get_current_subscription, str(user["id"]))
+    if not subscription or subscription.get("status") in {"created", "pending"}:
+        raise HTTPException(status_code=404, detail="No active subscription found.")
+    try:
+        result = await asyncio.to_thread(
+            billing.cancel_subscription,
+            subscription["razorpay_subscription_id"],
+        )
+    except billing.BillingError as exc:
+        raise _billing_error(exc) from exc
+    await asyncio.to_thread(
+        db.update_subscription,
+        subscription["razorpay_subscription_id"],
+        {"status": result.get("status", "cancelled")},
+    )
+    return {"status": result.get("status", "cancelled")}
+
+
+@app.post("/api/billing/webhook")
+async def razorpay_webhook(request: Request) -> dict:
+    raw_body = await request.body()
+    signature = request.headers.get("X-Razorpay-Signature", "")
+    if not billing.verify_webhook_signature(raw_body, signature):
+        raise HTTPException(status_code=400, detail="Invalid webhook signature.")
+    try:
+        payload = json.loads(raw_body)
+    except json.JSONDecodeError as exc:
+        raise HTTPException(status_code=400, detail="Invalid webhook payload.") from exc
+
+    event_type = str(payload.get("event", ""))
+    event_id = request.headers.get("X-Razorpay-Event-Id", "")
+    if not event_id:
+        event_id = hashlib.sha256(raw_body).hexdigest()
+    accepted = await asyncio.to_thread(db.record_webhook_event, event_id, event_type, payload)
+    if not accepted:
+        return {"status": "duplicate"}
+
+    if event_type.startswith("invoice."):
+        return await _handle_invoice_event(event_type, payload)
+
+    entity = payload.get("payload", {}).get("subscription", {}).get("entity", {})
+    subscription_id = entity.get("id")
+    if not subscription_id:
+        return {"status": "ignored"}
+    subscription = await asyncio.to_thread(db.get_subscription_by_razorpay_id, subscription_id)
+    if not subscription:
+        logger.warning("Ignoring webhook for unknown subscription %s", subscription_id)
+        return {"status": "ignored"}
+
+    status = str(entity.get("status", "unknown"))
+    period_end = entity.get("current_end")
+    updates = {"status": status}
+    if period_end:
+        updates["current_end"] = datetime.fromtimestamp(
+            int(period_end), timezone.utc
+        ).isoformat()
+    if entity.get("customer_id"):
+        updates["razorpay_customer_id"] = entity["customer_id"]
+    if status == "paused":
+        updates["paused_at"] = _now_value()
+    await asyncio.to_thread(db.update_subscription, subscription_id, updates)
+
+    # Creation/pending events can arrive after an authorization event; they do
+    # not represent a loss of access and must not downgrade a paid account.
+    if status not in {"created", "pending"}:
+        candidate_plan = (
+            "paid" if status in {"authenticated", "active", "paused", "cancelled"} else "free"
+        )
+        paid = db.is_paid_plan(candidate_plan, status, updates.get("current_end"))
+        await asyncio.to_thread(
+            db.set_paid_access,
+            subscription["user_id"],
+            paid,
+            status,
+            updates.get("current_end"),
+        )
+    return {"status": "processed"}
+
+
+async def _handle_invoice_event(event_type: str, payload: dict) -> dict:
+    invoice = payload.get("payload", {}).get("invoice", {}).get("entity", {})
+    payment = payload.get("payload", {}).get("payment", {}).get("entity", {})
+    if event_type != "invoice.paid" or not invoice.get("id"):
+        return {"status": "ignored"}
+    # The invoice carries the subscription id for subscription invoices; the
+    # customer id is only a fallback (it can be null for some payment methods).
+    subscription = None
+    if invoice.get("subscription_id"):
+        subscription = await asyncio.to_thread(
+            db.get_subscription_by_razorpay_id, invoice["subscription_id"]
+        )
+    if not subscription:
+        customer_id = invoice.get("customer_id") or payment.get("customer_id")
+        subscription = (
+            await asyncio.to_thread(db.get_subscription_by_customer_id, customer_id)
+            if customer_id
+            else None
+        )
+    if not subscription:
+        logger.warning(
+            "Ignoring invoice webhook without matching subscription (sub=%s customer=%s)",
+            invoice.get("subscription_id"),
+            invoice.get("customer_id"),
+        )
+        return {"status": "ignored"}
+    recorded = await asyncio.to_thread(
+        db.record_invoice,
+        subscription["user_id"],
+        {
+            "razorpay_subscription_id": subscription["razorpay_subscription_id"],
+            "razorpay_invoice_id": invoice["id"],
+            "invoice_number": invoice.get("invoice_number"),
+            "amount": int(invoice.get("amount", 0)),
+            "currency": invoice.get("currency", "INR"),
+            "status": invoice.get("status", "paid"),
+            "payment_method": payment.get("method"),
+            "fee": payment.get("fee"),
+            "tax": payment.get("tax"),
+            "paid_at": _unix_to_iso(invoice.get("paid_at")),
+            "billing_start": _unix_to_iso(invoice.get("billing_start")),
+            "billing_end": _unix_to_iso(invoice.get("billing_end")),
+            "short_url": invoice.get("short_url"),
+            "payload": payload,
+        },
+    )
+    return {"status": "processed" if recorded else "duplicate"}
+
+
 class MessageRequest(BaseModel):
     content: str
 
@@ -316,7 +659,7 @@ async def stream_message(
         raise HTTPException(status_code=404, detail="Analysis not found.")
 
     usage = await asyncio.to_thread(db.get_usage, str(user["id"]))
-    if usage.get("plan") != "paid":
+    if not _usage_payload(usage)["qna_enabled"]:
         raise HTTPException(status_code=402, detail=_upgrade_detail("qna"))
 
     messages = await asyncio.to_thread(db.list_messages, analysis_id)

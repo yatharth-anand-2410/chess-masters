@@ -182,9 +182,14 @@ export default function HomePage() {
         </Link>
         <div className="topbar-actions">
           {user && (
-            <Link href="/history" className="nav-link">
-              History
-            </Link>
+            <>
+              <Link href="/history" className="nav-link">
+                History
+              </Link>
+              <Link href="/subscription" className="nav-link">
+                Subscription
+              </Link>
+            </>
           )}
           <AuthButton user={user} onAuthChange={clearSessionState} />
         </div>

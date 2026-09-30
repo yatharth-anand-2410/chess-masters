@@ -119,6 +119,12 @@ export default function AnalysisDetailPage() {
           <Link href="/" className="nav-link">
             New analysis
           </Link>
+          <Link href="/history" className="nav-link">
+            History
+          </Link>
+          <Link href="/subscription" className="nav-link">
+            Subscription
+          </Link>
           <AuthButton user={user} onAuthChange={() => router.push("/")} />
         </div>
       </header>

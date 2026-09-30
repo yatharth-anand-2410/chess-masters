@@ -1134,16 +1134,115 @@ body {
   letter-spacing: -0.015em;
 }
 
+.upgrade-hero .upgrade-price {
+  color: var(--text);
+  font-size: 2rem;
+  font-weight: 700;
+}
+
+.upgrade-hero .upgrade-price span {
+  color: var(--text-muted);
+  font-size: 1rem;
+  font-weight: 400;
+}
+
+.billing-message {
+  color: var(--gold) !important;
+  font-weight: 600;
+}
+
+.upgrade-back {
+  display: block;
+  margin-top: 1.5rem;
+}
+
 .upgrade-hero ul {
   display: inline-block;
-  margin: 0 auto 1rem;
+  margin: 0 auto 1.25rem;
   padding-left: 1.3rem;
   color: var(--text-muted);
   text-align: left;
 }
 
-.upgrade-hero .btn {
+.subscription-cta {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.85rem;
+  margin-top: 0.5rem;
+}
+
+.subscription-cta .btn {
   align-self: center;
+}
+
+.plan-status {
+  margin: 0 0 0.5rem !important;
+}
+
+.plan-pill {
+  display: inline-block;
+  padding: 0.25rem 0.85rem;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.plan-pill.plan-paid {
+  background: rgba(201, 153, 63, 0.18);
+  border: 1px solid rgba(201, 153, 63, 0.55);
+  color: var(--gold-bright);
+}
+
+.plan-pill.plan-free {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--line);
+  color: var(--text-muted);
+}
+
+.billing-meta {
+  color: var(--text-muted);
+  font-size: 0.95rem;
+}
+
+.invoice-block {
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--line-soft);
+}
+
+.invoice-block h2 {
+  margin: 0 0 0.75rem;
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  font-weight: 600;
+}
+
+.upgrade-hero .invoice-list {
+  display: block;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.invoice-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.55rem 0;
+  border-bottom: 1px solid var(--line-soft);
+  color: var(--text-muted);
+  font-size: 0.92rem;
+}
+
+.invoice-row a {
+  color: var(--gold-bright);
+}
+
+.invoice-status {
+  text-transform: capitalize;
 }
 
 @keyframes spin {
