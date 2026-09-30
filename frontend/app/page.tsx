@@ -9,6 +9,7 @@ import AnalysisHistory from "../components/AnalysisHistory";
 import AuthButton from "../components/AuthButton";
 import CoachingReport from "../components/CoachingReport";
 import HeroBoard from "../components/HeroBoard";
+import ReviewSection from "../components/ReviewSection";
 import UpgradePrompt from "../components/UpgradePrompt";
 import type { InsightsData } from "../components/insights";
 import { API_BASE, apiGet, type AnalysisSummary, type Usage } from "../lib/api";
@@ -17,6 +18,7 @@ import { createClient } from "../lib/supabase-client";
 
 export default function HomePage() {
   const [user, setUser] = useState<User | null>(null);
+  const [token, setToken] = useState("");
   const [usage, setUsage] = useState<Usage | null>(null);
   const [status, setStatus] = useState("");
   const [markdown, setMarkdown] = useState("");
@@ -52,6 +54,7 @@ export default function HomePage() {
     supabase.auth.getSession().then(({ data }) => {
       const session = data.session;
       setUser(session?.user ?? null);
+      setToken(session?.access_token ?? "");
       if (session) {
         refreshHistory(session.access_token);
         refreshUsage(session.access_token);
@@ -59,6 +62,7 @@ export default function HomePage() {
     });
     const { data: subscription } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
+      setToken(session?.access_token ?? "");
       if (session) {
         refreshHistory(session.access_token);
         refreshUsage(session.access_token);
@@ -269,6 +273,8 @@ export default function HomePage() {
           )}
         </section>
       )}
+
+      <ReviewSection user={user} token={token} onAuthChange={clearSessionState} />
     </main>
   );
 }

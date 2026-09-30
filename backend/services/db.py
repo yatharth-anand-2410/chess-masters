@@ -196,6 +196,78 @@ def list_messages(analysis_id: str) -> List[Dict[str, Any]]:
     return response.json()
 
 
+def upsert_review(
+    user_id: str,
+    rating: int,
+    comment: Optional[str],
+    display_name: Optional[str],
+) -> Dict[str, Any]:
+    url, _key = _config()
+    response = requests.post(
+        f"{url}/rest/v1/reviews",
+        params={"on_conflict": "user_id"},
+        json={
+            "user_id": user_id,
+            "rating": rating,
+            "comment": comment,
+            "display_name": display_name,
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        },
+        headers={
+            **_service_headers(),
+            "Prefer": "resolution=merge-duplicates,return=representation",
+        },
+        timeout=TIMEOUT,
+    )
+    response.raise_for_status()
+    rows = response.json()
+    return rows[0] if rows else {}
+
+
+def list_reviews(limit: int = 200) -> List[Dict[str, Any]]:
+    url, _key = _config()
+    response = requests.get(
+        f"{url}/rest/v1/reviews",
+        params={
+            "select": "id,user_id,rating,comment,display_name,created_at,updated_at",
+            "order": "rating.desc,created_at.desc",
+            "limit": str(limit),
+        },
+        headers=_service_headers(),
+        timeout=TIMEOUT,
+    )
+    response.raise_for_status()
+    return response.json()
+
+
+def get_user_review(user_id: str) -> Optional[Dict[str, Any]]:
+    url, _key = _config()
+    response = requests.get(
+        f"{url}/rest/v1/reviews",
+        params={"select": "*", "user_id": f"eq.{user_id}", "limit": "1"},
+        headers=_service_headers(),
+        timeout=TIMEOUT,
+    )
+    response.raise_for_status()
+    rows = response.json()
+    return rows[0] if rows else None
+
+
+def get_review_stats() -> Dict[str, Any]:
+    url, _key = _config()
+    response = requests.get(
+        f"{url}/rest/v1/review_stats",
+        params={"select": "*"},
+        headers=_service_headers(),
+        timeout=TIMEOUT,
+    )
+    response.raise_for_status()
+    rows = response.json()
+    if not rows:
+        return {"review_count": 0, "average_rating": None}
+    return rows[0]
+
+
 def get_usage(user_id: str) -> Dict[str, Any]:
     url, _key = _config()
     if not configured():

@@ -124,6 +124,23 @@ async def get_current_user(request: Request) -> Dict[str, object]:
     return {"id": user["id"], "email": user.get("email"), "user_metadata": user.get("user_metadata")}
 
 
+async def get_optional_user(request: Request) -> Optional[Dict[str, object]]:
+    """Resolve the caller when a valid token is present, else return None.
+
+    Public read endpoints use this so signed-out visitors can still browse
+    community content without a 401.
+    """
+    authorization = request.headers.get("Authorization", "")
+    token = authorization.removeprefix("Bearer ").strip() if authorization else ""
+    if not token:
+        return None
+    try:
+        user = db.get_user_from_token(token)
+    except db.AuthError:
+        return None
+    return {"id": user["id"], "email": user.get("email"), "user_metadata": user.get("user_metadata")}
+
+
 def analyze_game(game: extractor.GameData) -> engine.AnalysisResult:
     analyzer_engine = engine.StockfishAnalyzer()
     return analyzer_engine.analyze_game(
@@ -306,6 +323,100 @@ async def get_analysis(
         except ValueError:
             analysis["insights"] = {}
     return {"analysis": analysis, "messages": messages}
+
+
+REVIEW_COMMENT_MAX_LENGTH = 500
+TOP_REVIEWS_LIMIT = 10
+
+
+class ReviewRequest(BaseModel):
+    rating: int
+    comment: Optional[str] = None
+
+
+def _validate_review(rating: int, comment: Optional[str]) -> Optional[str]:
+    if rating < 1 or rating > 5:
+        raise HTTPException(status_code=400, detail="Rating must be between 1 and 5.")
+    cleaned = (comment or "").strip()
+    if len(cleaned) > REVIEW_COMMENT_MAX_LENGTH:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Comment must be at most {REVIEW_COMMENT_MAX_LENGTH} characters.",
+        )
+    return cleaned or None
+
+
+def _review_display_name(user: Dict[str, object]) -> str:
+    metadata = user.get("user_metadata")
+    if isinstance(metadata, dict):
+        name = metadata.get("full_name") or metadata.get("name")
+        if isinstance(name, str) and name.strip():
+            return name.strip()[:80]
+    return "Anonymous player"
+
+
+def _public_review(row: Dict[str, object], user_id: Optional[str]) -> Dict[str, object]:
+    return {
+        "id": row.get("id"),
+        "rating": row.get("rating"),
+        "comment": row.get("comment"),
+        "display_name": row.get("display_name") or "Anonymous player",
+        "created_at": row.get("created_at"),
+        "updated_at": row.get("updated_at"),
+        "is_mine": bool(user_id) and row.get("user_id") == user_id,
+    }
+
+
+def _review_summary(stats: Dict[str, object]) -> Dict[str, object]:
+    count = int(stats.get("review_count") or 0)
+    average = stats.get("average_rating")
+    return {
+        "average": round(float(average), 2) if average is not None else None,
+        "count": count,
+    }
+
+
+@app.get("/api/reviews")
+async def list_reviews(
+    user: Optional[Dict[str, object]] = Depends(get_optional_user),
+) -> dict:
+    user_id = str(user["id"]) if user else None
+    rows = await asyncio.to_thread(db.list_reviews)
+    stats = await asyncio.to_thread(db.get_review_stats)
+    mine = (
+        await asyncio.to_thread(db.get_user_review, user_id) if user_id else None
+    )
+    comments = [
+        _public_review(row, user_id)
+        for row in rows
+        if str(row.get("comment") or "").strip()
+    ][:TOP_REVIEWS_LIMIT]
+    return {
+        "summary": _review_summary(stats),
+        "reviews": comments,
+        "mine": _public_review(mine, user_id) if mine else None,
+    }
+
+
+@app.post("/api/reviews")
+async def submit_review(
+    payload: ReviewRequest,
+    user: Dict[str, object] = Depends(get_current_user),
+) -> dict:
+    comment = _validate_review(payload.rating, payload.comment)
+    user_id = str(user["id"])
+    row = await asyncio.to_thread(
+        db.upsert_review,
+        user_id,
+        payload.rating,
+        comment,
+        _review_display_name(user),
+    )
+    stats = await asyncio.to_thread(db.get_review_stats)
+    return {
+        "review": _public_review(row, user_id),
+        "summary": _review_summary(stats),
+    }
 
 
 @app.get("/api/account/usage")

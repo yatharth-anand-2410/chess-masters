@@ -1,4 +1,5 @@
 import type { AnalysisSummary } from "../lib/api";
+import { externalGameUrl } from "../lib/api";
 
 type AnalysisHistoryProps = {
   analyses: AnalysisSummary[];
@@ -41,29 +42,40 @@ export default function AnalysisHistory({ analyses, onOpen }: AnalysisHistoryPro
   }
   return (
     <div className="history-list">
-      {analyses.map((analysis) => (
-        <button
-          key={analysis.id}
-          type="button"
-          className="history-item"
-          onClick={() => onOpen?.(analysis.id)}
-        >
-          <div className="history-item-main">
-            <span className="history-platform">
-              {analysis.platform === "lichess" ? "Lichess" : "Chess.com"}
-            </span>
-            <span className="history-meta">
-              {analysis.opening_name ?? analysis.game_id}
-            </span>
+      {analyses.map((analysis) => {
+        const platformLabel = analysis.platform === "lichess" ? "Lichess" : "Chess.com";
+        return (
+          <div key={analysis.id} className="history-item">
+            <button
+              type="button"
+              className="history-item-open"
+              onClick={() => onOpen?.(analysis.id)}
+            >
+              <div className="history-item-main">
+                <span className="history-platform">{platformLabel}</span>
+                <span className="history-meta">
+                  {analysis.opening_name ?? analysis.game_id}
+                </span>
+              </div>
+              <div className="history-item-side">
+                <span className="history-date">{formatDate(analysis.created_at)}</span>
+                <span className={`history-status status-${analysis.status}`}>
+                  {statusLabel(analysis.status)}
+                </span>
+              </div>
+            </button>
+            <a
+              href={externalGameUrl(analysis)}
+              target="_blank"
+              rel="noreferrer"
+              className="history-game-link"
+              aria-label={`Open game on ${platformLabel}`}
+            >
+              Open game ↗
+            </a>
           </div>
-          <div className="history-item-side">
-            <span className="history-date">{formatDate(analysis.created_at)}</span>
-            <span className={`history-status status-${analysis.status}`}>
-              {statusLabel(analysis.status)}
-            </span>
-          </div>
-        </button>
-      ))}
+        );
+      })}
     </div>
   );
 }

@@ -7,7 +7,7 @@ import AuthButton from "../../../components/AuthButton";
 import AnalysisThread, { type ThreadMessage } from "../../../components/AnalysisThread";
 import CoachingReport from "../../../components/CoachingReport";
 import type { InsightsData } from "../../../components/insights";
-import { apiGet } from "../../../lib/api";
+import { apiGet, externalGameUrl } from "../../../lib/api";
 import type { Usage } from "../../../lib/api";
 import { createClient } from "../../../lib/supabase-client";
 import UpgradePrompt from "../../../components/UpgradePrompt";
@@ -137,6 +137,14 @@ export default function AnalysisDetailPage() {
           {analysis.result ? `, ${analysis.result}` : ""}
           {`, analyzed ${formatDate(analysis.created_at)}`}
         </p>
+        <a
+          href={externalGameUrl(analysis)}
+          target="_blank"
+          rel="noreferrer"
+          className="game-link"
+        >
+          Open on {platformLabel} ↗
+        </a>
       </div>
 
       <div className="analysis-workspace">
