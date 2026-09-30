@@ -16,18 +16,6 @@ type ReviewSectionProps = {
   onAuthChange: () => void;
 };
 
-function formatDate(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
-  return date.toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-}
-
 function Stars({ value }: { value: number }) {
   const rounded = Math.round(value);
   return (
@@ -198,7 +186,6 @@ export default function ReviewSection({ user, token, onAuthChange }: ReviewSecti
                 <Stars value={review.rating} />
                 <span className="review-author">{review.display_name}</span>
                 {review.is_mine && <span className="review-mine-badge">Your review</span>}
-                <span className="review-date">{formatDate(review.created_at)}</span>
               </div>
               <p className="review-comment">{review.comment}</p>
             </article>
