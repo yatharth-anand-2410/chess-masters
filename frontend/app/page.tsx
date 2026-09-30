@@ -178,7 +178,7 @@ export default function HomePage() {
           <span className="wordmark-glyph" aria-hidden="true">
             ♜
           </span>
-          Rookmark
+          Chessmasters
         </Link>
         <div className="topbar-actions">
           {user && (

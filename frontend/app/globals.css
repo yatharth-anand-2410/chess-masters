@@ -63,7 +63,7 @@ body {
 .dashboard {
   width: min(1180px, 100%);
   margin: 0 auto;
-  padding: 1.25rem 1.5rem 5rem;
+  padding: 1.25rem 1.5rem 2.5rem;
 }
 
 .analysis-dashboard {
@@ -1245,6 +1245,128 @@ body {
   text-transform: capitalize;
 }
 
+.site-footer {
+  width: min(1180px, 100%);
+  margin: 0 auto;
+  padding: 0 1.5rem 2.5rem;
+}
+
+body:has(.legal-dashboard) .site-footer {
+  width: min(860px, 100%);
+}
+
+body:has(.analysis-dashboard) .site-footer {
+  width: min(1440px, 100%);
+}
+
+.site-footer-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--line-soft);
+}
+
+.site-footer-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.5rem;
+}
+
+.site-footer-brand {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.45rem;
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.site-footer-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.25rem;
+}
+
+.site-footer-links a,
+.site-footer-note a {
+  color: var(--text-muted);
+  font-size: 0.88rem;
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.site-footer-links a:hover,
+.site-footer-note a:hover {
+  color: var(--gold-bright);
+  border-bottom-color: rgba(226, 182, 95, 0.5);
+}
+
+.site-footer-note {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
+.legal-dashboard {
+  width: min(860px, 100%);
+}
+
+.legal-page {
+  max-width: 720px;
+  padding: 2.5rem 0 1rem;
+  animation: rise 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+.legal-page h1 {
+  margin: 0 0 0.35rem;
+  font-family: var(--font-display);
+  font-size: clamp(1.9rem, 3.4vw, 2.5rem);
+  font-weight: 600;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+
+.legal-page h2 {
+  margin: 2rem 0 0.6rem;
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.legal-page p {
+  margin: 0 0 1rem;
+  color: var(--text-muted);
+}
+
+.legal-page ul {
+  margin: 0 0 1rem;
+  padding-left: 1.3rem;
+  color: var(--text-muted);
+}
+
+.legal-page li {
+  margin-bottom: 0.5rem;
+}
+
+.legal-page a {
+  color: var(--gold-bright);
+}
+
+.legal-page strong {
+  color: var(--text);
+}
+
+.legal-updated {
+  font-size: 0.88rem;
+}
+
 @keyframes spin {
   to {
     transform: rotate(360deg);
@@ -1299,6 +1421,10 @@ body {
 
 @media (max-width: 560px) {
   .dashboard {
+    padding-inline: 1.1rem;
+  }
+
+  .site-footer {
     padding-inline: 1.1rem;
   }
 

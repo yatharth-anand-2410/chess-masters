@@ -184,7 +184,7 @@ export default function SubscriptionPage() {
     const checkout = new window.Razorpay({
       key: keyId,
       subscription_id: subscriptionId,
-      name: "Rookmark",
+      name: "Chessmasters",
       description: "Monthly chess coaching plan",
       prefill: { email },
       theme: { color: "#c9993f" },
@@ -284,7 +284,7 @@ export default function SubscriptionPage() {
           <span className="wordmark-glyph" aria-hidden="true">
             ♜
           </span>
-          Rookmark
+          Chessmasters
         </Link>
         <div className="topbar-actions">
           <Link href="/" className="nav-link">

@@ -4,6 +4,8 @@ import "@lichess-org/chessground/assets/chessground.base.css";
 import "@lichess-org/chessground/assets/chessground.brown.css";
 import "@lichess-org/chessground/assets/chessground.cburnett.css";
 import "./globals.css";
+import SiteFooter from "../components/SiteFooter";
+import { SITE_NAME } from "../lib/site";
 
 const display = Fraunces({
   subsets: ["latin"],
@@ -18,7 +20,7 @@ const body = DM_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "Rookmark · AI Chess Game Analyzer",
+  title: `${SITE_NAME} · AI Chess Game Analyzer`,
   description:
     "Paste a Lichess or Chess.com game and get an AI coaching report written around the moves you played.",
 };
@@ -28,7 +30,10 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
-      <body className={`${display.variable} ${body.variable}`}>{children}</body>
+      <body className={`${display.variable} ${body.variable}`}>
+        {children}
+        <SiteFooter />
+      </body>
     </html>
   );
 }

@@ -40,7 +40,7 @@ export default function HistoryPage() {
           <span className="wordmark-glyph" aria-hidden="true">
             ♜
           </span>
-          Rookmark
+          Chessmasters
         </Link>
         <div className="topbar-actions">
           <Link href="/" className="nav-link">
