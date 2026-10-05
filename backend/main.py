@@ -16,7 +16,15 @@ from google import genai
 from google.genai import errors as genai_errors
 from pydantic import BaseModel
 
-from services import analyzer, billing, db, engine, extractor, recommendations
+from services import (
+    analyzer,
+    batch_insights,
+    billing,
+    db,
+    engine,
+    extractor,
+    recommendations,
+)
 
 load_dotenv()
 
@@ -87,7 +95,7 @@ def _parse_datetime_value(value: object) -> Optional[datetime]:
 
 def _upgrade_detail(feature: str) -> dict[str, str]:
     messages = {
-        "analysis": "Your two free analyses have been used.",
+        "analysis": "Your five free analyses have been used.",
         "qna": "Q&A coaching is available with a paid plan.",
     }
     return {
@@ -114,6 +122,44 @@ def _limit_reached_detail(
         "message": message,
         "feature": feature,
         "limit": limit,
+    }
+
+
+MAX_BATCH_GAMES = 5
+
+
+def _batch_limit_detail(usage: dict, required: int) -> dict:
+    """Explain why a batch cannot be covered by the account's credits."""
+    plan = usage.get("plan", "free")
+    remaining = int(usage.get("remaining", 0))
+    if plan == "paid":
+        if remaining <= 0:
+            return _limit_reached_detail(
+                "analysis",
+                usage.get("current_period_end"),
+                int(usage.get("paid_analysis_limit", db.PAID_ANALYSIS_LIMIT)),
+            )
+        return {
+            "code": "insufficient_credits",
+            "message": (
+                f"This batch needs {required} analyses, but only {remaining} "
+                "remain in your billing period."
+            ),
+            "feature": "analysis",
+            "required": required,
+            "remaining": remaining,
+        }
+    if remaining <= 0:
+        return _upgrade_detail("analysis")
+    return {
+        "code": "insufficient_credits",
+        "message": (
+            f"This batch needs {required} analyses, but you have only "
+            f"{remaining} free analyses left."
+        ),
+        "feature": "analysis",
+        "required": required,
+        "remaining": remaining,
     }
 
 
@@ -198,6 +244,16 @@ def analyze_game(game: extractor.GameData) -> engine.AnalysisResult:
         player_color=game.player_color,
         player_name=game.player_name,
     )
+
+
+async def _refund_analysis_credits(user_id: str, count: int) -> None:
+    """Give back credits for analyses that failed before producing a report."""
+    if count <= 0:
+        return
+    try:
+        await asyncio.to_thread(db.refund_analysis_credits, user_id, count)
+    except Exception:
+        logger.exception("Failed to refund %s analysis credit(s)", count)
 
 
 @app.get("/api/health")
@@ -322,6 +378,7 @@ async def stream_analysis(
                     analysis_id,
                     {"status": "failed", "error_message": str(exc)},
                 )
+            await _refund_analysis_credits(str(user["id"]), 1)
             yield sse_event("error", {"message": str(exc)})
         except genai_errors.APIError as exc:
             message = str(getattr(exc, "message", exc))
@@ -335,6 +392,7 @@ async def stream_analysis(
                     analysis_id,
                     {"status": "failed", "error_message": message},
                 )
+            await _refund_analysis_credits(str(user["id"]), 1)
             yield sse_event("error", {"message": message})
         except Exception as exc:
             logger.exception("Unexpected error during analysis")
@@ -345,6 +403,294 @@ async def stream_analysis(
                     analysis_id,
                     {"status": "failed", "error_message": str(exc)},
                 )
+            await _refund_analysis_credits(str(user["id"]), 1)
+            yield sse_event(
+                "error",
+                {"message": "An unexpected error occurred during analysis."},
+            )
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+class BatchGameInput(BaseModel):
+    game_url: str
+    player_color: Optional[str] = None
+
+
+class BatchAnalysisRequest(BaseModel):
+    platform: str
+    games: list[BatchGameInput]
+    username: Optional[str] = None
+
+
+@app.post("/api/stream-batch-analysis")
+async def stream_batch_analysis(
+    payload: BatchAnalysisRequest,
+    user: Dict[str, object] = Depends(get_current_user),
+) -> StreamingResponse:
+    games = [game for game in payload.games if game.game_url.strip()]
+    if len(games) < 2:
+        raise HTTPException(
+            status_code=400,
+            detail="Select at least two games for a multi-game analysis.",
+        )
+    if len(games) > MAX_BATCH_GAMES:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"A multi-game analysis can include at most {MAX_BATCH_GAMES} games."
+            ),
+        )
+
+    user_id = str(user["id"])
+    usage = await asyncio.to_thread(db.consume_analysis_credits, user_id, len(games))
+    if not usage.get("allowed", False):
+        raise HTTPException(
+            status_code=402,
+            detail=_batch_limit_detail(usage, len(games)),
+        )
+
+    async def event_generator() -> AsyncIterator[str]:
+        batch_id: Optional[str] = None
+        completed: list[dict[str, object]] = []
+        credits_refunded = 0
+        try:
+            batch_row = await asyncio.to_thread(
+                db.create_batch,
+                user_id,
+                {
+                    "platform": payload.platform,
+                    "username": payload.username,
+                    "game_count": len(games),
+                    "status": "processing",
+                },
+            )
+            batch_id = str(batch_row["id"])
+            yield sse_event(
+                "batch_started",
+                {
+                    "batch_id": batch_id,
+                    "total": len(games),
+                    "games": [{"game_url": game.game_url} for game in games],
+                },
+            )
+
+            for index, game_input in enumerate(games):
+                label = f"Game {index + 1}"
+                analysis_id: Optional[str] = None
+                try:
+                    yield sse_event(
+                        "game_status",
+                        {
+                            "index": index,
+                            "message": f"Extracting PGN for {label}...",
+                        },
+                    )
+                    game = await asyncio.to_thread(
+                        extractor.fetch_game,
+                        payload.platform,
+                        game_input.game_url,
+                        payload.username,
+                        game_input.player_color,
+                    )
+
+                    analysis_row = await asyncio.to_thread(
+                        db.create_analysis,
+                        user_id,
+                        {
+                            "platform": game.platform,
+                            "game_url": game_input.game_url,
+                            "game_id": game.game_id,
+                            "username": payload.username,
+                            "player_color": game.player_color,
+                            "player_name": game.player_name,
+                            "batch_id": batch_id,
+                            "status": "processing",
+                        },
+                    )
+                    analysis_id = str(analysis_row["id"])
+
+                    yield sse_event(
+                        "game_status",
+                        {
+                            "index": index,
+                            "analysis_id": analysis_id,
+                            "message": f"Running Stockfish on {label}...",
+                        },
+                    )
+                    analysis = await asyncio.to_thread(analyze_game, game)
+
+                    yield sse_event(
+                        "game_status",
+                        {
+                            "index": index,
+                            "analysis_id": analysis_id,
+                            "message": f"Detecting motifs for {label}...",
+                        },
+                    )
+                    engine_data = await asyncio.to_thread(
+                        recommendations.build_insights, analysis
+                    )
+
+                    await asyncio.to_thread(
+                        db.update_analysis,
+                        user_id,
+                        analysis_id,
+                        {
+                            "pgn": game.pgn,
+                            "opening_name": analysis.opening_name,
+                            "eco": analysis.eco,
+                            "result": analysis.result,
+                            "insights": engine_data,
+                            "status": "completed",
+                            "completed_at": _now_value(),
+                        },
+                    )
+
+                    completed.append(
+                        {
+                            "analysis_id": analysis_id,
+                            "label": label,
+                            "game_id": game.game_id,
+                            "game_url": game_input.game_url,
+                            "platform": game.platform,
+                            "engine_data": engine_data,
+                        }
+                    )
+                    yield sse_event(
+                        "game_done",
+                        {
+                            "index": index,
+                            "analysis_id": analysis_id,
+                            "game_id": game.game_id,
+                            "opening_name": analysis.opening_name,
+                            "result": analysis.result,
+                        },
+                    )
+                except (extractor.ExtractionError, engine.EngineError) as exc:
+                    logger.error("Batch game %s failed: %s", index + 1, exc)
+                    if analysis_id:
+                        await asyncio.to_thread(
+                            db.update_analysis,
+                            user_id,
+                            analysis_id,
+                            {"status": "failed", "error_message": str(exc)},
+                        )
+                    await _refund_analysis_credits(user_id, 1)
+                    credits_refunded += 1
+                    yield sse_event(
+                        "game_error", {"index": index, "message": str(exc)}
+                    )
+                except Exception as exc:
+                    logger.exception(
+                        "Unexpected error in batch game %s", index + 1
+                    )
+                    if analysis_id:
+                        await asyncio.to_thread(
+                            db.update_analysis,
+                            user_id,
+                            analysis_id,
+                            {"status": "failed", "error_message": str(exc)},
+                        )
+                    await _refund_analysis_credits(user_id, 1)
+                    credits_refunded += 1
+                    yield sse_event(
+                        "game_error",
+                        {
+                            "index": index,
+                            "message": "This game could not be analyzed.",
+                        },
+                    )
+
+            if not completed:
+                message = (
+                    "None of the games could be analyzed. "
+                    "Check the links and try again."
+                )
+                await asyncio.to_thread(
+                    db.update_batch,
+                    user_id,
+                    batch_id,
+                    {"status": "failed", "error_message": message},
+                )
+                yield sse_event("error", {"message": message})
+                return
+
+            yield sse_event(
+                "batch_status",
+                {"message": "AI generating your overall coaching report..."},
+            )
+            aggregate = await asyncio.to_thread(
+                batch_insights.build_batch_insights, completed
+            )
+            prompt_payload = await asyncio.to_thread(
+                batch_insights.build_prompt_payload, aggregate
+            )
+
+            report_parts: list[str] = []
+            async for chunk in analyzer.stream_batch_coaching_report(
+                get_client(), prompt_payload
+            ):
+                report_parts.append(chunk)
+                yield sse_event("content_chunk", {"text": chunk})
+
+            report_markdown = "".join(report_parts)
+            await asyncio.to_thread(
+                db.update_batch,
+                user_id,
+                batch_id,
+                {
+                    "report_markdown": report_markdown,
+                    "insights": aggregate,
+                    "status": "completed",
+                    "completed_at": _now_value(),
+                },
+            )
+
+            yield sse_event("insights", aggregate)
+            yield sse_event(
+                "done",
+                {
+                    "message": "Analysis complete",
+                    "batch_id": batch_id,
+                    "usage": _usage_payload(usage),
+                },
+            )
+        except genai_errors.APIError as exc:
+            message = str(getattr(exc, "message", exc))
+            if "quota" in message.lower() or "resource_exhausted" in message.lower():
+                message = "AI service quota exceeded. Please try again later."
+            logger.error("Gemini API error (batch): %s", message)
+            if batch_id:
+                await asyncio.to_thread(
+                    db.update_batch,
+                    user_id,
+                    batch_id,
+                    {"status": "failed", "error_message": message},
+                )
+            await _refund_analysis_credits(
+                user_id, len(games) - len(completed) - credits_refunded
+            )
+            yield sse_event("error", {"message": message})
+        except Exception as exc:
+            logger.exception("Unexpected error during batch analysis")
+            if batch_id:
+                await asyncio.to_thread(
+                    db.update_batch,
+                    user_id,
+                    batch_id,
+                    {"status": "failed", "error_message": str(exc)},
+                )
+            await _refund_analysis_credits(
+                user_id, len(games) - len(completed) - credits_refunded
+            )
             yield sse_event(
                 "error",
                 {"message": "An unexpected error occurred during analysis."},
@@ -362,9 +708,44 @@ async def stream_analysis(
 
 @app.get("/api/analyses")
 async def list_analyses(
+    standalone: bool = False,
     user: Dict[str, object] = Depends(get_current_user),
 ) -> list[dict]:
-    return await asyncio.to_thread(db.list_analyses, str(user["id"]))
+    return await asyncio.to_thread(
+        db.list_analyses, str(user["id"]), 50, standalone
+    )
+
+
+@app.get("/api/batches")
+async def list_batches(
+    user: Dict[str, object] = Depends(get_current_user),
+) -> list[dict]:
+    return await asyncio.to_thread(db.list_batches, str(user["id"]))
+
+
+@app.get("/api/batches/{batch_id}")
+async def get_batch(
+    batch_id: str,
+    user: Dict[str, object] = Depends(get_current_user),
+) -> dict:
+    batch = await asyncio.to_thread(db.get_batch, str(user["id"]), batch_id)
+    if not batch:
+        raise HTTPException(status_code=404, detail="Batch analysis not found.")
+    if isinstance(batch.get("insights"), str):
+        try:
+            batch["insights"] = json.loads(batch["insights"])
+        except ValueError:
+            batch["insights"] = {}
+    games = await asyncio.to_thread(
+        db.list_analyses_by_batch, str(user["id"]), batch_id
+    )
+    for game in games:
+        if isinstance(game.get("insights"), str):
+            try:
+                game["insights"] = json.loads(game["insights"])
+            except ValueError:
+                game["insights"] = {}
+    return {"batch": batch, "games": games}
 
 
 @app.get("/api/analyses/{analysis_id}")

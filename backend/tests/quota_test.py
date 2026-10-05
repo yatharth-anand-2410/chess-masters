@@ -6,6 +6,7 @@ Run from the backend directory:
 
 from __future__ import annotations
 
+import asyncio
 import os
 import sys
 import unittest.mock
@@ -13,7 +14,13 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from main import _allowed_origins, _limit_reached_detail, _upgrade_detail, _usage_payload
+from main import (
+    _allowed_origins,
+    _limit_reached_detail,
+    _refund_analysis_credits,
+    _upgrade_detail,
+    _usage_payload,
+)
 from services import db
 
 
@@ -21,7 +28,7 @@ def test_upgrade_detail_analysis():
     detail = _upgrade_detail("analysis")
     assert detail["code"] == "upgrade_required"
     assert detail["feature"] == "analysis"
-    assert "two free analyses" in detail["message"]
+    assert "five free analyses" in detail["message"]
 
 
 def test_upgrade_detail_qna():
@@ -238,6 +245,25 @@ def test_allowed_origins_multiple():
         origins = _allowed_origins()
     assert "https://a.example.com" in origins
     assert "https://b.example.com" in origins
+
+
+def test_refund_analysis_credits_calls_db():
+    with unittest.mock.patch.object(db, "refund_analysis_credits") as refund:
+        asyncio.run(_refund_analysis_credits("user-1", 2))
+    refund.assert_called_once_with("user-1", 2)
+
+
+def test_refund_analysis_credits_skips_non_positive():
+    with unittest.mock.patch.object(db, "refund_analysis_credits") as refund:
+        asyncio.run(_refund_analysis_credits("user-1", 0))
+    refund.assert_not_called()
+
+
+def test_refund_analysis_credits_swallows_db_errors():
+    with unittest.mock.patch.object(
+        db, "refund_analysis_credits", side_effect=RuntimeError("boom")
+    ):
+        asyncio.run(_refund_analysis_credits("user-1", 1))
 
 
 def main() -> None:

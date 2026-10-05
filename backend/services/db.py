@@ -15,7 +15,7 @@ import requests
 
 TIMEOUT = 12
 
-FREE_ANALYSIS_LIMIT = 2
+FREE_ANALYSIS_LIMIT = 5
 PAID_ANALYSIS_LIMIT = 100
 
 KNOWN_NON_PAID_STATUSES = {"pending", "halted", "cancelled", "completed", "expired"}
@@ -145,15 +145,98 @@ def get_analysis(user_id: str, analysis_id: str) -> Optional[Dict[str, Any]]:
     return rows[0] if rows else None
 
 
-def list_analyses(user_id: str, limit: int = 50) -> List[Dict[str, Any]]:
+def list_analyses(
+    user_id: str, limit: int = 50, standalone: bool = False
+) -> List[Dict[str, Any]]:
+    url, _key = _config()
+    params = {
+        "select": "*",
+        "user_id": f"eq.{user_id}",
+        "status": "neq.failed",
+        "order": "created_at.desc",
+        "limit": str(limit),
+    }
+    if standalone:
+        params["batch_id"] = "is.null"
+    response = requests.get(
+        f"{url}/rest/v1/analyses",
+        params=params,
+        headers=_service_headers(),
+        timeout=TIMEOUT,
+    )
+    response.raise_for_status()
+    return response.json()
+
+
+def create_batch(user_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
+    url, _key = _config()
+    response = requests.post(
+        f"{url}/rest/v1/analysis_batches",
+        json={"user_id": user_id, **data},
+        headers={**_service_headers(), "Prefer": "return=representation"},
+        timeout=TIMEOUT,
+    )
+    response.raise_for_status()
+    rows = response.json()
+    return rows[0] if rows else {}
+
+
+def update_batch(user_id: str, batch_id: str, updates: Dict[str, Any]) -> None:
+    url, _key = _config()
+    response = requests.patch(
+        f"{url}/rest/v1/analysis_batches",
+        params={"id": f"eq.{batch_id}", "user_id": f"eq.{user_id}"},
+        json=updates,
+        headers=_service_headers(),
+        timeout=TIMEOUT,
+    )
+    response.raise_for_status()
+
+
+def get_batch(user_id: str, batch_id: str) -> Optional[Dict[str, Any]]:
+    url, _key = _config()
+    response = requests.get(
+        f"{url}/rest/v1/analysis_batches",
+        params={
+            "select": "*",
+            "id": f"eq.{batch_id}",
+            "user_id": f"eq.{user_id}",
+        },
+        headers=_service_headers(),
+        timeout=TIMEOUT,
+    )
+    response.raise_for_status()
+    rows = response.json()
+    return rows[0] if rows else None
+
+
+def list_batches(user_id: str, limit: int = 50) -> List[Dict[str, Any]]:
+    url, _key = _config()
+    response = requests.get(
+        f"{url}/rest/v1/analysis_batches",
+        params={
+            "select": "*",
+            "user_id": f"eq.{user_id}",
+            "status": "neq.failed",
+            "order": "created_at.desc",
+            "limit": str(limit),
+        },
+        headers=_service_headers(),
+        timeout=TIMEOUT,
+    )
+    response.raise_for_status()
+    return response.json()
+
+
+def list_analyses_by_batch(user_id: str, batch_id: str) -> List[Dict[str, Any]]:
     url, _key = _config()
     response = requests.get(
         f"{url}/rest/v1/analyses",
         params={
             "select": "*",
             "user_id": f"eq.{user_id}",
-            "order": "created_at.desc",
-            "limit": str(limit),
+            "batch_id": f"eq.{batch_id}",
+            "order": "created_at.asc",
         },
         headers=_service_headers(),
         timeout=TIMEOUT,
@@ -521,6 +604,54 @@ def consume_analysis_credit(user_id: str) -> Dict[str, Any]:
         raise AuthError(
             "Quota function is not deployed. Run migration 0002_account_usage.sql "
             "in the Supabase SQL Editor."
+        )
+    response.raise_for_status()
+    return response.json()
+
+
+def consume_analysis_credits(user_id: str, count: int) -> Dict[str, Any]:
+    """Atomically consume ``count`` credits for a multi-game batch.
+
+    All-or-nothing: when the account cannot cover the whole batch the function
+    returns ``{"allowed": false, "remaining": r, ...}`` without incrementing.
+    """
+    url, _key = _config()
+    if not configured():
+        raise AuthError("Supabase is not configured on the server.")
+    response = requests.post(
+        f"{url}/rest/v1/rpc/consume_analysis_credits",
+        json={"p_user_id": user_id, "p_count": count},
+        headers=_service_headers(),
+        timeout=TIMEOUT,
+    )
+    if response.status_code == 404:
+        raise AuthError(
+            "Batch quota function is not deployed. Run migration "
+            "0008_multi_game_batches.sql in the Supabase SQL Editor."
+        )
+    response.raise_for_status()
+    return response.json()
+
+
+def refund_analysis_credits(user_id: str, count: int = 1) -> Dict[str, Any]:
+    """Return credits consumed by analyses that failed before completing.
+
+    Failed analyses are not charged, so every failure path gives the consumed
+    credit(s) back via the ``refund_analysis_credits`` SQL function.
+    """
+    url, _key = _config()
+    if not configured():
+        raise AuthError("Supabase is not configured on the server.")
+    response = requests.post(
+        f"{url}/rest/v1/rpc/refund_analysis_credits",
+        json={"p_user_id": user_id, "p_count": count},
+        headers=_service_headers(),
+        timeout=TIMEOUT,
+    )
+    if response.status_code == 404:
+        raise AuthError(
+            "Refund function is not deployed. Run migration "
+            "0009_refund_failed_analyses.sql in the Supabase SQL Editor."
         )
     response.raise_for_status()
     return response.json()

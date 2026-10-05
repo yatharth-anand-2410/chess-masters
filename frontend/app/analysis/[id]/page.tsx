@@ -6,6 +6,7 @@ import { useParams, useRouter } from "next/navigation";
 import AuthButton from "../../../components/AuthButton";
 import AnalysisThread, { type ThreadMessage } from "../../../components/AnalysisThread";
 import CoachingReport from "../../../components/CoachingReport";
+import SectionInsightBoards from "../../../components/SectionInsightBoards";
 import type { InsightsData } from "../../../components/insights";
 import { apiGet, externalGameUrl } from "../../../lib/api";
 import type { Usage } from "../../../lib/api";
@@ -27,6 +28,7 @@ type AnalysisDetail = {
     status: string;
     report_markdown?: string | null;
     insights?: InsightsData | null;
+    batch_id?: string | null;
     created_at: string;
     error_message?: string | null;
   };
@@ -152,6 +154,41 @@ export default function AnalysisDetailPage() {
         <div className="analysis-report-column">
           {analysis.report_markdown ? (
             <CoachingReport content={analysis.report_markdown} insights={insights} />
+          ) : insights &&
+            ((insights.weakness_moments?.length ?? 0) > 0 ||
+              (insights.strength_moments?.length ?? 0) > 0) ? (
+            <section className="report">
+              <div className="report-section">
+                <h2>Engine review</h2>
+                <p>
+                  This game was analyzed as part of a multi-game report, so it has
+                  no separate written report. Here are the key moments the engine
+                  found in this game.
+                </p>
+                {analysis.batch_id && (
+                  <p>
+                    <Link
+                      className="game-link"
+                      href={`/batch/${analysis.batch_id}`}
+                    >
+                      Open the overall multi-game report →
+                    </Link>
+                  </p>
+                )}
+              </div>
+              {(insights.strength_moments?.length ?? 0) > 0 && (
+                <div className="report-section">
+                  <h2>Strength</h2>
+                  <SectionInsightBoards moments={insights.strength_moments} />
+                </div>
+              )}
+              {(insights.weakness_moments?.length ?? 0) > 0 && (
+                <div className="report-section">
+                  <h2>Weakness</h2>
+                  <SectionInsightBoards moments={insights.weakness_moments} />
+                </div>
+              )}
+            </section>
           ) : (
             <div className="error-banner">
               {analysis.error_message ?? "This analysis has no report."}

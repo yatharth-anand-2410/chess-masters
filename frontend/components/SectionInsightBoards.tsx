@@ -43,6 +43,9 @@ function InsightBoardCard({ moment }: { moment: InsightMoment }) {
   return (
     <div className={`insight-card quality-${moment.quality}`}>
       <div className="insight-card-header">
+        {moment.game_label && (
+          <span className="insight-game">{moment.game_label}</span>
+        )}
         <span className="insight-move">{moveLabel(moment)}</span>
         <span className="insight-badge">{qualityLabel(moment.quality)}</span>
         {moment.phase && <span className="insight-phase">{phaseLabel(moment.phase)}</span>}

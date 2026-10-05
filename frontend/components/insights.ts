@@ -66,6 +66,20 @@ export type InsightMoment = {
   blindspot?: Blindspot | null;
   opening?: OpeningInsight | null;
   tablebase?: TablebaseInsight | null;
+  game_label?: string | null;
+  analysis_id?: string | null;
+};
+
+export type PhaseAccuracies = {
+  opening?: number | null;
+  middlegame?: number | null;
+  endgame?: number | null;
+};
+
+export type QualityStatistics = {
+  blunder?: number;
+  mistake?: number;
+  inaccuracy?: number;
 };
 
 export type Resource = {
@@ -81,4 +95,9 @@ export type InsightsData = {
   resources: Resource[];
   player_color?: string;
   player_name?: string;
+  opening_name?: string | null;
+  eco?: string | null;
+  result?: string | null;
+  phase_accuracies?: PhaseAccuracies;
+  statistics?: QualityStatistics;
 };

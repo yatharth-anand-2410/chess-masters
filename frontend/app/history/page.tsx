@@ -5,14 +5,20 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import AuthButton from "../../components/AuthButton";
 import AnalysisHistory from "../../components/AnalysisHistory";
-import { apiGet, type AnalysisSummary } from "../../lib/api";
+import {
+  apiGet,
+  mergeHistoryEntries,
+  type AnalysisSummary,
+  type BatchSummary,
+  type HistoryEntry,
+} from "../../lib/api";
 import { createClient } from "../../lib/supabase-client";
 import type { User } from "@supabase/supabase-js";
 
 export default function HistoryPage() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
-  const [analyses, setAnalyses] = useState<AnalysisSummary[]>([]);
+  const [entries, setEntries] = useState<HistoryEntry[]>([]);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -25,8 +31,14 @@ export default function HistoryPage() {
         return;
       }
       try {
-        const list = await apiGet<AnalysisSummary[]>("/api/analyses", session.access_token);
-        setAnalyses(list);
+        const [list, batchList] = await Promise.all([
+          apiGet<AnalysisSummary[]>(
+            "/api/analyses?standalone=true",
+            session.access_token
+          ),
+          apiGet<BatchSummary[]>("/api/batches", session.access_token),
+        ]);
+        setEntries(mergeHistoryEntries(list, batchList));
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load history.");
       }
@@ -56,16 +68,17 @@ export default function HistoryPage() {
       <div className="game-header">
         <h1 className="game-title">All analyses</h1>
         <p className="game-meta">
-          {analyses.length > 0
-            ? `${analyses.length} ${analyses.length === 1 ? "game" : "games"} analyzed`
+          {entries.length > 0
+            ? `${entries.length} ${entries.length === 1 ? "analysis" : "analyses"}`
             : "Every game you analyze lands here."}
         </p>
       </div>
 
       {error && <div className="error-banner">{error}</div>}
       <AnalysisHistory
-        analyses={analyses}
+        entries={entries}
         onOpen={(id) => router.push(`/analysis/${id}`)}
+        onOpenBatch={(id) => router.push(`/batch/${id}`)}
       />
     </main>
   );

@@ -1,10 +1,10 @@
-import type { AnalysisSummary } from "../lib/api";
+import type { HistoryEntry } from "../lib/api";
 import { externalGameUrl } from "../lib/api";
 
 type AnalysisHistoryProps = {
-  analyses: AnalysisSummary[];
+  entries: HistoryEntry[];
   onOpen?: (id: string) => void;
-  compact?: boolean;
+  onOpenBatch?: (id: string) => void;
 };
 
 function formatDate(value: string): string {
@@ -32,8 +32,12 @@ function statusLabel(status: string): string {
   }
 }
 
-export default function AnalysisHistory({ analyses, onOpen }: AnalysisHistoryProps) {
-  if (!analyses || analyses.length === 0) {
+export default function AnalysisHistory({
+  entries,
+  onOpen,
+  onOpenBatch,
+}: AnalysisHistoryProps) {
+  if (!entries || entries.length === 0) {
     return (
       <p className="history-empty">
         No analyses yet. Analyze a game and it will appear here.
@@ -42,30 +46,63 @@ export default function AnalysisHistory({ analyses, onOpen }: AnalysisHistoryPro
   }
   return (
     <div className="history-list">
-      {analyses.map((analysis) => {
-        const platformLabel = analysis.platform === "lichess" ? "Lichess" : "Chess.com";
+      {entries.map((entry) => {
+        const platformLabel =
+          entry.platform === "lichess" ? "Lichess" : "Chess.com";
+
+        if (entry.kind === "batch") {
+          const count = entry.game_count ?? 0;
+          return (
+            <div key={`batch-${entry.id}`} className="history-item">
+              <button
+                type="button"
+                className="history-item-open"
+                onClick={() => onOpenBatch?.(entry.id)}
+              >
+                <div className="history-item-main">
+                  <span className="history-platform">{platformLabel}</span>
+                  <span className="history-batch-badge">Multi-game</span>
+                  <span className="history-meta">
+                    Overall report · {count} {count === 1 ? "game" : "games"}
+                  </span>
+                </div>
+                <div className="history-item-side">
+                  <span className="history-date">
+                    {formatDate(entry.created_at)}
+                  </span>
+                  <span className={`history-status status-${entry.status}`}>
+                    {statusLabel(entry.status)}
+                  </span>
+                </div>
+              </button>
+            </div>
+          );
+        }
+
         return (
-          <div key={analysis.id} className="history-item">
+          <div key={entry.id} className="history-item">
             <button
               type="button"
               className="history-item-open"
-              onClick={() => onOpen?.(analysis.id)}
+              onClick={() => onOpen?.(entry.id)}
             >
               <div className="history-item-main">
                 <span className="history-platform">{platformLabel}</span>
                 <span className="history-meta">
-                  {analysis.opening_name ?? analysis.game_id}
+                  {entry.opening_name ?? entry.game_id}
                 </span>
               </div>
               <div className="history-item-side">
-                <span className="history-date">{formatDate(analysis.created_at)}</span>
-                <span className={`history-status status-${analysis.status}`}>
-                  {statusLabel(analysis.status)}
+                <span className="history-date">
+                  {formatDate(entry.created_at)}
+                </span>
+                <span className={`history-status status-${entry.status}`}>
+                  {statusLabel(entry.status)}
                 </span>
               </div>
             </button>
             <a
-              href={externalGameUrl(analysis)}
+              href={externalGameUrl(entry)}
               target="_blank"
               rel="noreferrer"
               className="history-game-link"

@@ -90,7 +90,45 @@ export type AnalysisSummary = {
   created_at: string;
   report_markdown?: string | null;
   insights?: unknown;
+  batch_id?: string | null;
 };
+
+export type BatchSummary = {
+  id: string;
+  platform: string;
+  username?: string | null;
+  game_count: number;
+  report_markdown?: string | null;
+  insights?: unknown;
+  status: string;
+  error_message?: string | null;
+  created_at: string;
+  completed_at?: string | null;
+};
+
+export type BatchDetail = {
+  batch: BatchSummary;
+  games: AnalysisSummary[];
+};
+
+export type HistoryEntry =
+  | ({ kind: "game" } & AnalysisSummary)
+  | ({ kind: "batch" } & BatchSummary);
+
+export function mergeHistoryEntries(
+  analyses: AnalysisSummary[],
+  batches: BatchSummary[],
+  limit?: number
+): HistoryEntry[] {
+  const entries: HistoryEntry[] = [
+    ...analyses.map((analysis) => ({ kind: "game" as const, ...analysis })),
+    ...batches.map((batch) => ({ kind: "batch" as const, ...batch })),
+  ];
+  entries.sort(
+    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+  );
+  return typeof limit === "number" ? entries.slice(0, limit) : entries;
+}
 
 export type Review = {
   id: string;
