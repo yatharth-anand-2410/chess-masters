@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 import {
   apiGet,
@@ -41,16 +41,34 @@ export default function ReviewSection({ user, token, onAuthChange }: ReviewSecti
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [retryable, setRetryable] = useState(false);
+  const requestId = useRef(0);
 
   const load = useCallback(
     async (silent = false) => {
+      const id = ++requestId.current;
       if (!silent) {
         setLoading(true);
       }
       try {
-        const result = await apiGet<ReviewsResponse>("/api/reviews", token || undefined);
+        let result: ReviewsResponse | undefined;
+        for (let attempt = 0; attempt < 2; attempt += 1) {
+          try {
+            result = await apiGet<ReviewsResponse>("/api/reviews", token || undefined);
+            break;
+          } catch (err) {
+            if (id !== requestId.current || attempt === 1) {
+              throw err;
+            }
+            await new Promise((resolve) => setTimeout(resolve, 1200));
+          }
+        }
+        if (id !== requestId.current || !result) {
+          return;
+        }
         setData(result);
         setError("");
+        setRetryable(false);
         if (result.mine) {
           setRating(result.mine.rating);
           setComment(result.mine.comment ?? "");
@@ -58,10 +76,16 @@ export default function ReviewSection({ user, token, onAuthChange }: ReviewSecti
           setRating(0);
           setComment("");
         }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load reviews.");
+      } catch {
+        if (id !== requestId.current) {
+          return;
+        }
+        setError("Couldn't load reviews. Check your connection and try again.");
+        setRetryable(true);
       } finally {
-        setLoading(false);
+        if (id === requestId.current) {
+          setLoading(false);
+        }
       }
     },
     [token]
@@ -75,14 +99,17 @@ export default function ReviewSection({ user, token, onAuthChange }: ReviewSecti
     event.preventDefault();
     if (!user || !token) {
       setError("Please sign in to submit a review.");
+      setRetryable(false);
       return;
     }
     if (rating < 1) {
       setError("Pick a rating from 1 to 5 stars.");
+      setRetryable(false);
       return;
     }
     setSubmitting(true);
     setError("");
+    setRetryable(false);
     try {
       await apiPost<ReviewSubmissionResponse>("/api/reviews", token, {
         rating,
@@ -91,6 +118,7 @@ export default function ReviewSection({ user, token, onAuthChange }: ReviewSecti
       await load(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not save your review.");
+      setRetryable(false);
     } finally {
       setSubmitting(false);
     }
@@ -171,7 +199,21 @@ export default function ReviewSection({ user, token, onAuthChange }: ReviewSecti
         </div>
       )}
 
-      {error && <div className="error-banner">{error}</div>}
+      {error && (
+        <div className="error-banner review-error">
+          <span>{error}</span>
+          {retryable && (
+            <button
+              type="button"
+              className="btn btn-ghost"
+              onClick={() => load()}
+              disabled={loading}
+            >
+              {loading ? "Retrying..." : "Retry"}
+            </button>
+          )}
+        </div>
+      )}
 
       {loading ? (
         <p className="history-empty">Loading reviews...</p>

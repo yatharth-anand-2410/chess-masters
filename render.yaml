@@ -13,7 +13,7 @@ services:
       - key: SUPABASE_SERVICE_ROLE_KEY
         sync: false
       - key: FRONTEND_ORIGIN
-        sync: false
+        value: https://www.chessmasterss.in,https://chessmasterss.in
       - key: RAZORPAY_KEY_ID
         sync: false
       - key: RAZORPAY_KEY_SECRET

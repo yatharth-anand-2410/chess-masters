@@ -37,12 +37,14 @@ def _allowed_origins() -> list[str]:
     origins = [
         "http://localhost:3000",
         "http://127.0.0.1:3000",
+        "https://chessmasterss.in",
+        "https://www.chessmasterss.in",
     ]
     extra = os.environ.get("FRONTEND_ORIGIN", "")
     if extra:
         for origin in extra.split(","):
             origin = origin.strip().rstrip("/")
-            if origin:
+            if origin and origin not in origins:
                 origins.append(origin)
     return origins
 
