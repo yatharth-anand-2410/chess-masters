@@ -31,14 +31,41 @@ def _moment(move_number: int, cp: int, motif: str | None = None, theme: str | No
     }
 
 
+def _psychology(accuracy: float, score: float) -> dict:
+    return {
+        "result": "1-0" if score == 1.0 else "0-1",
+        "player_color": "white",
+        "player_score": score,
+        "overall_accuracy": accuracy,
+        "phase_accuracies": {"opening": 85.0, "middlegame": 70.0, "endgame": 65.0},
+        "peak_advantage_pawns": 2.0,
+        "reached_winning_position": True,
+        "converted_winning_position": score == 1.0,
+        "blunder": 1,
+        "mistake": 1,
+        "inaccuracy": 2,
+        "accuracy_after_blunder": accuracy - 4,
+        "avg_move_seconds": 6.0,
+        "fast_move_ratio": 0.3,
+        "min_clock_seconds": 150.0,
+        "time_trouble": False,
+        "rushed_blunders": 0,
+        "slow_blunders": 0,
+        "blunders_with_clock": 1,
+        "started_at": "2026-10-01T18:00:00",
+        "time_control": "600+0",
+    }
+
+
 def _engine_data(
     phase_accuracies: dict,
     statistics: dict,
     weakness: list,
     strength: list,
     resources: list,
+    psychology: dict | None = None,
 ):
-    return {
+    data = {
         "opening_name": "Italian Game",
         "eco": "C50",
         "result": "1-0",
@@ -49,6 +76,9 @@ def _engine_data(
         "strength_moments": strength,
         "resources": resources,
     }
+    if psychology is not None:
+        data["psychology"] = psychology
+    return data
 
 
 def _entry(analysis_id: str, label: str, engine_data: dict) -> dict:
@@ -150,6 +180,48 @@ def test_prompt_payload_is_trimmed():
     assert "fen_before" not in first_moment
     assert first_moment["motif"] == "fork"
     assert first_moment["blindspot"] == "you missed the recapture"
+
+
+def _three_games() -> list:
+    games = _two_games()
+    for entry, (accuracy, score) in zip(games, [(82.0, 1.0), (74.0, 0.0)]):
+        entry["engine_data"]["psychology"] = _psychology(accuracy, score)
+    games.append(
+        _entry(
+            "c3",
+            "Game 3",
+            _engine_data(
+                {"opening": 70.0, "middlegame": 65.0, "endgame": 60.0},
+                {"blunder": 2, "mistake": 2, "inaccuracy": 2},
+                [_moment(15, 250, motif="pin")],
+                [],
+                [],
+                psychology=_psychology(65.0, 0.0),
+            ),
+        )
+    )
+    return games
+
+
+def test_batch_psychology_absent_without_data():
+    insights = batch_insights.build_batch_insights(_two_games())
+    assert "psychology" not in insights
+
+
+def test_batch_psychology_requires_three_games():
+    insights = batch_insights.build_batch_insights(_three_games()[:2])
+    assert "psychology" not in insights
+
+
+def test_batch_psychology_profile_in_payload():
+    insights = batch_insights.build_batch_insights(_three_games())
+    profile = insights["psychology"]
+    assert profile["sample_size"] == 3
+    assert profile["dimensions"]["consistency"] is not None
+    payload = batch_insights.build_prompt_payload(insights)
+    assert payload["psychology"]["sample_size"] == 3
+    assert "type_scores" not in payload["psychology"]
+    assert "dimensions" in payload["psychology"]
 
 
 def test_batch_limit_detail_free_insufficient():

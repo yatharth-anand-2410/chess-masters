@@ -91,6 +91,71 @@ export type Resource = {
   source_move?: string | null;
 };
 
+export type PsychologyTag = "strong" | "develop" | "weak";
+
+export type PsychologyDimension = {
+  key?: string;
+  label: string;
+  short_label?: string;
+  score: number;
+  tag?: PsychologyTag;
+  evidence: string;
+};
+
+export type PsychologyLeak = {
+  key?: string;
+  label: string;
+  score: number;
+  tag?: string;
+  severity: "high" | "medium" | string;
+  evidence: string;
+  fix: string;
+};
+
+export type PsychologyFormPoint = {
+  label?: string | null;
+  accuracy: number;
+  score?: number | null;
+  after_loss?: boolean;
+};
+
+export type PsychologyPressureBucket = {
+  bucket: string;
+  moves: number;
+  blunders: number;
+  rate: number;
+};
+
+export type PsychologySpeedBucket = {
+  bucket: string;
+  moves: number;
+};
+
+export type PlayerTypeScores = {
+  activist?: number;
+  pragmatist?: number;
+  theorist?: number;
+  reflector?: number;
+};
+
+export type PsychologyProfile = {
+  sample_size: number;
+  headline?: string | null;
+  player_type?: string | null;
+  player_type_label?: string | null;
+  player_type_confidence?: string | null;
+  type_scores?: PlayerTypeScores;
+  dimension_order?: string[];
+  dimensions?: Record<string, PsychologyDimension | null>;
+  leaks?: PsychologyLeak[];
+  form?: PsychologyFormPoint[];
+  time_pressure?: PsychologyPressureBucket[];
+  speed_profile?: PsychologySpeedBucket[];
+  type_evidence?: string[];
+  evidence?: string[];
+  caveats?: string[];
+};
+
 export type InsightsData = {
   strength_moments: InsightMoment[];
   weakness_moments: InsightMoment[];
@@ -102,4 +167,5 @@ export type InsightsData = {
   result?: string | null;
   phase_accuracies?: PhaseAccuracies;
   statistics?: QualityStatistics;
+  psychology?: PsychologyProfile | null;
 };

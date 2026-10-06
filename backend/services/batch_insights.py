@@ -18,6 +18,8 @@ from __future__ import annotations
 
 from typing import Dict, List
 
+from services import psychology
+
 MAX_BATCH_WEAKNESS_MOMENTS = 6
 MAX_BATCH_STRENGTH_MOMENTS = 4
 MAX_BATCH_RESOURCES = 6
@@ -60,6 +62,7 @@ def _game_summary(index: int, entry: Dict[str, object]) -> Dict[str, object]:
         "eco": engine_data.get("eco"),
         "result": engine_data.get("result"),
         "player_color": engine_data.get("player_color"),
+        "overall_accuracy": engine_data.get("overall_accuracy"),
         "phase_accuracies": engine_data.get("phase_accuracies") or {},
         "statistics": {
             "blunder": int(statistics.get("blunder", 0) or 0),
@@ -73,6 +76,7 @@ def _game_summary(index: int, entry: Dict[str, object]) -> Dict[str, object]:
             engine_data.get("weakness_moments"), label, analysis_id
         ),
         "resources": engine_data.get("resources") or [],
+        "psychology": engine_data.get("psychology"),
     }
 
 
@@ -153,7 +157,7 @@ def build_batch_insights(games: List[Dict[str, object]]) -> Dict[str, object]:
             round(sum(values) / len(values), 1) if values else None
         )
 
-    return {
+    payload: Dict[str, object] = {
         "game_count": len(summaries),
         "games": summaries,
         "totals": totals,
@@ -163,6 +167,10 @@ def build_batch_insights(games: List[Dict[str, object]]) -> Dict[str, object]:
         "weakness_moments": weakness_moments[:MAX_BATCH_WEAKNESS_MOMENTS],
         "resources": list(resource_map.values())[:MAX_BATCH_RESOURCES],
     }
+    profile = psychology.build_batch_profile(summaries)
+    if profile is not None:
+        payload["psychology"] = profile
+    return payload
 
 
 def _trim_moment(moment: Dict[str, object]) -> Dict[str, object]:
@@ -224,10 +232,14 @@ def build_prompt_payload(insights: Dict[str, object]) -> Dict[str, object]:
                     ],
                 }
             )
-    return {
+    payload: Dict[str, object] = {
         "game_count": insights.get("game_count"),
         "totals": insights.get("totals"),
         "average_phase_accuracies": insights.get("phase_accuracies"),
         "recurring_themes": insights.get("recurring_themes"),
         "games": games_payload,
     }
+    profile = insights.get("psychology")
+    if isinstance(profile, dict):
+        payload["psychology"] = psychology.build_prompt_payload(profile)
+    return payload

@@ -6,7 +6,7 @@ from urllib.parse import quote_plus
 import chess
 import chess.engine
 
-from services import diagnostics, motifs, openings, resources, tablebase
+from services import diagnostics, motifs, openings, psychology, resources, tablebase
 
 MAX_WEAKNESS_MOMENTS = 4
 MIN_CENTIPAWN_LOSS = 60
@@ -118,6 +118,7 @@ def _build_strength_moment(move, player_color: str, capitalizes: bool) -> Dict[s
         "color": move.color,
         "phase": move.phase,
         "quality": "strong",
+        "capitalizes": capitalizes,
         "centipawn_loss": 0,
         "fen_before": move.fen_before,
         "played_move": move.played_move,
@@ -333,4 +334,5 @@ def build_insights(analysis) -> Dict[str, object]:
     ]
     engine_data["weakness_moments"] = weakness_moments
     engine_data["resources"] = _build_resources(analysis, weakness_moments)
+    engine_data["psychology"] = psychology.build_game_primitives(analysis)
     return engine_data

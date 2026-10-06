@@ -57,6 +57,8 @@ class MoveInfo:
     eval_after_cp: int
     centipawn_loss: int
     quality: str
+    seconds_spent: Optional[float] = None
+    clock_remaining: Optional[float] = None
 
     def to_dict(self) -> Dict[str, object]:
         return {
@@ -74,6 +76,8 @@ class MoveInfo:
             "eval_after_pawns": round(self.eval_after_cp / 100, 2),
             "centipawn_loss": self.centipawn_loss,
             "quality": self.quality,
+            "seconds_spent": self.seconds_spent,
+            "clock_remaining": self.clock_remaining,
         }
 
 
@@ -88,6 +92,11 @@ class AnalysisResult:
     moves: List[MoveInfo]
     statistics: Dict[str, int]
     phase_accuracies: Dict[str, Optional[float]]
+    overall_accuracy: Optional[float] = None
+    started_at: Optional[str] = None
+    time_control: Optional[str] = None
+    termination: Optional[str] = None
+    ended_in_checkmate: Optional[bool] = None
 
     def key_moments(self) -> List[Dict[str, object]]:
         return [
@@ -107,6 +116,11 @@ class AnalysisResult:
             "key_moments": self.key_moments(),
             "statistics": self.statistics,
             "phase_accuracies": self.phase_accuracies,
+            "overall_accuracy": self.overall_accuracy,
+            "started_at": self.started_at,
+            "time_control": self.time_control,
+            "termination": self.termination,
+            "ended_in_checkmate": self.ended_in_checkmate,
         }
 
 
@@ -176,6 +190,9 @@ class StockfishAnalyzer:
         pgn: str,
         player_color: Optional[str] = None,
         player_name: Optional[str] = None,
+        started_at: Optional[str] = None,
+        time_control: Optional[str] = None,
+        move_times: Optional[Dict[tuple, tuple]] = None,
     ) -> AnalysisResult:
         game = chess.pgn.read_game(io.StringIO(pgn))
         if game is None:
@@ -225,9 +242,14 @@ class StockfishAnalyzer:
                 if quality in statistics:
                     statistics[quality] += 1
 
+                move_number = (index + 1) // 2
+                timed = (move_times or {}).get((color, move_number))
+                seconds_spent = timed[0] if timed else None
+                clock_remaining = timed[1] if timed else None
+
                 moves.append(
                     MoveInfo(
-                        move_number=(index + 1) // 2,
+                        move_number=move_number,
                         san=san,
                         color=color,
                         phase=_phase_for_ply(index, endgame_start_ply),
@@ -241,6 +263,8 @@ class StockfishAnalyzer:
                         eval_after_cp=current_eval,
                         centipawn_loss=loss,
                         quality=quality,
+                        seconds_spent=seconds_spent,
+                        clock_remaining=clock_remaining,
                     )
                 )
 
@@ -254,6 +278,11 @@ class StockfishAnalyzer:
             moves=moves,
             statistics=statistics,
             phase_accuracies=self._compute_phase_accuracies(moves, player_color),
+            overall_accuracy=self._compute_overall_accuracy(moves, player_color),
+            started_at=started_at,
+            time_control=time_control,
+            termination=game.headers.get("Termination"),
+            ended_in_checkmate=board.is_checkmate(),
         )
 
     @staticmethod
@@ -267,6 +296,19 @@ class StockfishAnalyzer:
             return None
         name_part = slug.split("-with-")[0]
         return name_part.replace("-", " ").title() if name_part else None
+
+    @staticmethod
+    def _compute_overall_accuracy(
+        moves: List[MoveInfo],
+        player_color: Optional[str],
+    ) -> Optional[float]:
+        if player_color not in ("white", "black"):
+            return None
+        player_moves = [move for move in moves if move.color == player_color]
+        if not player_moves:
+            return None
+        total = sum(_move_accuracy(move) for move in player_moves)
+        return round(total / len(player_moves), 1)
 
     @staticmethod
     def _compute_phase_accuracies(

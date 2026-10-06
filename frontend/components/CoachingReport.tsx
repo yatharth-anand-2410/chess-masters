@@ -2,6 +2,7 @@ import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
 import AccuracyChart from "./AccuracyChart";
+import PsychologyPanel from "./PsychologyPanel";
 import ResourceLinks from "./ResourceLinks";
 import SectionInsightBoards from "./SectionInsightBoards";
 import type { InsightsData } from "./insights";
@@ -104,6 +105,9 @@ export default function CoachingReport({ content, insights }: CoachingReportProp
             )}
             {heading.includes("weakness") && (
               <SectionInsightBoards moments={insights?.weakness_moments} />
+            )}
+            {heading.includes("psychology") && (
+              <PsychologyPanel profile={insights?.psychology} />
             )}
             {heading.includes("resources") && (
               <ResourceLinks resources={insights?.resources} />

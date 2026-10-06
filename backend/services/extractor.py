@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import io
 import re
 from dataclasses import dataclass
-from typing import Optional
+from typing import Dict, List, Optional, Tuple
 from urllib.parse import urlsplit
 
+import chess.pgn
 import requests
 
 LICHESS_HOST = "lichess.org"
@@ -66,12 +68,25 @@ class UpstreamRequestError(ExtractionError):
 
 
 @dataclass(frozen=True)
+class MoveClock:
+    """Time spent and clock remaining for one of the player's moves."""
+
+    move_number: int
+    color: str
+    seconds_spent: Optional[float]
+    clock_remaining: Optional[float]
+
+
+@dataclass(frozen=True)
 class GameData:
     platform: str
     game_id: str
     pgn: str
     player_color: Optional[str]
     player_name: Optional[str]
+    started_at: Optional[str] = None
+    time_control: Optional[str] = None
+    player_move_times: Tuple[MoveClock, ...] = ()
 
 
 def _get(url: str, params: Optional[dict[str, str]] = None) -> requests.Response:
@@ -176,7 +191,99 @@ def clean_pgn(pgn: str) -> str:
     return f"{header_block}{separator}{moves}".strip()
 
 
+def _read_pgn(pgn: str) -> Optional[chess.pgn.Game]:
+    try:
+        return chess.pgn.read_game(io.StringIO(pgn))
+    except (ValueError, IndexError):
+        return None
+
+
+def _time_control_parts(time_control: Optional[str]) -> Tuple[Optional[float], float]:
+    """Return (base seconds, increment seconds) from a PGN TimeControl header."""
+    if not time_control:
+        return None, 0.0
+    raw = time_control.strip()
+    if raw in ("-", "?", ""):
+        return None, 0.0
+    base_part, _, increment_part = raw.partition("+")
+    if "/" in base_part:
+        base_part = base_part.rsplit("/", 1)[-1]
+    try:
+        base = float(base_part)
+    except ValueError:
+        base = None
+    try:
+        increment = float(increment_part) if increment_part else 0.0
+    except ValueError:
+        increment = 0.0
+    return base, max(0.0, increment)
+
+
+def parse_game_metadata(pgn: str) -> Dict[str, Optional[str]]:
+    """Extract the game's timestamp and time control from PGN headers."""
+    game = _read_pgn(pgn)
+    if game is None:
+        return {"started_at": None, "time_control": None}
+    headers = game.headers
+    date = (headers.get("UTCDate") or headers.get("Date") or "").strip()
+    clock_time = (headers.get("UTCTime") or headers.get("Time") or "").strip()
+    started_at: Optional[str] = None
+    if date and "?" not in date:
+        normalized_date = date.replace(".", "-")
+        if clock_time and "?" not in clock_time:
+            started_at = f"{normalized_date}T{clock_time}"
+        else:
+            started_at = normalized_date
+    return {"started_at": started_at, "time_control": headers.get("TimeControl")}
+
+
+def parse_player_move_times(pgn: str, player_color: Optional[str]) -> Tuple[MoveClock, ...]:
+    """Read ``%clk`` annotations from the raw PGN for the player's own moves.
+
+    Returns an empty tuple when the PGN has no clock comments (common for some
+    Chess.com archives), so callers can degrade gracefully.
+    """
+    if player_color not in ("white", "black"):
+        return ()
+    game = _read_pgn(pgn)
+    if game is None:
+        return ()
+
+    base, increment = _time_control_parts(game.headers.get("TimeControl"))
+    last_seen: Dict[str, Optional[float]] = {"white": None, "black": None}
+    times: List[MoveClock] = []
+
+    for node in game.mainline():
+        ply = node.ply()
+        color = "white" if ply % 2 == 1 else "black"
+        try:
+            remaining = node.clock()
+        except (ValueError, KeyError):
+            remaining = None
+        previous = last_seen[color] if last_seen[color] is not None else base
+        seconds_spent: Optional[float] = None
+        if remaining is not None and previous is not None:
+            seconds_spent = previous - remaining + increment
+            if seconds_spent < 0:
+                seconds_spent = max(0.0, previous - remaining)
+            seconds_spent = min(seconds_spent, 6 * 60 * 60)
+        if remaining is not None:
+            last_seen[color] = remaining
+        if color != player_color:
+            continue
+        times.append(
+            MoveClock(
+                move_number=(ply + 1) // 2,
+                color=color,
+                seconds_spent=round(seconds_spent, 1) if seconds_spent is not None else None,
+                clock_remaining=round(remaining, 1) if remaining is not None else None,
+            )
+        )
+    return tuple(times)
+
+
 def fetch_lichess_pgn(game_id: str) -> str:
+    """Fetch the raw PGN (clock and eval comments included) for a game."""
     response = _get(
         LICHESS_EXPORT_URL.format(game_id=game_id),
         params={"evals": "true"},
@@ -184,10 +291,11 @@ def fetch_lichess_pgn(game_id: str) -> str:
     pgn = response.text
     if not pgn.strip():
         raise GameNotFoundError("Lichess returned an empty PGN for this game.")
-    return clean_pgn(pgn)
+    return pgn
 
 
 def fetch_chesscom_game(username: str, game_id: str) -> tuple[str, str, str]:
+    """Return (raw PGN, player color, username) for a Chess.com game."""
     response = _get(CHESS_COM_ARCHIVES_URL.format(username=username))
     archives: list[str] = response.json().get("archives", [])
     if not archives:
@@ -201,7 +309,7 @@ def fetch_chesscom_game(username: str, game_id: str) -> tuple[str, str, str]:
                 if not pgn:
                     raise GameNotFoundError("The matched Chess.com game has no PGN.")
                 color = _player_color_for_game(game, username)
-                return clean_pgn(pgn), color, username
+                return pgn, color, username
 
     raise GameNotFoundError(
         f"Could not find game {game_id} in the last {ARCHIVE_MONTHS_TO_SCAN} months "
@@ -239,31 +347,39 @@ def fetch_game(
             raise InvalidGameUrlError(
                 "Could not determine which color you played. Please select White or Black."
             )
-        pgn = fetch_lichess_pgn(game_id)
+        raw_pgn = fetch_lichess_pgn(game_id)
+        metadata = parse_game_metadata(raw_pgn)
         return GameData(
             platform="lichess",
             game_id=game_id,
-            pgn=pgn,
+            pgn=clean_pgn(raw_pgn),
             player_color=color,
             player_name=None,
+            started_at=metadata["started_at"],
+            time_control=metadata["time_control"],
+            player_move_times=parse_player_move_times(raw_pgn, color),
         )
 
     if normalized in ("chess.com", "chesscom", "chess"):
         if not username or not username.strip():
             raise InvalidGameUrlError("A Chess.com username is required.")
         game_id = extract_chesscom_game_id(game_url)
-        pgn, color, player_name = fetch_chesscom_game(username.strip(), game_id)
+        raw_pgn, color, player_name = fetch_chesscom_game(username.strip(), game_id)
         if color == "unknown":
             raise GameNotFoundError(
                 f"Username {username} was not found as White or Black in this game. "
                 "Check the username and try again."
             )
+        metadata = parse_game_metadata(raw_pgn)
         return GameData(
             platform="chess.com",
             game_id=game_id,
-            pgn=pgn,
+            pgn=clean_pgn(raw_pgn),
             player_color=color,
             player_name=player_name,
+            started_at=metadata["started_at"],
+            time_control=metadata["time_control"],
+            player_move_times=parse_player_move_times(raw_pgn, color),
         )
 
     raise InvalidGameUrlError(f"Unsupported platform: {platform}")

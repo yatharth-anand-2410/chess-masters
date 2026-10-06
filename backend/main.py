@@ -253,10 +253,17 @@ async def get_optional_user(request: Request) -> Optional[Dict[str, object]]:
 
 def analyze_game(game: extractor.GameData) -> engine.AnalysisResult:
     analyzer_engine = engine.StockfishAnalyzer()
+    move_times = {
+        (entry.color, entry.move_number): (entry.seconds_spent, entry.clock_remaining)
+        for entry in game.player_move_times
+    }
     return analyzer_engine.analyze_game(
         game.pgn,
         player_color=game.player_color,
         player_name=game.player_name,
+        started_at=game.started_at,
+        time_control=game.time_control,
+        move_times=move_times or None,
     )
 
 
@@ -691,10 +698,14 @@ async def stream_batch_analysis(
 
             yield sse_event(
                 "batch_status",
-                {"message": "AI generating your overall coaching report..."},
+                {"message": "Reading the patterns across your games..."},
             )
             aggregate = await asyncio.to_thread(
                 batch_insights.build_batch_insights, completed
+            )
+            yield sse_event(
+                "batch_status",
+                {"message": "AI generating your overall coaching report..."},
             )
             prompt_payload = await asyncio.to_thread(
                 batch_insights.build_prompt_payload, aggregate
