@@ -78,18 +78,18 @@ def _strength_moves(analysis) -> List:
             and previous.centipawn_loss >= 150
         )
         if capitalizes:
-            candidates.append(move)
+            candidates.append((move, True))
 
     if not candidates:
         player_best = [
             move for move in moves if move.color == player_color and move.quality == "best"
         ]
-        candidates = player_best[-2:]
+        candidates = [(move, False) for move in player_best[-2:]]
 
     return candidates[:MAX_STRENGTH_MOMENTS]
 
 
-def _build_strength_moment(move, player_color: str) -> Dict[str, object]:
+def _build_strength_moment(move, player_color: str, capitalizes: bool) -> Dict[str, object]:
     arrows: List[Dict[str, str]] = []
     if move.played_move:
         arrows.append(
@@ -99,6 +99,19 @@ def _build_strength_moment(move, player_color: str) -> Dict[str, object]:
                 "color": "green",
             }
         )
+    if capitalizes:
+        note = (
+            "Your opponent's previous move was a serious error, and you found "
+            "the strongest reply."
+        )
+    elif move.pv_san:
+        continuation = ", ".join(move.pv_san[:4])
+        note = (
+            f"You chose {move.san}, keeping your position on track. "
+            f"A natural continuation is {continuation}."
+        )
+    else:
+        note = f"You chose {move.san}, keeping your position on track."
     return {
         "move_number": move.move_number,
         "san": move.san,
@@ -116,6 +129,7 @@ def _build_strength_moment(move, player_color: str) -> Dict[str, object]:
         "pv_san": [],
         "motif": None,
         "motif_details": None,
+        "note": note,
         "highlight_squares": [],
         "arrows": arrows,
         "blindspot": None,
@@ -142,6 +156,8 @@ def _build_moment(move, board_before, player_color, engine, analysis) -> Dict[st
         "pv_san": move.pv_san,
         "motif": None,
         "motif_details": None,
+        "note": None,
+        "better_move_idea": None,
         "highlight_squares": [],
         "arrows": [],
         "blindspot": None,
@@ -217,7 +233,32 @@ def _build_moment(move, board_before, player_color, engine, analysis) -> Dict[st
                         "to": after_result,
                     }
 
+    fallback_idea = _weakness_fallback_idea(moment)
+    if fallback_idea:
+        moment["better_move_idea"] = fallback_idea
+
     return moment
+
+
+def _weakness_fallback_idea(moment: Dict[str, object]) -> Optional[str]:
+    tablebase = moment.get("tablebase")
+    if isinstance(tablebase, dict):
+        changed = tablebase.get("outcome_changed")
+        if isinstance(changed, dict) and changed.get("from") and changed.get("to"):
+            return (
+                "The stronger move keeps the theoretical result; this one turns "
+                f"a {changed['from']} into a {changed['to']}."
+            )
+    if moment.get("motif_details"):
+        return str(moment["motif_details"])
+    opening = moment.get("opening")
+    if isinstance(opening, dict):
+        top_moves = opening.get("top_moves") or []
+        if top_moves and isinstance(top_moves[0], dict):
+            master = top_moves[0].get("san")
+            if master:
+                return f"Masters usually continue with {master} in this position."
+    return None
 
 
 def _build_resources(analysis, weakness_moments: List[Dict[str, object]]) -> List[Dict[str, object]]:
@@ -287,7 +328,8 @@ def build_insights(analysis) -> Dict[str, object]:
     engine_data["player_color"] = player_color
     engine_data["player_name"] = analysis.player_name
     engine_data["strength_moments"] = [
-        _build_strength_moment(move, player_color) for move in _strength_moves(analysis)
+        _build_strength_moment(move, player_color, capitalizes)
+        for move, capitalizes in _strength_moves(analysis)
     ]
     engine_data["weakness_moments"] = weakness_moments
     engine_data["resources"] = _build_resources(analysis, weakness_moments)

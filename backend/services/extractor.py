@@ -3,13 +3,39 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from typing import Optional
+from urllib.parse import urlsplit
 
 import requests
 
-LICHESS_GAME_URL_PATTERN = re.compile(
-    r"lichess\.org/(?:game/)?([a-zA-Z0-9]{8})([a-zA-Z0-9]*)(?:/(white|black))?"
+LICHESS_HOST = "lichess.org"
+LICHESS_RESERVED_SEGMENTS = frozenset(
+    {
+        "analysis",
+        "broadcast",
+        "coach",
+        "features",
+        "forum",
+        "game",
+        "games",
+        "learn",
+        "patron",
+        "player",
+        "practice",
+        "search",
+        "simul",
+        "study",
+        "swiss",
+        "team",
+        "tournament",
+        "training",
+        "tv",
+        "video",
+    }
 )
-CHESS_COM_GAME_ID_PATTERN = re.compile(r"(\d{5,})\s*$")
+LICHESS_GAME_ID_PATTERN = re.compile(r"^([a-zA-Z0-9]{8})([a-zA-Z0-9]*)$")
+CHESS_COM_GAME_ID_PATTERN = re.compile(r"/(?:live|daily|computer)/(\d{5,})")
+CHESS_COM_TRAILING_ID_PATTERN = re.compile(r"/(\d{5,})/?$")
+CHESS_COM_ANY_ID_PATTERN = re.compile(r"(\d{5,})")
 
 DEFAULT_USER_AGENT = "AI-Chess-Game-Analyzer/1.0 (chess game coaching tool)"
 ARCHIVE_MONTHS_TO_SCAN = 4
@@ -70,13 +96,41 @@ def _get(url: str, params: Optional[dict[str, str]] = None) -> requests.Response
     return response
 
 
+def _url_host_and_segments(url: str) -> tuple[str, list[str]]:
+    raw = url.strip()
+    if "://" not in raw:
+        raw = f"https://{raw}"
+    parsed = urlsplit(raw)
+    return parsed.netloc.lower(), [segment for segment in parsed.path.split("/") if segment]
+
+
 def extract_lichess_game_meta(url: str) -> tuple[str, Optional[str], bool]:
-    match = LICHESS_GAME_URL_PATTERN.search(url.strip())
-    if not match:
+    host, segments = _url_host_and_segments(url)
+    if host != LICHESS_HOST and not host.endswith(f".{LICHESS_HOST}"):
         raise InvalidGameUrlError(
             "Could not find an 8-character Lichess game ID in the provided URL."
         )
-    game_id, trailing, color = match.group(1), match.group(2), match.group(3)
+    if len(segments) >= 3 and segments[0] == "game" and segments[1] == "export":
+        candidate, remaining = segments[2], segments[3:]
+    elif len(segments) >= 2 and segments[0] == "game":
+        candidate, remaining = segments[1], segments[2:]
+    elif segments:
+        candidate, remaining = segments[0], segments[1:]
+    else:
+        raise InvalidGameUrlError(
+            "Could not find an 8-character Lichess game ID in the provided URL."
+        )
+
+    match = LICHESS_GAME_ID_PATTERN.match(candidate)
+    if not match or candidate.lower() in LICHESS_RESERVED_SEGMENTS:
+        raise InvalidGameUrlError(
+            "Could not find an 8-character Lichess game ID in the provided URL."
+        )
+    game_id, trailing = match.group(1), match.group(2)
+    color = next(
+        (segment.lower() for segment in remaining if segment.lower() in ("white", "black")),
+        None,
+    )
     needs_resolve = bool(trailing) and color is None
     return game_id, color, needs_resolve
 
@@ -97,12 +151,20 @@ def resolve_lichess_color(url: str) -> Optional[str]:
 
 
 def extract_chesscom_game_id(url: str) -> str:
-    match = CHESS_COM_GAME_ID_PATTERN.search(url.strip())
-    if not match:
-        raise InvalidGameUrlError(
-            "Could not find a numeric Chess.com game ID in the provided URL."
-        )
-    return match.group(1)
+    raw = url.strip()
+    if "://" not in raw:
+        raw = f"https://{raw}"
+    path = urlsplit(raw).path
+    for pattern in (CHESS_COM_GAME_ID_PATTERN, CHESS_COM_TRAILING_ID_PATTERN):
+        match = pattern.search(path)
+        if match:
+            return match.group(1)
+    match = CHESS_COM_ANY_ID_PATTERN.search(path or raw)
+    if match:
+        return match.group(1)
+    raise InvalidGameUrlError(
+        "Could not find a numeric Chess.com game ID in the provided URL."
+    )
 
 
 def clean_pgn(pgn: str) -> str:

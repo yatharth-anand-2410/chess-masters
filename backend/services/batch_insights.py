@@ -185,6 +185,12 @@ def _trim_moment(moment: Dict[str, object]) -> Dict[str, object]:
     best_move = moment.get("best_move_san")
     if best_move:
         trimmed["best_move_san"] = best_move
+    note = moment.get("note")
+    if note:
+        trimmed["note"] = note
+    better_idea = moment.get("better_move_idea")
+    if better_idea:
+        trimmed["better_move_idea"] = better_idea
     return trimmed
 
 

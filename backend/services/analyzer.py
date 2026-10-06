@@ -2,13 +2,16 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import os
-from typing import AsyncIterator, Dict
+from typing import AsyncIterator, Dict, List
 
 from google import genai
 from google.genai import errors, types
 
 from services import extractor
+
+logger = logging.getLogger("uvicorn.error")
 
 DEFAULT_MODEL = "gemini-3.1-flash-lite"
 MAX_STREAM_RETRIES = 3
@@ -18,22 +21,24 @@ SYSTEM_INSTRUCTION = f"""You are an experienced, practical chess coach teaching 
 
 You are given the PGN, the student's color, phase accuracies, and structured engine evidence (critical_moments with motifs, blind spots, opening names, puzzles, and tablebase verdicts). Use that evidence to coach the student in plain, human chess language.
 
-Return your report in Markdown with exactly these five sections in order:
-## Strength
-## Weakness
+Return your report in Markdown with these sections in order:
+## Strength (only when strength_moments is not empty)
+## Weakness (only when weakness_moments is not empty)
 ## Game Overview
 ## Focus Areas
 ## Resources
 
 Output rules:
-- Begin immediately with the "## Strength" heading. No preamble, planning, or commentary before it, and nothing after the report.
+- Begin immediately with the first section heading. No preamble, planning, or commentary before it, and nothing after the report.
 - Address the student as "you/your".
-- EVERY section must be a bulleted list using "- " markers. Never write long paragraphs. Use 2-4 concise bullets per section.
+- Include Strength only when strength_moments contains at least one moment, and Weakness only when weakness_moments contains at least one moment. If a list is empty, omit that section entirely — never invent, pad, or stretch a minor inaccuracy into a weakness. Game Overview, Focus Areas, and Resources are always required.
+- Each included section must be a bulleted list using "- " markers. Never write long paragraphs. Use 1-4 concise bullets per section.
 - Do NOT dump engine numbers. Avoid raw centipawn figures, evaluation decimals, and lists of engine-optimal moves. When quantifying, stay qualitative ("a serious blunder", "a small inaccuracy", "this gave your opponent a clear advantage").
 - Speak in chess concepts: piece activity, center control, king safety, hanging pieces, forcing moves (checks, captures, threats), converting advantages.
 
 Coaching guidance:
 - Pick the 1-2 most important lessons of the game instead of cataloging every engine-detected mistake. Related mistakes usually share one root cause — group them (for example, several opening inaccuracies often mean the same thing: "you played too passively and gave up the center").
+- When there are no recorded weaknesses, use Focus Areas to reinforce the strengths you found and suggest how to keep building on them.
 - In Focus Areas, describe a concept the student can actually work on and give one concrete, human tip. Do not tell them to memorize engine moves. Instead of "play 2...d5", say "Black should fight for the center with ...d5 rather than a passive ...g6".
 - When you mention the engine's preferred move, frame it as the underlying idea ("you missed a forcing idea that wins material"), not as a move to reproduce.
 - Do not repeat the same move or example in more than one section. Each key moment appears once, in its most relevant place.
@@ -52,23 +57,26 @@ BATCH_SYSTEM_INSTRUCTION = f"""You are an experienced, practical chess coach tea
 
 You are given per-game engine evidence (openings, results, player color, phase accuracies, quality counts, and critical moments with motifs) plus aggregate totals and recurring themes. Each game is labeled "Game 1", "Game 2", and so on.
 
-Return your report in Markdown with exactly these five sections in order:
-## Strength
-## Weakness
+Return your report in Markdown with these sections in order:
+## Strength (only when at least one game has recorded strengths)
+## Weakness (only when at least one game has recorded key_moments)
 ## Games Overview
 ## Focus Areas
 ## Resources
 
 Output rules:
-- Begin immediately with the "## Strength" heading. No preamble, planning, or commentary before it, and nothing after the report.
+- Begin immediately with the first section heading. No preamble, planning, or commentary before it, and nothing after the report.
 - Address the student as "you/your".
-- EVERY section must be a bulleted list using "- " markers. Never write long paragraphs. Use 2-4 concise bullets per section.
+- Include Strength only when at least one game has recorded strengths, and Weakness only when at least one game has recorded weaknesses (key_moments). If no game has that evidence, omit the section entirely — never invent, pad, or stretch a minor inaccuracy into a weakness. Games Overview, Focus Areas, and Resources are always required.
+- A game whose key_moments list is empty has no recorded weakness: never claim or imply a weakness in that game. Likewise, a game with an empty strengths list has no recorded strength.
+- Each included section must be a bulleted list using "- " markers. Never write long paragraphs. Use 1-4 concise bullets per section.
 - Do NOT dump engine numbers. Avoid raw centipawn figures, evaluation decimals, and lists of engine-optimal moves. When quantifying, stay qualitative ("a serious blunder", "a small inaccuracy", "this gave your opponent a clear advantage").
 - Speak in chess concepts: piece activity, center control, king safety, hanging pieces, forcing moves (checks, captures, threats), converting advantages.
 - Respect each game's player_color; only ever attribute that player's moves to the student.
 
 Coaching guidance:
 - This is one lesson across several games: find the recurring patterns. In Weakness, group related mistakes by root cause and cite the specific games and moves where they appeared (for example: "In Game 2 you left your king in the center with 12...Ke7, and the same habit cost you in Game 4").
+- When no game has recorded weaknesses, use Focus Areas to reinforce the strengths you found and suggest how to keep building on them.
 - In Games Overview, write exactly one bullet per game: the story of that game, the result, and one specific turning-point moment. End the section with the AccuracyChart component described below.
 - In Focus Areas, describe 2-3 concepts the student can actually work on and give one concrete, human tip each. Do not tell them to memorize engine moves; describe the idea instead.
 - Do not repeat the same move or example in more than one section. Each key moment appears once, in its most relevant place.
@@ -136,6 +144,182 @@ async def stream_coaching_report(
     async for chunk in stream:
         if chunk.text:
             yield chunk.text
+
+
+MOMENT_COACH_SYSTEM_INSTRUCTION = """You are an experienced chess coach writing the short note that appears next to a key position board in a student's game report (Elo 800-1800).
+
+For every moment you receive, write:
+- description: 1-3 sentences explaining what is happening in this position and why the student's played move worked (kind "strength") or what went wrong with it (kind "weakness"). Name the concrete pieces, squares, files, and threats involved.
+- better_idea: for kind "weakness" only, 1-2 sentences explaining what the stronger move accomplishes, the follow-up idea, or the threat it prevents.
+
+Rules:
+- Write in plain, human chess language addressed to the student ("you/your").
+- Ground every sentence in the supplied evidence: the position, the played move, the stronger move, the continuation, detected motifs, blind spots, opening knowledge, and tablebase verdicts.
+- Never mention the engine, evaluations, centipawns, or "the best move". Never justify a move by saying the engine prefers it; explain the chess idea behind it.
+- Never use filler like "this was a strong move" or "you matched the engine". Explain the chess reason.
+- If the evidence is thin, describe the concrete features of the position: material, king safety, development, pawn structure, open lines, hanging pieces, and both sides' plans.
+- Return exactly one entry per moment id you were given, using the same id."""
+
+MOMENT_DESCRIPTION_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "moments": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "id": {"type": "string"},
+                    "description": {"type": "string"},
+                    "better_idea": {"type": "string"},
+                },
+                "required": ["id", "description"],
+            },
+        }
+    },
+    "required": ["moments"],
+}
+
+
+def _move_label(moment: Dict[str, object]) -> str:
+    dots = "..." if moment.get("color") == "black" else "."
+    return f"{moment.get('move_number')}{dots} {moment.get('san')}"
+
+
+def _moment_evidence(
+    moment_id: str,
+    kind: str,
+    moment: Dict[str, object],
+) -> Dict[str, object]:
+    evidence: Dict[str, object] = {
+        "id": moment_id,
+        "kind": kind,
+        "move": _move_label(moment),
+        "phase": moment.get("phase"),
+        "quality": moment.get("quality"),
+        "fen_before": moment.get("fen_before"),
+        "played_move_san": moment.get("san"),
+        "stronger_move_san": moment.get("best_move_san"),
+        "continuation_san": (moment.get("pv_san") or [])[:6],
+        "eval_before_pawns": moment.get("eval_before_pawns"),
+        "eval_after_pawns": moment.get("eval_after_pawns"),
+    }
+    motif = moment.get("motif")
+    if motif:
+        evidence["motif"] = motif
+        evidence["motif_details"] = moment.get("motif_details")
+    blindspot = moment.get("blindspot")
+    if isinstance(blindspot, dict) and blindspot.get("explanation"):
+        evidence["blindspot"] = blindspot.get("explanation")
+    opening = moment.get("opening")
+    if isinstance(opening, dict):
+        evidence["opening"] = opening.get("name")
+        top_moves = opening.get("top_moves") or []
+        if top_moves and isinstance(top_moves[0], dict):
+            evidence["master_move_san"] = top_moves[0].get("san")
+    tablebase = moment.get("tablebase")
+    if isinstance(tablebase, dict):
+        evidence["tablebase"] = {
+            "category": tablebase.get("category"),
+            "dtm": tablebase.get("dtm"),
+            "outcome_changed": tablebase.get("outcome_changed"),
+        }
+    return evidence
+
+
+def _build_moment_payload(engine_data: Dict[str, object]) -> Dict[str, object]:
+    moments: List[Dict[str, object]] = []
+    for kind, key in (("strength", "strength_moments"), ("weakness", "weakness_moments")):
+        entries = engine_data.get(key)
+        if not isinstance(entries, list):
+            continue
+        for index, moment in enumerate(entries):
+            if isinstance(moment, dict):
+                moments.append(_moment_evidence(f"{kind}-{index}", kind, moment))
+    return {
+        "player_color": engine_data.get("player_color"),
+        "moments": moments,
+    }
+
+
+async def describe_moments(
+    client: genai.Client,
+    engine_data: Dict[str, object],
+) -> Dict[str, Dict[str, str]]:
+    """Ask Gemini for a human explanation of each strength/weakness position.
+
+    Returns a mapping of moment id (for example "weakness-0") to generated text.
+    Failures are swallowed so the analysis still renders with rule-based notes.
+    """
+    payload = _build_moment_payload(engine_data)
+    if not payload["moments"]:
+        return {}
+
+    attempt = 0
+    while True:
+        try:
+            response = await client.aio.models.generate_content(
+                model=_model_name(),
+                contents=json.dumps(payload),
+                config=types.GenerateContentConfig(
+                    system_instruction=MOMENT_COACH_SYSTEM_INSTRUCTION,
+                    response_mime_type="application/json",
+                    response_schema=MOMENT_DESCRIPTION_SCHEMA,
+                ),
+            )
+            break
+        except errors.APIError as exc:
+            if not _is_retryable(exc) or attempt >= MAX_STREAM_RETRIES:
+                logger.warning("Moment description request failed: %s", exc)
+                return {}
+            attempt += 1
+            await asyncio.sleep(RETRY_BASE_DELAY_SECONDS**attempt)
+        except Exception:
+            logger.exception("Unexpected error generating moment descriptions")
+            return {}
+
+    try:
+        data = json.loads(response.text or "{}")
+    except (TypeError, ValueError):
+        logger.warning("Moment description response was not valid JSON")
+        return {}
+
+    descriptions: Dict[str, Dict[str, str]] = {}
+    for entry in data.get("moments") or []:
+        if not isinstance(entry, dict):
+            continue
+        moment_id = entry.get("id")
+        if not isinstance(moment_id, str) or not moment_id:
+            continue
+        descriptions[moment_id] = {
+            "description": str(entry.get("description") or "").strip(),
+            "better_idea": str(entry.get("better_idea") or "").strip(),
+        }
+    return descriptions
+
+
+def merge_moment_descriptions(
+    engine_data: Dict[str, object],
+    descriptions: Dict[str, Dict[str, str]],
+) -> None:
+    """Attach generated descriptions to the moments stored in engine data."""
+    if not descriptions:
+        return
+    for kind, key in (("strength", "strength_moments"), ("weakness", "weakness_moments")):
+        entries = engine_data.get(key)
+        if not isinstance(entries, list):
+            continue
+        for index, moment in enumerate(entries):
+            if not isinstance(moment, dict):
+                continue
+            entry = descriptions.get(f"{kind}-{index}")
+            if not entry:
+                continue
+            description = entry.get("description")
+            if description:
+                moment["note"] = description
+            better_idea = entry.get("better_idea")
+            if kind == "weakness" and better_idea:
+                moment["better_move_idea"] = better_idea
 
 
 def _build_batch_contents(batch: Dict[str, object]) -> str:

@@ -324,13 +324,9 @@ async def stream_analysis(
                 "status_update",
                 {"message": "Detecting motifs and building recommendations..."},
             )
-            insights_payload = {
-                "strength_moments": engine_data.get("strength_moments", []),
-                "weakness_moments": engine_data.get("weakness_moments", []),
-                "resources": engine_data.get("resources", []),
-                "player_color": engine_data.get("player_color"),
-                "player_name": engine_data.get("player_name"),
-            }
+            description_task = asyncio.create_task(
+                analyzer.describe_moments(get_client(), engine_data)
+            )
 
             yield sse_event(
                 "status_update",
@@ -344,6 +340,16 @@ async def stream_analysis(
                 yield sse_event("content_chunk", {"text": chunk})
 
             report_markdown = "".join(report_parts)
+
+            descriptions = await description_task
+            analyzer.merge_moment_descriptions(engine_data, descriptions)
+            insights_payload = {
+                "strength_moments": engine_data.get("strength_moments", []),
+                "weakness_moments": engine_data.get("weakness_moments", []),
+                "resources": engine_data.get("resources", []),
+                "player_color": engine_data.get("player_color"),
+                "player_name": engine_data.get("player_name"),
+            }
             await asyncio.to_thread(
                 db.update_analysis,
                 str(user["id"]),
@@ -622,6 +628,26 @@ async def stream_batch_analysis(
                 )
                 yield sse_event("error", {"message": message})
                 return
+
+            yield sse_event(
+                "batch_status",
+                {"message": "Reviewing the key positions in each game..."},
+            )
+            client = get_client()
+            description_results = await asyncio.gather(
+                *(
+                    analyzer.describe_moments(client, entry["engine_data"])
+                    for entry in completed
+                )
+            )
+            for entry, descriptions in zip(completed, description_results):
+                analyzer.merge_moment_descriptions(entry["engine_data"], descriptions)
+                await asyncio.to_thread(
+                    db.update_analysis,
+                    user_id,
+                    entry["analysis_id"],
+                    {"insights": entry["engine_data"]},
+                )
 
             yield sse_event(
                 "batch_status",

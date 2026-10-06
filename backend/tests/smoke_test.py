@@ -49,9 +49,65 @@ def test_lichess_invalid_url():
         pass
 
 
+def test_lichess_url_with_query():
+    game_id, color, needs_resolve = extractor.extract_lichess_game_meta(
+        "https://lichess.org/abc12345?move=5"
+    )
+    assert game_id == "abc12345"
+    assert color is None
+    assert needs_resolve is False
+
+
+def test_lichess_color_with_fragment():
+    game_id, color, needs_resolve = extractor.extract_lichess_game_meta(
+        "https://lichess.org/abc12345/white#12"
+    )
+    assert game_id == "abc12345"
+    assert color == "white"
+    assert needs_resolve is False
+
+
+def test_lichess_export_url():
+    game_id, color, needs_resolve = extractor.extract_lichess_game_meta(
+        "https://lichess.org/game/export/abc12345?evals=true&clocks=false"
+    )
+    assert game_id == "abc12345"
+    assert color is None
+    assert needs_resolve is False
+
+
+def test_lichess_reserved_path():
+    try:
+        extractor.extract_lichess_game_meta("https://lichess.org/analysis/standard")
+        raise AssertionError("expected InvalidGameUrlError")
+    except extractor.InvalidGameUrlError:
+        pass
+
+
 def test_chesscom_id_extraction():
     game_id = extractor.extract_chesscom_game_id(
         "https://www.chess.com/game/live/123456789"
+    )
+    assert game_id == "123456789"
+
+
+def test_chesscom_id_with_query_params():
+    game_id = extractor.extract_chesscom_game_id(
+        "https://www.chess.com/game/live/172596743794?username=botevenik&move=1"
+    )
+    assert game_id == "172596743794"
+
+
+def test_chesscom_daily_url():
+    game_id = extractor.extract_chesscom_game_id(
+        "https://www.chess.com/game/daily/123456789?move=10"
+    )
+    assert game_id == "123456789"
+
+
+def test_chesscom_analysis_url():
+    game_id = extractor.extract_chesscom_game_id(
+        "https://www.chess.com/analysis/game/live/123456789?tab=analysis"
     )
     assert game_id == "123456789"
 
