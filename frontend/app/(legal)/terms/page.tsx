@@ -11,7 +11,7 @@ export default function TermsPage() {
   return (
     <>
       <h1>Terms &amp; Conditions</h1>
-      <p className="legal-updated">Last updated: September 30, 2026</p>
+      <p className="legal-updated">Last updated: October 6, 2026</p>
       <p>
         These terms describe the {SITE_NAME} service. By creating an account or
         using the service, you agree to them.
@@ -54,11 +54,14 @@ export default function TermsPage() {
         <Link href="/refund">Refund &amp; Cancellation Policy</Link> for details.
       </p>
 
-      <h2>Availability &amp; liability</h2>
+      <h2>Service provided &ldquo;as is&rdquo;</h2>
       <p>
-        The service is provided &ldquo;as is&rdquo; without warranties. To the
-        maximum extent allowed by law, {SITE_NAME} is not liable for indirect or
-        consequential damages arising from your use of the service.
+        {SITE_NAME} is an independently developed tool provided on an
+        &ldquo;as is&rdquo; and &ldquo;as available&rdquo; basis. While we strive
+        to provide accurate AI coaching and engine analysis, we do not guarantee
+        uninterrupted access or perfectly accurate evaluations. The developers
+        are not liable for any data loss, service interruptions, or financial
+        claims arising from the use of this website.
       </p>
 
       <h2>Third-party services</h2>

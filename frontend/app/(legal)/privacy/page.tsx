@@ -10,28 +10,21 @@ export default function PrivacyPage() {
   return (
     <>
       <h1>Privacy Policy</h1>
-      <p className="legal-updated">Last updated: September 30, 2026</p>
+      <p className="legal-updated">Last updated: October 6, 2026</p>
       <p>
         {SITE_NAME} turns your finished chess games into coaching reports. This
         page explains, in plain English, what we store and why.
       </p>
 
-      <h2>Accounts</h2>
+      <h2>Data collection and usage</h2>
       <p>
-        We only store the email address you use to sign in and the chess games
-        you choose to analyze.
+        When you sign in with Google, we only collect your email address and
+        basic profile information to create your account and save your chess
+        reports. We do not sell your personal data to third parties. Your chess
+        game links and analysis data are stored securely so you can review them
+        later. You can request to delete your account and data at any time by
+        contacting us at <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>.
       </p>
-
-      <h2>Data</h2>
-      <ul>
-        <li>
-          Your coaching reports and engine notes are stored securely so you can
-          access them later.
-        </li>
-        <li>
-          We do not sell your data, run ads, or share your email with anyone.
-        </li>
-      </ul>
 
       <h2>Payments</h2>
       <p>

@@ -15,6 +15,9 @@ import BatchProgress, {
   type BatchGameProgress,
 } from "../components/BatchProgress";
 import CoachingReport from "../components/CoachingReport";
+import CoachingPedigree from "../components/CoachingPedigree";
+import GuestQnaPrompt from "../components/GuestQnaPrompt";
+import GuestSignInPrompt from "../components/GuestSignInPrompt";
 import HeroBoard from "../components/HeroBoard";
 import LimitReachedPrompt from "../components/LimitReachedPrompt";
 import ReviewSection from "../components/ReviewSection";
@@ -23,6 +26,7 @@ import type { InsightsData } from "../components/insights";
 import {
   API_BASE,
   apiGet,
+  apiPost,
   mergeHistoryEntries,
   type AnalysisSummary,
   type BatchSummary,
@@ -30,6 +34,8 @@ import {
 } from "../lib/api";
 import { streamPost } from "../lib/stream";
 import { createClient } from "../lib/supabase-client";
+
+const GUEST_TRIAL_KEY = "cm_guest_trial";
 
 export default function HomePage() {
   const [user, setUser] = useState<User | null>(null);
@@ -45,6 +51,8 @@ export default function HomePage() {
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [batchGames, setBatchGames] = useState<BatchGameProgress[]>([]);
   const [batchId, setBatchId] = useState<string | null>(null);
+  const [guestUsed, setGuestUsed] = useState(false);
+  const [guestLimitHit, setGuestLimitHit] = useState(false);
 
   const refreshUsage = useCallback(async (sessionToken: string) => {
     try {
@@ -52,6 +60,42 @@ export default function HomePage() {
       setUsage(data);
     } catch (err) {
       console.error("Failed to load usage:", err);
+    }
+  }, []);
+
+  const claimGuestTrial = useCallback(async (sessionToken: string) => {
+    let pending = false;
+    try {
+      pending = window.localStorage.getItem(GUEST_TRIAL_KEY) === "1";
+    } catch {
+      pending = false;
+    }
+    if (!pending) {
+      return;
+    }
+    try {
+      const current = await apiGet<Usage>("/api/account/usage", sessionToken);
+      if (current.plan === "paid" || current.analyses_used > 0) {
+        window.localStorage.removeItem(GUEST_TRIAL_KEY);
+        return;
+      }
+      const updated = await apiPost<Usage>(
+        "/api/account/claim-guest-trial",
+        sessionToken,
+        {}
+      );
+      window.localStorage.removeItem(GUEST_TRIAL_KEY);
+      setUsage(updated);
+    } catch (err) {
+      console.error("Failed to claim guest trial:", err);
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      setGuestUsed(window.localStorage.getItem(GUEST_TRIAL_KEY) === "1");
+    } catch {
+      setGuestUsed(false);
     }
   }, []);
 
@@ -83,6 +127,7 @@ export default function HomePage() {
       if (session) {
         refreshHistory(session.access_token);
         refreshUsage(session.access_token);
+        claimGuestTrial(session.access_token);
       }
     });
     const { data: subscription } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -91,6 +136,7 @@ export default function HomePage() {
       if (session) {
         refreshHistory(session.access_token);
         refreshUsage(session.access_token);
+        claimGuestTrial(session.access_token);
       } else {
         setAnalyses([]);
         setBatches([]);
@@ -102,7 +148,7 @@ export default function HomePage() {
       }
     });
     return () => subscription.subscription.unsubscribe();
-  }, [refreshHistory, refreshUsage]);
+  }, [claimGuestTrial, refreshHistory, refreshUsage]);
 
   const resetAnalysisState = useCallback(() => {
     setError("");
@@ -118,11 +164,11 @@ export default function HomePage() {
       const {
         data: { session },
       } = await supabase.auth.getSession();
-      if (!session) {
-        setError("Please sign in before analyzing a game.");
+      const accessToken = session?.access_token ?? "";
+      if (!accessToken && guestUsed) {
+        setGuestLimitHit(true);
         return;
       }
-      const token = session.access_token;
 
       resetAnalysisState();
       setStatus("Connecting...");
@@ -130,7 +176,7 @@ export default function HomePage() {
 
       await streamPost(
         `${API_BASE}/api/stream-analysis`,
-        token,
+        accessToken,
         {
           platform: request.platform,
           game_url: request.gameUrl,
@@ -144,6 +190,7 @@ export default function HomePage() {
               text?: string;
               analysis_id?: string;
               usage?: Usage;
+              code?: string;
             };
             if (eventName === "status_update" && payload.message) {
               setStatus(payload.message);
@@ -157,25 +204,52 @@ export default function HomePage() {
               if (payload.usage) {
                 setUsage(payload.usage);
               }
-              refreshUsage(token);
-              refreshHistory(token);
+              if (accessToken) {
+                refreshUsage(accessToken);
+                refreshHistory(accessToken);
+              } else {
+                try {
+                  window.localStorage.setItem(GUEST_TRIAL_KEY, "1");
+                } catch {
+                  // ignore storage errors
+                }
+                setGuestUsed(true);
+              }
             } else if (eventName === "error") {
+              if (payload.code === "guest_limit") {
+                setGuestLimitHit(true);
+                setStatus("");
+                setIsAnalyzing(false);
+                return;
+              }
               setError(payload.message ?? "Analysis failed.");
               setStatus("");
               setIsAnalyzing(false);
-              refreshUsage(token);
+              if (accessToken) {
+                refreshUsage(accessToken);
+              }
             }
           },
           onError: (message, code, _feature) => {
+            if (code === "guest_limit") {
+              setGuestLimitHit(true);
+              setStatus("");
+              setIsAnalyzing(false);
+              return;
+            }
             if (code === "upgrade_required") {
-              refreshUsage(token);
+              if (accessToken) {
+                refreshUsage(accessToken);
+              }
               setStatus("");
               setIsAnalyzing(false);
               return;
             }
             if (code === "limit_reached" || code === "insufficient_credits") {
               setError(message);
-              refreshUsage(token);
+              if (accessToken) {
+                refreshUsage(accessToken);
+              }
               setStatus("");
               setIsAnalyzing(false);
               return;
@@ -187,7 +261,7 @@ export default function HomePage() {
         }
       );
     },
-    [refreshHistory, refreshUsage, resetAnalysisState]
+    [guestUsed, refreshHistory, refreshUsage, resetAnalysisState]
   );
 
   const startBatchAnalysis = useCallback(
@@ -375,6 +449,10 @@ export default function HomePage() {
   const batchGameLimit = usage
     ? Math.min(MAX_BATCH_GAMES, usage.analyses_remaining)
     : MAX_BATCH_GAMES;
+  const firstWeakness = insights?.weakness_moments?.[0] ?? null;
+  const guestBlunderLabel = firstWeakness
+    ? `${firstWeakness.move_number}. ${firstWeakness.san}`
+    : null;
 
   return (
     <main className="dashboard">
@@ -388,6 +466,12 @@ export default function HomePage() {
         <div className="topbar-actions">
           {user && (
             <>
+              {usage?.plan === "free" && (
+                <span className="quota-pill">
+                  Free Analyses: {usage.analyses_remaining}/
+                  {usage.free_analysis_limit}
+                </span>
+              )}
               <Link href="/history" className="nav-link">
                 History
               </Link>
@@ -404,68 +488,62 @@ export default function HomePage() {
         <div className="hero-copy">
           <h1 className="hero-title">Turn a finished game into your next lesson.</h1>
           <p className="hero-lede">
-            Paste a Lichess or Chess.com game and get a coaching report built around the
-            moves you actually played. Analyze up to five games together for one overall
-            lesson.
+            The smart AI chess game analyzer for Chess.com and Lichess. Get
+            instant, plain-English coaching reports, uncover hidden tactical
+            blunders, and master your opening repertoire in minutes.
           </p>
 
-          {!user ? (
-            <div className="signin-card">
-              <h2>Sign in to analyze a game</h2>
-              <p>
-                Your reports, engine notes, and follow-up questions stay with your
-                account.
-              </p>
-              <AuthButton user={null} onAuthChange={clearSessionState} />
-            </div>
+          {user && quotaExhausted ? (
+            usage?.plan === "paid" ? (
+              <LimitReachedPrompt periodEnd={usage.current_period_end} />
+            ) : (
+              <UpgradePrompt feature="analysis" />
+            )
           ) : (
-            <>
-              {quotaExhausted ? (
-                usage?.plan === "paid" ? (
-                  <LimitReachedPrompt periodEnd={usage.current_period_end} />
-                ) : (
-                  <UpgradePrompt feature="analysis" />
-                )
-              ) : (
-                <AnalyzerForm
-                  disabled={isAnalyzing}
-                  maxGames={batchGameLimit}
-                  onSubmit={startAnalysis}
-                  onSubmitBatch={startBatchAnalysis}
-                />
-              )}
-
-              {usage && (
-                <div className="quota-panel">
-                  {usage.plan === "paid" ? (
-                    <span>
-                      Paid plan: {usage.analyses_used} of {usage.paid_analysis_limit}{" "}
-                      analyses used this billing period
-                      {usage.analyses_remaining > 0
-                        ? `, ${usage.analyses_remaining} remaining`
-                        : ""}
-                      .
-                    </span>
-                  ) : (
-                    <span>
-                      Free plan: {usage.analyses_used} of {usage.free_analysis_limit}{" "}
-                      analyses used
-                      {usage.analyses_remaining > 0
-                        ? `, ${usage.analyses_remaining} remaining`
-                        : ""}
-                      .
-                    </span>
-                  )}
-                </div>
-              )}
-
-              <AnalysisStatus status={status} isAnalyzing={isAnalyzing} />
-
-              {batchGames.length > 0 && <BatchProgress games={batchGames} />}
-
-              {error && <div className="error-banner">{error}</div>}
-            </>
+            <AnalyzerForm
+              disabled={isAnalyzing}
+              maxGames={user ? batchGameLimit : 1}
+              onSubmit={startAnalysis}
+              onSubmitBatch={user ? startBatchAnalysis : undefined}
+            />
           )}
+
+          {!user && (
+            <p className="guest-note">
+              First analysis is free, no account needed. Sign in afterward to save
+              your report and unlock 4 more free game analyses.
+            </p>
+          )}
+
+          {usage && (
+            <div className="quota-panel">
+              {usage.plan === "paid" ? (
+                <span>
+                  Paid plan: {usage.analyses_used} of {usage.paid_analysis_limit}{" "}
+                  analyses used this billing period
+                  {usage.analyses_remaining > 0
+                    ? `, ${usage.analyses_remaining} remaining`
+                    : ""}
+                  .
+                </span>
+              ) : (
+                <span>
+                  Free plan: {usage.analyses_used} of {usage.free_analysis_limit}{" "}
+                  analyses used
+                  {usage.analyses_remaining > 0
+                    ? `, ${usage.analyses_remaining} remaining`
+                    : ""}
+                  .
+                </span>
+              )}
+            </div>
+          )}
+
+          <AnalysisStatus status={status} isAnalyzing={isAnalyzing} />
+
+          {batchGames.length > 0 && <BatchProgress games={batchGames} />}
+
+          {error && <div className="error-banner">{error}</div>}
         </div>
 
         <aside className="hero-visual" aria-hidden="true">
@@ -474,7 +552,9 @@ export default function HomePage() {
         </aside>
       </section>
 
-      {user && markdown && <CoachingReport content={markdown} insights={insights} />}
+      {markdown && <CoachingReport content={markdown} insights={insights} />}
+
+      {markdown && !user && <GuestQnaPrompt moveLabel={guestBlunderLabel} />}
 
       {user && batchId && (
         <div className="batch-report-link">
@@ -506,7 +586,13 @@ export default function HomePage() {
         </section>
       )}
 
+      <CoachingPedigree />
+
       <ReviewSection user={user} token={token} onAuthChange={clearSessionState} />
+
+      {guestLimitHit && (
+        <GuestSignInPrompt onClose={() => setGuestLimitHit(false)} />
+      )}
     </main>
   );
 }

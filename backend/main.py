@@ -80,6 +80,18 @@ def _now_value() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def _client_ip(request: Request) -> str:
+    """Best-effort client IP for guest rate limiting behind a proxy."""
+    forwarded = request.headers.get("x-forwarded-for", "")
+    if forwarded:
+        first = forwarded.split(",")[0].strip()
+        if first:
+            return first
+    if request.client and request.client.host:
+        return request.client.host
+    return ""
+
+
 def _parse_datetime_value(value: object) -> Optional[datetime]:
     if not value:
         return None
@@ -273,20 +285,24 @@ class AnalysisRequest(BaseModel):
 @app.post("/api/stream-analysis")
 async def stream_analysis(
     payload: AnalysisRequest,
-    user: Dict[str, object] = Depends(get_current_user),
+    request: Request,
+    user: Optional[Dict[str, object]] = Depends(get_optional_user),
 ) -> StreamingResponse:
-    usage = await asyncio.to_thread(db.consume_analysis_credit, str(user["id"]))
-    if not usage.get("allowed", False):
-        if usage.get("limit_reached"):
-            raise HTTPException(
-                status_code=402,
-                detail=_limit_reached_detail(
-                    "analysis",
-                    usage.get("current_period_end"),
-                    int(usage.get("paid_analysis_limit", db.PAID_ANALYSIS_LIMIT)),
-                ),
-            )
-        raise HTTPException(status_code=402, detail=_upgrade_detail("analysis"))
+    user_id = str(user["id"]) if user else None
+    usage: Optional[dict] = None
+    if user_id:
+        usage = await asyncio.to_thread(db.consume_analysis_credit, user_id)
+        if not usage.get("allowed", False):
+            if usage.get("limit_reached"):
+                raise HTTPException(
+                    status_code=402,
+                    detail=_limit_reached_detail(
+                        "analysis",
+                        usage.get("current_period_end"),
+                        int(usage.get("paid_analysis_limit", db.PAID_ANALYSIS_LIMIT)),
+                    ),
+                )
+            raise HTTPException(status_code=402, detail=_upgrade_detail("analysis"))
 
     async def event_generator() -> AsyncIterator[str]:
         analysis_id: Optional[str] = None
@@ -300,20 +316,38 @@ async def stream_analysis(
                 payload.player_color,
             )
 
-            analysis_row = await asyncio.to_thread(
-                db.create_analysis,
-                str(user["id"]),
-                {
-                    "platform": game.platform,
-                    "game_url": payload.game_url,
-                    "game_id": game.game_id,
-                    "username": payload.username,
-                    "player_color": game.player_color,
-                    "player_name": game.player_name,
-                    "status": "processing",
-                },
-            )
-            analysis_id = str(analysis_row["id"])
+            if user_id is None:
+                guest_usage = await asyncio.to_thread(
+                    db.consume_guest_analysis, _client_ip(request)
+                )
+                if not guest_usage.get("allowed", False):
+                    yield sse_event(
+                        "error",
+                        {
+                            "code": "guest_limit",
+                            "message": (
+                                "You've used your free guest analysis. Sign in with "
+                                "Google to unlock your 4 remaining free analyses."
+                            ),
+                        },
+                    )
+                    return
+
+            if user_id:
+                analysis_row = await asyncio.to_thread(
+                    db.create_analysis,
+                    user_id,
+                    {
+                        "platform": game.platform,
+                        "game_url": payload.game_url,
+                        "game_id": game.game_id,
+                        "username": payload.username,
+                        "player_color": game.player_color,
+                        "player_name": game.player_name,
+                        "status": "processing",
+                    },
+                )
+                analysis_id = str(analysis_row["id"])
 
             yield sse_event(
                 "status_update",
@@ -352,21 +386,22 @@ async def stream_analysis(
                 "player_color": engine_data.get("player_color"),
                 "player_name": engine_data.get("player_name"),
             }
-            await asyncio.to_thread(
-                db.update_analysis,
-                str(user["id"]),
-                analysis_id,
-                {
-                    "pgn": game.pgn,
-                    "opening_name": analysis.opening_name,
-                    "eco": analysis.eco,
-                    "result": analysis.result,
-                    "report_markdown": report_markdown,
-                    "insights": insights_payload,
-                    "status": "completed",
-                    "completed_at": _now_value(),
-                },
-            )
+            if user_id and analysis_id:
+                await asyncio.to_thread(
+                    db.update_analysis,
+                    user_id,
+                    analysis_id,
+                    {
+                        "pgn": game.pgn,
+                        "opening_name": analysis.opening_name,
+                        "eco": analysis.eco,
+                        "result": analysis.result,
+                        "report_markdown": report_markdown,
+                        "insights": insights_payload,
+                        "status": "completed",
+                        "completed_at": _now_value(),
+                    },
+                )
 
             yield sse_event("insights", insights_payload)
             yield sse_event(
@@ -374,44 +409,47 @@ async def stream_analysis(
                 {
                     "message": "Analysis complete",
                     "analysis_id": analysis_id,
-                    "usage": _usage_payload(usage),
+                    "usage": _usage_payload(usage) if usage else None,
                 },
             )
         except (extractor.ExtractionError, engine.EngineError) as exc:
             logger.error("Analysis failed: %s", exc)
-            if analysis_id:
+            if user_id and analysis_id:
                 await asyncio.to_thread(
                     db.update_analysis,
-                    str(user["id"]),
+                    user_id,
                     analysis_id,
                     {"status": "failed", "error_message": str(exc)},
                 )
-            await _refund_analysis_credits(str(user["id"]), 1)
+            if user_id:
+                await _refund_analysis_credits(user_id, 1)
             yield sse_event("error", {"message": str(exc)})
         except genai_errors.APIError as exc:
             message = str(getattr(exc, "message", exc))
             if "quota" in message.lower() or "resource_exhausted" in message.lower():
                 message = "AI service quota exceeded. Please try again later."
             logger.error("Gemini API error: %s", message)
-            if analysis_id:
+            if user_id and analysis_id:
                 await asyncio.to_thread(
                     db.update_analysis,
-                    str(user["id"]),
+                    user_id,
                     analysis_id,
                     {"status": "failed", "error_message": message},
                 )
-            await _refund_analysis_credits(str(user["id"]), 1)
+            if user_id:
+                await _refund_analysis_credits(user_id, 1)
             yield sse_event("error", {"message": message})
         except Exception as exc:
             logger.exception("Unexpected error during analysis")
-            if analysis_id:
+            if user_id and analysis_id:
                 await asyncio.to_thread(
                     db.update_analysis,
-                    str(user["id"]),
+                    user_id,
                     analysis_id,
                     {"status": "failed", "error_message": str(exc)},
                 )
-            await _refund_analysis_credits(str(user["id"]), 1)
+            if user_id:
+                await _refund_analysis_credits(user_id, 1)
             yield sse_event(
                 "error",
                 {"message": "An unexpected error occurred during analysis."},
@@ -891,6 +929,19 @@ async def submit_review(
 async def account_usage(
     user: Dict[str, object] = Depends(get_current_user),
 ) -> dict:
+    usage = await asyncio.to_thread(db.get_usage, str(user["id"]))
+    return _usage_payload(usage)
+
+
+@app.post("/api/account/claim-guest-trial")
+async def claim_guest_trial(
+    user: Dict[str, object] = Depends(get_current_user),
+) -> dict:
+    """Count the guest trial against the account once, after sign-in.
+
+    Idempotent: repeat calls never deduct more than one credit.
+    """
+    await asyncio.to_thread(db.claim_guest_trial, str(user["id"]))
     usage = await asyncio.to_thread(db.get_usage, str(user["id"]))
     return _usage_payload(usage)
 

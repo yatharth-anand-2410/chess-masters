@@ -13,6 +13,7 @@ export default function SiteFooter() {
             {SITE_NAME}
           </p>
           <nav className="site-footer-links" aria-label="Legal">
+            <Link href="/about">About</Link>
             <Link href="/contact">Contact</Link>
             <Link href="/terms">Terms &amp; Conditions</Link>
             <Link href="/privacy">Privacy Policy</Link>
@@ -22,8 +23,13 @@ export default function SiteFooter() {
         <p className="site-footer-note">
           Questions? Email{" "}
           <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>. ©{" "}
-          {new Date().getFullYear()} {SITE_NAME}. Not affiliated with Lichess or
-          Chess.com.
+          {new Date().getFullYear()} {SITE_NAME}.
+        </p>
+        <p className="site-footer-note site-footer-disclaimer">
+          {SITE_NAME} is an independent analysis tool built by chess enthusiasts.
+          We are not affiliated with, endorsed by, or sponsored by Chess.com,
+          Lichess.org, or the Stockfish project. All trademarks are the property
+          of their respective owners.
         </p>
       </div>
     </footer>

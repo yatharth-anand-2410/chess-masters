@@ -17,6 +17,7 @@ TIMEOUT = 12
 
 FREE_ANALYSIS_LIMIT = 5
 PAID_ANALYSIS_LIMIT = 100
+GUEST_ANALYSIS_LIMIT = 1
 
 KNOWN_NON_PAID_STATUSES = {"pending", "halted", "cancelled", "completed", "expired"}
 
@@ -604,6 +605,60 @@ def consume_analysis_credit(user_id: str) -> Dict[str, Any]:
         raise AuthError(
             "Quota function is not deployed. Run migration 0002_account_usage.sql "
             "in the Supabase SQL Editor."
+        )
+    response.raise_for_status()
+    return response.json()
+
+
+def consume_guest_analysis(
+    ip: str, daily_limit: int = GUEST_ANALYSIS_LIMIT
+) -> Dict[str, Any]:
+    """Atomically consume the guest trial for an anonymous IP address.
+
+    Returns the jsonb payload from ``consume_guest_analysis``, e.g.
+    ``{"allowed": true, "analyses_used": 1, "limit": 1}``. The counter resets
+    after a rolling 24-hour window. Missing IPs are refused so the trial can
+    never fail open.
+    """
+    url, _key = _config()
+    if not configured():
+        raise AuthError("Supabase is not configured on the server.")
+    if not ip:
+        return {"allowed": False, "analyses_used": 0, "limit": daily_limit}
+    response = requests.post(
+        f"{url}/rest/v1/rpc/consume_guest_analysis",
+        json={"p_ip": ip, "p_daily_limit": daily_limit},
+        headers=_service_headers(),
+        timeout=TIMEOUT,
+    )
+    if response.status_code == 404:
+        raise AuthError(
+            "Guest quota function is not deployed. Run migration "
+            "0011_guest_trial.sql in the Supabase SQL Editor."
+        )
+    response.raise_for_status()
+    return response.json()
+
+
+def claim_guest_trial(user_id: str) -> Dict[str, Any]:
+    """Count the guest trial against a new account's free analyses once.
+
+    Idempotent: the SQL function marks ``guest_trial_claimed`` and never
+    deducts more than one credit for the same account.
+    """
+    url, _key = _config()
+    if not configured():
+        raise AuthError("Supabase is not configured on the server.")
+    response = requests.post(
+        f"{url}/rest/v1/rpc/claim_guest_trial",
+        json={"p_user_id": user_id},
+        headers=_service_headers(),
+        timeout=TIMEOUT,
+    )
+    if response.status_code == 404:
+        raise AuthError(
+            "Guest trial function is not deployed. Run migration "
+            "0011_guest_trial.sql in the Supabase SQL Editor."
         )
     response.raise_for_status()
     return response.json()

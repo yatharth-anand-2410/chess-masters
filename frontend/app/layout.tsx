@@ -5,7 +5,7 @@ import "@lichess-org/chessground/assets/chessground.brown.css";
 import "@lichess-org/chessground/assets/chessground.cburnett.css";
 import "./globals.css";
 import SiteFooter from "../components/SiteFooter";
-import { SITE_NAME } from "../lib/site";
+import { SITE_NAME, SITE_URL } from "../lib/site";
 
 const display = Fraunces({
   subsets: ["latin"],
@@ -20,9 +20,10 @@ const body = DM_Sans({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
   title: `${SITE_NAME} · AI Chess Game Analyzer`,
   description:
-    "Paste a Lichess or Chess.com game and get an AI coaching report written around the moves you played.",
+    "The smart AI chess game analyzer for Chess.com and Lichess. Get instant, plain-English coaching reports, uncover hidden tactical blunders, and master your opening repertoire in minutes.",
 };
 
 export default function RootLayout({

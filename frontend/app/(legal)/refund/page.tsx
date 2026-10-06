@@ -11,21 +11,15 @@ export default function RefundPage() {
   return (
     <>
       <h1>Refund &amp; Cancellation Policy</h1>
-      <p className="legal-updated">Last updated: September 30, 2026</p>
+      <p className="legal-updated">Last updated: October 6, 2026</p>
 
-      <h2>Refunds</h2>
+      <h2>Refunds &amp; cancellations</h2>
       <p>
-        <strong>
-          All purchases are final. No refunds will be processed.
-        </strong>
+        Since our AI incurs server costs for every game analyzed, we do not
+        offer refunds once a game pack has been partially or fully used. If you
+        accidentally purchase a pack and have not analyzed any paid games yet,
+        please contact us within 7 days for a full refund.
       </p>
-      <p>
-        {SITE_NAME} is a digital service that gives you immediate access to AI
-        coaching reports, so we do not offer refunds for any period of a
-        subscription.
-      </p>
-
-      <h2>Cancellation</h2>
       <ul>
         <li>
           You can cancel at any time from the{" "}

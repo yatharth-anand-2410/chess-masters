@@ -16,12 +16,27 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from main import (
     _allowed_origins,
+    _client_ip,
     _limit_reached_detail,
     _refund_analysis_credits,
     _upgrade_detail,
     _usage_payload,
 )
 from services import db
+
+
+def _fake_request(headers: dict[str, str]):
+    from starlette.requests import Request
+
+    scope = {
+        "type": "http",
+        "headers": [
+            (key.lower().encode("latin-1"), value.encode("latin-1"))
+            for key, value in headers.items()
+        ],
+        "client": ("127.0.0.1", 12345),
+    }
+    return Request(scope)
 
 
 def test_upgrade_detail_analysis():
@@ -264,6 +279,50 @@ def test_refund_analysis_credits_swallows_db_errors():
         db, "refund_analysis_credits", side_effect=RuntimeError("boom")
     ):
         asyncio.run(_refund_analysis_credits("user-1", 1))
+
+
+def test_client_ip_prefers_forwarded_for():
+    request = _fake_request({"x-forwarded-for": "203.0.113.5, 10.0.0.1"})
+    assert _client_ip(request) == "203.0.113.5"
+
+
+def test_client_ip_falls_back_to_client_host():
+    request = _fake_request({})
+    assert _client_ip(request) == "127.0.0.1"
+
+
+def test_consume_guest_analysis_refuses_missing_ip():
+    with unittest.mock.patch.object(db, "configured", return_value=True), \
+            unittest.mock.patch.object(db.requests, "post") as post:
+        result = db.consume_guest_analysis("")
+    assert result["allowed"] is False
+    post.assert_not_called()
+
+
+def test_consume_guest_analysis_posts_rpc():
+    response = unittest.mock.MagicMock()
+    response.status_code = 200
+    response.json.return_value = {"allowed": True, "analyses_used": 1, "limit": 1}
+    with unittest.mock.patch.object(db, "configured", return_value=True), \
+            unittest.mock.patch.object(db.requests, "post", return_value=response) as post:
+        result = db.consume_guest_analysis("203.0.113.5")
+    assert result["allowed"] is True
+    args, kwargs = post.call_args
+    assert args[0].endswith("/rest/v1/rpc/consume_guest_analysis")
+    assert kwargs["json"] == {"p_ip": "203.0.113.5", "p_daily_limit": 1}
+
+
+def test_claim_guest_trial_posts_rpc():
+    response = unittest.mock.MagicMock()
+    response.status_code = 200
+    response.json.return_value = {"claimed": True, "analyses_used": 1}
+    with unittest.mock.patch.object(db, "configured", return_value=True), \
+            unittest.mock.patch.object(db.requests, "post", return_value=response) as post:
+        result = db.claim_guest_trial("user-1")
+    assert result["claimed"] is True
+    args, kwargs = post.call_args
+    assert args[0].endswith("/rest/v1/rpc/claim_guest_trial")
+    assert kwargs["json"] == {"p_user_id": "user-1"}
 
 
 def main() -> None:

@@ -323,7 +323,7 @@ export default function SubscriptionPage() {
         <div className="subscription-cta">
           {!billing || (!isActive && !isPaused && !isCancelled && !needsPaymentFix) ? (
             <button className="btn" type="button" onClick={startCheckout} disabled={busy || !token}>
-              {busy ? "Opening checkout..." : "Subscribe"}
+              {busy ? "Opening checkout..." : "Subscribe for ₹399/mo"}
             </button>
           ) : null}
 

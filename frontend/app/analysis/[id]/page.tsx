@@ -119,6 +119,11 @@ export default function AnalysisDetailPage() {
           Chessmasters
         </Link>
         <div className="topbar-actions">
+          {usage?.plan === "free" && (
+            <span className="quota-pill">
+              Free Analyses: {usage.analyses_remaining}/{usage.free_analysis_limit}
+            </span>
+          )}
           <Link href="/" className="nav-link">
             New analysis
           </Link>

@@ -21,9 +21,15 @@ export default function UpgradePrompt({ feature = "analysis" }: UpgradePromptPro
     <div className="upgrade-prompt">
       <h3>{copy.title}</h3>
       <p>{copy.description}</p>
-      <p className="upgrade-note">₹399/month. Cancel anytime.</p>
+      <p className="upgrade-note">
+        Unlock 100 Game Analyses + AI Q&amp;A for just ₹399/month.
+      </p>
+      <p className="upgrade-subtext">
+        Level up your chess for less than the price of a movie ticket or two cups
+        of coffee. Cancel anytime.
+      </p>
       <Link className="btn" href="/subscription">
-        Subscribe
+        Subscribe for ₹399/mo
       </Link>
     </div>
   );
