@@ -59,6 +59,7 @@ export default function AnalyzerForm({
   const [platform, setPlatform] = useState<Platform>("lichess");
   const [username, setUsername] = useState("");
   const nextRowId = useRef(2);
+  const inputRefs = useRef(new Map<number, HTMLInputElement>());
   const [rows, setRows] = useState<BatchRow[]>([
     { id: 1, url: "", color: null },
   ]);
@@ -116,6 +117,21 @@ export default function AnalyzerForm({
       }
       return current.filter((row) => row.id !== id);
     });
+  };
+
+  const pasteFromClipboard = async (id: number) => {
+    try {
+      const text = await navigator.clipboard.readText();
+      if (text.trim()) {
+        updateRowUrl(id, text.trim());
+        return;
+      }
+    } catch {
+      // Clipboard permission denied; fall back to manual paste.
+    }
+    const input = inputRefs.current.get(id);
+    input?.focus();
+    input?.select();
   };
 
   const handleSubmit = (event: React.FormEvent) => {
@@ -204,18 +220,39 @@ export default function AnalyzerForm({
               <span className="game-row-index" aria-hidden="true">
                 {index + 1}
               </span>
-              <input
-                type="url"
-                value={row.url}
-                onChange={(event) => updateRowUrl(row.id, event.target.value)}
-                placeholder={
-                  platform === "lichess"
-                    ? "https://lichess.org/abc12345"
-                    : "https://www.chess.com/game/live/123456789"
-                }
-                disabled={disabled}
-                aria-label={`Game ${index + 1} URL`}
-              />
+              <div className="game-row-field">
+                <input
+                  type="url"
+                  ref={(element) => {
+                    if (element) {
+                      inputRefs.current.set(row.id, element);
+                    } else {
+                      inputRefs.current.delete(row.id);
+                    }
+                  }}
+                  value={row.url}
+                  onChange={(event) => updateRowUrl(row.id, event.target.value)}
+                  placeholder={
+                    platform === "lichess"
+                      ? "https://lichess.org/abc12345"
+                      : "https://www.chess.com/game/live/123456789"
+                  }
+                  disabled={disabled}
+                  aria-label={`Game ${index + 1} URL`}
+                  autoComplete="off"
+                  spellCheck={false}
+                  inputMode="url"
+                />
+                <button
+                  type="button"
+                  className="paste-button"
+                  onClick={() => pasteFromClipboard(row.id)}
+                  disabled={disabled}
+                  title="Paste game link from clipboard"
+                >
+                  Paste
+                </button>
+              </div>
               {platform === "lichess" && (
                 <div
                   className="game-row-color"

@@ -21,6 +21,8 @@
   --teal: #2f6b62;
   --radius-card: 10px;
   --radius-control: 6px;
+  --input-bg: #0e1619;
+  --input-line: #3b4d51;
   --font-display: Georgia, "Times New Roman", serif;
   --font-body: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
 }
@@ -209,6 +211,14 @@ body {
   animation: rise 0.9s 0.12s cubic-bezier(0.2, 0.7, 0.2, 1) both;
 }
 
+.hero-visual-inner {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
 .hero-board {
   width: 100%;
   max-width: 430px;
@@ -326,8 +336,8 @@ body {
 
 .field input {
   padding: 0.72rem 0.9rem;
-  background: var(--ink-3);
-  border: 1px solid var(--line);
+  background: var(--input-bg);
+  border: 1px solid var(--input-line);
   border-radius: var(--radius-control);
   color: var(--text);
   font-family: inherit;
@@ -335,8 +345,13 @@ body {
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
+.field input:hover:not(:disabled) {
+  border-color: #4d6267;
+}
+
 .field input::placeholder {
-  color: #5d6b6d;
+  color: var(--text-muted);
+  opacity: 1;
 }
 
 .field input:focus {
@@ -391,6 +406,10 @@ body {
   font-weight: 700;
 }
 
+.status-slot {
+  min-height: 3.6rem;
+}
+
 .spinner {
   width: 0.9rem;
   height: 0.9rem;
@@ -423,7 +442,6 @@ body {
 }
 
 .report {
-  max-width: 860px;
   margin: 2.5rem auto 0;
   padding: 2.5rem clamp(1.25rem, 4vw, 3rem);
   background: var(--paper);
@@ -526,6 +544,53 @@ body {
   margin-top: 1.5rem;
 }
 
+.report-pending {
+  min-height: 460px;
+}
+
+.report-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  padding-top: 0.4rem;
+}
+
+.report-skeleton-line {
+  height: 1rem;
+  border-radius: 999px;
+  background: var(--paper-2);
+  animation: pulse 1.8s ease-in-out infinite;
+}
+
+.report-skeleton-line:nth-child(1) {
+  width: 42%;
+  height: 1.5rem;
+}
+
+.report-skeleton-line:nth-child(2) {
+  width: 94%;
+}
+
+.report-skeleton-line:nth-child(3) {
+  width: 88%;
+}
+
+.report-skeleton-line:nth-child(4) {
+  width: 96%;
+}
+
+.report-skeleton-line:nth-child(5) {
+  width: 58%;
+}
+
+.report-skeleton-line:nth-child(6) {
+  width: 90%;
+}
+
+.report-skeleton-line:nth-child(7) {
+  width: 76%;
+}
+
 .eval-chart {
   margin: 1rem 0;
   padding: 0.75rem;
@@ -605,6 +670,22 @@ body {
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
   gap: 1rem;
   margin: 0.85rem 0;
+}
+
+.section-boards-skeleton {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 1rem;
+  margin: 0.85rem 0;
+}
+
+.insight-skeleton-card {
+  min-height: 320px;
+  background: var(--paper-2);
+  border: 1px solid var(--paper-line);
+  border-left: 3px solid var(--paper-line);
+  border-radius: 8px;
+  animation: pulse 1.8s ease-in-out infinite;
 }
 
 .section-boards .insight-card {
@@ -2256,12 +2337,19 @@ body:has(.analysis-dashboard) .site-footer {
   text-align: center;
 }
 
+.game-row-field {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-width: 0;
+}
+
 .game-row input {
   flex: 1;
   min-width: 0;
-  padding: 0.6rem 0.8rem;
-  background: var(--ink-3);
-  border: 1px solid var(--line);
+  padding: 0.6rem 4.4rem 0.6rem 0.8rem;
+  background: var(--input-bg);
+  border: 1px solid var(--input-line);
   border-radius: var(--radius-control);
   color: var(--text);
   font-family: inherit;
@@ -2269,8 +2357,41 @@ body:has(.analysis-dashboard) .site-footer {
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
+.game-row input:hover:not(:disabled) {
+  border-color: #4d6267;
+}
+
 .game-row input::placeholder {
-  color: #5d6b6d;
+  color: var(--text-muted);
+  opacity: 1;
+}
+
+.paste-button {
+  position: absolute;
+  top: 50%;
+  right: 0.35rem;
+  transform: translateY(-50%);
+  padding: 0.25rem 0.6rem;
+  background: var(--ink-2);
+  border: 1px solid var(--input-line);
+  border-radius: 4px;
+  color: var(--text-muted);
+  font-family: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.paste-button:hover:not(:disabled),
+.paste-button:focus-visible {
+  color: var(--gold-bright);
+  border-color: rgba(226, 182, 95, 0.6);
+}
+
+.paste-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 .game-row input:focus {
@@ -2648,7 +2769,7 @@ body:has(.analysis-dashboard) .site-footer {
 }
 
 .pedigree-card {
-  max-width: 42rem;
+  max-width: none;
   margin: 3.5rem auto 0;
   padding: 1.75rem 1.5rem;
   background: var(--ink-2);
@@ -2680,6 +2801,7 @@ body:has(.analysis-dashboard) .site-footer {
 }
 
 .pedigree-body {
+  max-width: 72ch;
   margin: 0 0 1.25rem;
   color: var(--text-muted);
 }

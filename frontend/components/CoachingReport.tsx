@@ -1,3 +1,4 @@
+import { memo } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
@@ -10,6 +11,7 @@ import type { InsightsData } from "./insights";
 type CoachingReportProps = {
   content: string;
   insights?: InsightsData | null;
+  pending?: boolean;
 };
 
 const EVALCHART_PATTERN =
@@ -40,6 +42,18 @@ function normalizeCharts(content: string): string {
       `<AccuracyChart data="${cleanChartValue(rawValue)}"></AccuracyChart>`
   );
   return out;
+}
+
+function hideIncompleteChartTag(content: string): string {
+  const lastOpen = content.lastIndexOf("<");
+  if (lastOpen === -1) {
+    return content;
+  }
+  const tail = content.slice(lastOpen);
+  if (/^<(EvalChart|AccuracyChart)\b/i.test(tail) && !tail.includes(">")) {
+    return content.slice(0, lastOpen);
+  }
+  return content;
 }
 
 type Section = { heading: string; body: string };
@@ -85,27 +99,79 @@ function renderMarkdown(markdown: string) {
   );
 }
 
-export default function CoachingReport({ content, insights }: CoachingReportProps) {
-  const normalized = normalizeCharts(content);
+const MemoizedMarkdown = memo(function MemoizedMarkdown({
+  markdown,
+}: {
+  markdown: string;
+}) {
+  return renderMarkdown(markdown);
+});
+
+function SectionBoardsSkeleton() {
+  return (
+    <div className="section-boards-skeleton" aria-hidden="true">
+      <div className="insight-skeleton-card" />
+      <div className="insight-skeleton-card" />
+    </div>
+  );
+}
+
+export default function CoachingReport({
+  content,
+  insights,
+  pending = false,
+}: CoachingReportProps) {
+  if (!content.trim()) {
+    if (!pending) {
+      return null;
+    }
+    return (
+      <section
+        className="report report-pending"
+        aria-label="Generating coaching report"
+      >
+        <div className="report-skeleton" aria-hidden="true">
+          {Array.from({ length: 7 }).map((_, index) => (
+            <span key={index} className="report-skeleton-line" />
+          ))}
+        </div>
+      </section>
+    );
+  }
+
+  const normalized = normalizeCharts(hideIncompleteChartTag(content));
   const sections = splitSections(normalized);
+  const sectionClassName = pending ? "report report-pending" : "report";
 
   if (sections.length === 0) {
-    return <section className="report">{renderMarkdown(normalized)}</section>;
+    return (
+      <section className={sectionClassName}>
+        <MemoizedMarkdown markdown={normalized} />
+      </section>
+    );
   }
 
   return (
-    <section className="report">
-      {sections.map((section) => {
+    <section className={sectionClassName}>
+      {sections.map((section, index) => {
         const heading = section.heading.toLowerCase();
         return (
-          <div key={section.heading} className="report-section">
-            {renderMarkdown(`## ${section.heading}\n\n${section.body}`)}
-            {heading.includes("strength") && (
-              <SectionInsightBoards moments={insights?.strength_moments} />
-            )}
-            {heading.includes("weakness") && (
-              <SectionInsightBoards moments={insights?.weakness_moments} />
-            )}
+          <div key={`${index}-${section.heading}`} className="report-section">
+            <MemoizedMarkdown
+              markdown={`## ${section.heading}\n\n${section.body}`}
+            />
+            {heading.includes("strength") &&
+              (insights ? (
+                <SectionInsightBoards moments={insights.strength_moments} />
+              ) : pending ? (
+                <SectionBoardsSkeleton />
+              ) : null)}
+            {heading.includes("weakness") &&
+              (insights ? (
+                <SectionInsightBoards moments={insights.weakness_moments} />
+              ) : pending ? (
+                <SectionBoardsSkeleton />
+              ) : null)}
             {heading.includes("psychology") && (
               <PsychologyPanel profile={insights?.psychology} />
             )}

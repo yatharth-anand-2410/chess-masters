@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 import AnalyzerForm, {
   MAX_BATCH_GAMES,
@@ -53,6 +53,94 @@ export default function HomePage() {
   const [batchId, setBatchId] = useState<string | null>(null);
   const [guestUsed, setGuestUsed] = useState(false);
   const [guestLimitHit, setGuestLimitHit] = useState(false);
+  const pendingChunks = useRef("");
+  const flushHandle = useRef<number | null>(null);
+
+  const flushStreamContent = useCallback(() => {
+    if (flushHandle.current !== null) {
+      window.cancelAnimationFrame(flushHandle.current);
+      flushHandle.current = null;
+    }
+    const chunk = pendingChunks.current;
+    pendingChunks.current = "";
+    if (chunk) {
+      setMarkdown((prev) => prev + chunk);
+    }
+  }, []);
+
+  const scheduleStreamFlush = useCallback(() => {
+    if (flushHandle.current !== null) {
+      return;
+    }
+    flushHandle.current = window.requestAnimationFrame(() => {
+      flushHandle.current = null;
+      flushStreamContent();
+    });
+  }, [flushStreamContent]);
+
+  useEffect(() => {
+    return () => {
+      if (flushHandle.current !== null) {
+        window.cancelAnimationFrame(flushHandle.current);
+      }
+    };
+  }, []);
+
+  const visualInnerRef = useRef<HTMLDivElement | null>(null);
+
+  useLayoutEffect(() => {
+    const container = visualInnerRef.current;
+    if (!container) {
+      return;
+    }
+
+    let frame = 0;
+
+    const align = () => {
+      frame = 0;
+      const board = container.querySelector<HTMLElement>(".hero-board");
+      const form = document.querySelector<HTMLElement>(".analyzer-form");
+      const stacked = window.matchMedia("(max-width: 960px)").matches;
+      if (!board || !form || stacked) {
+        container.style.transform = "";
+        return;
+      }
+      container.style.transform = "translateY(0px)";
+      const boardRect = board.getBoundingClientRect();
+      const formRect = form.getBoundingClientRect();
+      const delta =
+        formRect.top +
+        formRect.height / 2 -
+        (boardRect.top + boardRect.height / 2);
+      container.style.transform = `translateY(${delta.toFixed(1)}px)`;
+    };
+
+    const schedule = () => {
+      if (frame !== 0) {
+        return;
+      }
+      frame = window.requestAnimationFrame(align);
+    };
+
+    schedule();
+    window.addEventListener("resize", schedule);
+    const hero = document.querySelector(".hero");
+    const observer = new ResizeObserver(schedule);
+    if (hero) {
+      observer.observe(hero);
+    }
+    const visualColumn = container.parentElement;
+    visualColumn?.addEventListener("animationend", schedule);
+
+    return () => {
+      window.removeEventListener("resize", schedule);
+      observer.disconnect();
+      visualColumn?.removeEventListener("animationend", schedule);
+      if (frame !== 0) {
+        window.cancelAnimationFrame(frame);
+      }
+    };
+  }, []);
 
   const refreshUsage = useCallback(async (sessionToken: string) => {
     try {
@@ -151,6 +239,11 @@ export default function HomePage() {
   }, [claimGuestTrial, refreshHistory, refreshUsage]);
 
   const resetAnalysisState = useCallback(() => {
+    if (flushHandle.current !== null) {
+      window.cancelAnimationFrame(flushHandle.current);
+      flushHandle.current = null;
+    }
+    pendingChunks.current = "";
     setError("");
     setMarkdown("");
     setInsights(null);
@@ -195,10 +288,12 @@ export default function HomePage() {
             if (eventName === "status_update" && payload.message) {
               setStatus(payload.message);
             } else if (eventName === "content_chunk" && payload.text) {
-              setMarkdown((prev) => prev + (payload.text ?? ""));
+              pendingChunks.current += payload.text;
+              scheduleStreamFlush();
             } else if (eventName === "insights") {
               setInsights(payload as unknown as InsightsData);
             } else if (eventName === "done") {
+              flushStreamContent();
               setStatus("Analysis complete");
               setIsAnalyzing(false);
               if (payload.usage) {
@@ -216,6 +311,7 @@ export default function HomePage() {
                 setGuestUsed(true);
               }
             } else if (eventName === "error") {
+              flushStreamContent();
               if (payload.code === "guest_limit") {
                 setGuestLimitHit(true);
                 setStatus("");
@@ -261,7 +357,7 @@ export default function HomePage() {
         }
       );
     },
-    [guestUsed, refreshHistory, refreshUsage, resetAnalysisState]
+    [flushStreamContent, guestUsed, refreshHistory, refreshUsage, resetAnalysisState, scheduleStreamFlush]
   );
 
   const startBatchAnalysis = useCallback(
@@ -378,10 +474,12 @@ export default function HomePage() {
                 payload.message ?? "AI generating your overall report..."
               );
             } else if (eventName === "content_chunk" && payload.text) {
-              setMarkdown((prev) => prev + (payload.text ?? ""));
+              pendingChunks.current += payload.text;
+              scheduleStreamFlush();
             } else if (eventName === "insights") {
               setInsights(payload as unknown as InsightsData);
             } else if (eventName === "done") {
+              flushStreamContent();
               setStatus("Analysis complete");
               setIsAnalyzing(false);
               if (payload.batch_id) {
@@ -393,6 +491,7 @@ export default function HomePage() {
               refreshUsage(token);
               refreshHistory(token);
             } else if (eventName === "error") {
+              flushStreamContent();
               setError(payload.message ?? "Analysis failed.");
               setStatus("");
               setIsAnalyzing(false);
@@ -420,7 +519,7 @@ export default function HomePage() {
         }
       );
     },
-    [refreshHistory, refreshUsage, resetAnalysisState]
+    [flushStreamContent, refreshHistory, refreshUsage, resetAnalysisState, scheduleStreamFlush]
   );
 
   const openAnalysis = useCallback((id: string) => {
@@ -539,7 +638,9 @@ export default function HomePage() {
             </div>
           )}
 
-          <AnalysisStatus status={status} isAnalyzing={isAnalyzing} />
+          <div className="status-slot">
+            <AnalysisStatus status={status} isAnalyzing={isAnalyzing} />
+          </div>
 
           {batchGames.length > 0 && <BatchProgress games={batchGames} />}
 
@@ -547,12 +648,20 @@ export default function HomePage() {
         </div>
 
         <aside className="hero-visual" aria-hidden="true">
-          <HeroBoard />
-          <p className="hero-caption">Every game has a square worth fighting for.</p>
+          <div className="hero-visual-inner" ref={visualInnerRef}>
+            <HeroBoard />
+            <p className="hero-caption">Every game has a square worth fighting for.</p>
+          </div>
         </aside>
       </section>
 
-      {markdown && <CoachingReport content={markdown} insights={insights} />}
+      {(isAnalyzing || markdown) && (
+        <CoachingReport
+          content={markdown}
+          insights={insights}
+          pending={isAnalyzing}
+        />
+      )}
 
       {markdown && !user && <GuestQnaPrompt moveLabel={guestBlunderLabel} />}
 
