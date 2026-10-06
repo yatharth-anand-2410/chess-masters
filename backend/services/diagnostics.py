@@ -1,11 +1,34 @@
 from __future__ import annotations
 
+import os
 from typing import Dict, List, Optional
 
 import chess
 import chess.engine
 
-DIAGNOSTIC_DEPTH = 16
+
+def _env_int(name: str, default: int) -> int:
+    raw = os.environ.get(name, "").strip()
+    if not raw:
+        return default
+    try:
+        return int(raw)
+    except ValueError:
+        return default
+
+
+def _env_float(name: str, default: float) -> float:
+    raw = os.environ.get(name, "").strip()
+    if not raw:
+        return default
+    try:
+        return float(raw)
+    except ValueError:
+        return default
+
+
+DIAGNOSTIC_DEPTH = _env_int("STOCKFISH_DIAGNOSTIC_DEPTH", 16)
+DIAGNOSTIC_TIME = _env_float("STOCKFISH_DIAGNOSTIC_TIME", 0.3)
 
 
 def detect_intermezzo(
@@ -46,7 +69,7 @@ def detect_intermezzo(
 
     info = engine.analyse(
         analysis_board,
-        chess.engine.Limit(depth=DIAGNOSTIC_DEPTH),
+        chess.engine.Limit(depth=DIAGNOSTIC_DEPTH, time=DIAGNOSTIC_TIME or None),
     )
     pv = list(info.get("pv", []))
     if not pv:

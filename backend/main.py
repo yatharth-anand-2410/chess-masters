@@ -251,7 +251,10 @@ async def get_optional_user(request: Request) -> Optional[Dict[str, object]]:
     return {"id": user["id"], "email": user.get("email"), "user_metadata": user.get("user_metadata")}
 
 
-def analyze_game(game: extractor.GameData) -> engine.AnalysisResult:
+def analyze_game(
+    game: extractor.GameData,
+    pool: engine.EnginePool,
+) -> engine.AnalysisResult:
     analyzer_engine = engine.StockfishAnalyzer()
     move_times = {
         (entry.color, entry.move_number): (entry.seconds_spent, entry.clock_remaining)
@@ -264,6 +267,8 @@ def analyze_game(game: extractor.GameData) -> engine.AnalysisResult:
         started_at=game.started_at,
         time_control=game.time_control,
         move_times=move_times or None,
+        server_evals=game.server_evals,
+        pool=pool,
     )
 
 
@@ -313,6 +318,8 @@ async def stream_analysis(
 
     async def event_generator() -> AsyncIterator[str]:
         analysis_id: Optional[str] = None
+        pool: Optional[engine.EnginePool] = None
+        create_task: Optional[asyncio.Task] = None
         try:
             yield sse_event("status_update", {"message": "Extracting game PGN..."})
             game = await asyncio.to_thread(
@@ -341,32 +348,41 @@ async def stream_analysis(
                     return
 
             if user_id:
-                analysis_row = await asyncio.to_thread(
-                    db.create_analysis,
-                    user_id,
-                    {
-                        "platform": game.platform,
-                        "game_url": payload.game_url,
-                        "game_id": game.game_id,
-                        "username": payload.username,
-                        "player_color": game.player_color,
-                        "player_name": game.player_name,
-                        "status": "processing",
-                    },
+                create_task = asyncio.create_task(
+                    asyncio.to_thread(
+                        db.create_analysis,
+                        user_id,
+                        {
+                            "platform": game.platform,
+                            "game_url": payload.game_url,
+                            "game_id": game.game_id,
+                            "username": payload.username,
+                            "player_color": game.player_color,
+                            "player_name": game.player_name,
+                            "status": "processing",
+                        },
+                    )
                 )
-                analysis_id = str(analysis_row["id"])
 
             yield sse_event(
                 "status_update",
                 {"message": "Running Stockfish engine evaluation..."},
             )
-            analysis = await asyncio.to_thread(analyze_game, game)
-            engine_data = await asyncio.to_thread(recommendations.build_insights, analysis)
+            pool = await asyncio.to_thread(engine.EnginePool.create)
+            analysis = await asyncio.to_thread(analyze_game, game, pool)
+
+            if create_task is not None:
+                analysis_row = await create_task
+                analysis_id = str(analysis_row["id"])
 
             yield sse_event(
                 "status_update",
                 {"message": "Detecting motifs and building recommendations..."},
             )
+            engine_data = await asyncio.to_thread(
+                recommendations.build_insights, analysis, pool
+            )
+
             description_task = asyncio.create_task(
                 analyzer.describe_moments(get_client(), engine_data)
             )
@@ -461,6 +477,14 @@ async def stream_analysis(
                 "error",
                 {"message": "An unexpected error occurred during analysis."},
             )
+        finally:
+            if create_task is not None:
+                if not create_task.done():
+                    create_task.cancel()
+                elif not create_task.cancelled():
+                    create_task.exception()
+            if pool is not None:
+                await asyncio.to_thread(pool.close)
 
     return StreamingResponse(
         event_generator(),
@@ -514,6 +538,8 @@ async def stream_batch_analysis(
         batch_id: Optional[str] = None
         completed: list[dict[str, object]] = []
         credits_refunded = 0
+        pool: Optional[engine.EnginePool] = None
+        extract_tasks: list[asyncio.Task] = []
         try:
             batch_row = await asyncio.to_thread(
                 db.create_batch,
@@ -526,6 +552,20 @@ async def stream_batch_analysis(
                 },
             )
             batch_id = str(batch_row["id"])
+            client = get_client()
+            pool = await asyncio.to_thread(engine.EnginePool.create)
+            extract_tasks = [
+                asyncio.create_task(
+                    asyncio.to_thread(
+                        extractor.fetch_game,
+                        payload.platform,
+                        game_input.game_url,
+                        payload.username,
+                        game_input.player_color,
+                    )
+                )
+                for game_input in games
+            ]
             yield sse_event(
                 "batch_started",
                 {
@@ -546,13 +586,7 @@ async def stream_batch_analysis(
                             "message": f"Extracting PGN for {label}...",
                         },
                     )
-                    game = await asyncio.to_thread(
-                        extractor.fetch_game,
-                        payload.platform,
-                        game_input.game_url,
-                        payload.username,
-                        game_input.player_color,
-                    )
+                    game = await extract_tasks[index]
 
                     analysis_row = await asyncio.to_thread(
                         db.create_analysis,
@@ -578,7 +612,7 @@ async def stream_batch_analysis(
                             "message": f"Running Stockfish on {label}...",
                         },
                     )
-                    analysis = await asyncio.to_thread(analyze_game, game)
+                    analysis = await asyncio.to_thread(analyze_game, game, pool)
 
                     yield sse_event(
                         "game_status",
@@ -589,7 +623,7 @@ async def stream_batch_analysis(
                         },
                     )
                     engine_data = await asyncio.to_thread(
-                        recommendations.build_insights, analysis
+                        recommendations.build_insights, analysis, pool
                     )
 
                     await asyncio.to_thread(
@@ -607,6 +641,9 @@ async def stream_batch_analysis(
                         },
                     )
 
+                    description_task = asyncio.create_task(
+                        analyzer.describe_moments(client, engine_data)
+                    )
                     completed.append(
                         {
                             "analysis_id": analysis_id,
@@ -615,6 +652,7 @@ async def stream_batch_analysis(
                             "game_url": game_input.game_url,
                             "platform": game.platform,
                             "engine_data": engine_data,
+                            "description_task": description_task,
                         }
                     )
                     yield sse_event(
@@ -680,12 +718,8 @@ async def stream_batch_analysis(
                 "batch_status",
                 {"message": "Reviewing the key positions in each game..."},
             )
-            client = get_client()
             description_results = await asyncio.gather(
-                *(
-                    analyzer.describe_moments(client, entry["engine_data"])
-                    for entry in completed
-                )
+                *(entry["description_task"] for entry in completed)
             )
             for entry, descriptions in zip(completed, description_results):
                 analyzer.merge_moment_descriptions(entry["engine_data"], descriptions)
@@ -772,6 +806,16 @@ async def stream_batch_analysis(
                 "error",
                 {"message": "An unexpected error occurred during analysis."},
             )
+        finally:
+            for task in extract_tasks:
+                if not task.done():
+                    task.cancel()
+            for entry in completed:
+                description_task = entry.get("description_task")
+                if isinstance(description_task, asyncio.Task) and not description_task.done():
+                    description_task.cancel()
+            if pool is not None:
+                await asyncio.to_thread(pool.close)
 
     return StreamingResponse(
         event_generator(),

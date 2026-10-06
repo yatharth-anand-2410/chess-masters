@@ -4,8 +4,10 @@ import chess
 import requests
 from typing import Dict, Optional
 
+from services import http
+
 TABLEBASE_API = "https://tablebase.lichess.ovh/standard"
-USER_AGENT = "AI-Chess-Game-Analyzer/1.0 (chess game coaching tool)"
+USER_AGENT = http.DEFAULT_USER_AGENT
 TIMEOUT_SECONDS = 12
 MAX_PIECES = 7
 _cache: Dict[str, Optional[Dict[str, object]]] = {}
@@ -26,7 +28,7 @@ def tablebase_insight(fen: str) -> Optional[Dict[str, object]]:
         return cached
 
     try:
-        response = requests.get(
+        response = http.get(
             TABLEBASE_API,
             params={"fen": fen},
             headers={"User-Agent": USER_AGENT},

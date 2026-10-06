@@ -139,6 +139,33 @@ def test_fetch_game_explicit_color_wins():
         pass
 
 
+def test_chesscom_immutable_month_cache():
+    original_fetch = extractor._fetch_chesscom_month
+    original_cache = extractor._MONTH_CACHE
+    calls = []
+    try:
+        extractor._MONTH_CACHE = {}
+
+        def fake_fetch(month_url):
+            calls.append(month_url)
+            return ([{"url": f"{month_url}/game/1"}], None)
+
+        extractor._fetch_chesscom_month = fake_fetch
+        url = "https://api.chess.com/pub/player/x/games/2026/09"
+        first, first_error = extractor._get_chesscom_month(url, immutable=True)
+        second, second_error = extractor._get_chesscom_month(url, immutable=True)
+        assert first == second and first_error is None and second_error is None
+        assert len(calls) == 1
+
+        current = "https://api.chess.com/pub/player/x/games/2026/10"
+        extractor._get_chesscom_month(current, immutable=False)
+        extractor._get_chesscom_month(current, immutable=False)
+        assert len(calls) == 3
+    finally:
+        extractor._fetch_chesscom_month = original_fetch
+        extractor._MONTH_CACHE = original_cache
+
+
 def main() -> None:
     tests = [
         name

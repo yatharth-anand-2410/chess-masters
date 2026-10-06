@@ -1,12 +1,21 @@
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
 from typing import Dict, List, Optional
 from urllib.parse import quote_plus
 
 import chess
 import chess.engine
 
-from services import diagnostics, motifs, openings, psychology, resources, tablebase
+from services import (
+    diagnostics,
+    engine as engine_module,
+    motifs,
+    openings,
+    psychology,
+    resources,
+    tablebase,
+)
 
 MAX_WEAKNESS_MOMENTS = 4
 MIN_CENTIPAWN_LOSS = 60
@@ -139,7 +148,7 @@ def _build_strength_moment(move, player_color: str, capitalizes: bool) -> Dict[s
     }
 
 
-def _build_moment(move, board_before, player_color, engine, analysis) -> Dict[str, object]:
+def _build_moment(move, board_before, player_color, pool, analysis) -> Dict[str, object]:
     moment: Dict[str, object] = {
         "move_number": move.move_number,
         "san": move.san,
@@ -169,7 +178,7 @@ def _build_moment(move, board_before, player_color, engine, analysis) -> Dict[st
 
     primary = motifs.primary_motif(board_before, player_color)
     played = chess.Move.from_uci(move.played_move)
-    blindspot = diagnostics.detect_intermezzo(engine, board_before, played)
+    blindspot = diagnostics.detect_intermezzo(pool, board_before, played)
 
     theme = None
     if blindspot:
@@ -308,29 +317,99 @@ def _build_resources(analysis, weakness_moments: List[Dict[str, object]]) -> Lis
     return resources_out
 
 
-def build_insights(analysis) -> Dict[str, object]:
+def _fill_move_engine_details(pool: engine_module.EnginePool, move) -> None:
+    """Populate best move and principal variation for a moment on demand.
+
+    Needed when the analysis reused platform evaluations, which carry scores
+    but no engine lines.
+    """
+    if move.best_move is not None or not move.fen_before:
+        return
+    board = chess.Board(move.fen_before)
+    if board.is_game_over():
+        return
+    scored = pool.score(board)
+    if scored.best is not None:
+        move.best_move = scored.best.uci()
+        move.best_move_san = engine_module.move_san(board, scored.best)
+    move.pv = [candidate.uci() for candidate in scored.pv]
+    move.pv_san = engine_module.moves_san(board, scored.pv)
+
+
+def _fill_moment_engine_details(
+    pool: engine_module.EnginePool,
+    moves: List,
+) -> None:
+    if not moves:
+        return
+    if pool.size <= 1 or len(moves) == 1:
+        for move in moves:
+            _fill_move_engine_details(pool, move)
+        return
+    workers = min(4, len(moves))
+    with ThreadPoolExecutor(max_workers=workers) as executor:
+        list(executor.map(lambda move: _fill_move_engine_details(pool, move), moves))
+
+
+def _build_weakness_moments(
+    moves: List,
+    player_color: str,
+    pool: engine_module.EnginePool,
+    analysis,
+) -> List[Dict[str, object]]:
+    if not moves:
+        return []
+    if len(moves) == 1:
+        return [
+            _build_moment(
+                moves[0], chess.Board(moves[0].fen_before), player_color, pool, analysis
+            )
+        ]
+    workers = min(4, len(moves))
+    with ThreadPoolExecutor(max_workers=workers) as executor:
+        futures = [
+            executor.submit(
+                _build_moment,
+                move,
+                chess.Board(move.fen_before),
+                player_color,
+                pool,
+                analysis,
+            )
+            for move in moves
+        ]
+        return [future.result() for future in futures]
+
+
+def build_insights(
+    analysis,
+    pool: Optional[engine_module.EnginePool] = None,
+) -> Dict[str, object]:
     """Enrich the analysis with strength/weakness moments and backend-owned resources."""
     engine_data = analysis.as_engine_data()
     player_color = _resolve_player_color(analysis)
-    weakness_moments: List[Dict[str, object]] = []
+    weakness_moves = _weakness_moves(analysis)
+    strength_candidates = _strength_moves(analysis)
 
-    engine = None
+    own_pool = pool is None
+    active_pool = pool or engine_module.EnginePool.create()
     try:
-        from services import engine as engine_module
-
-        engine = chess.engine.SimpleEngine.popen_uci(engine_module.StockfishAnalyzer().engine_path)
-        for move in _weakness_moves(analysis):
-            board_before = chess.Board(move.fen_before)
-            weakness_moments.append(_build_moment(move, board_before, player_color, engine, analysis))
+        selected_moves = list(weakness_moves) + [
+            move for move, _ in strength_candidates
+        ]
+        _fill_moment_engine_details(active_pool, selected_moves)
+        weakness_moments = _build_weakness_moments(
+            weakness_moves, player_color, active_pool, analysis
+        )
     finally:
-        if engine is not None:
-            engine.quit()
+        if own_pool:
+            active_pool.close()
 
     engine_data["player_color"] = player_color
     engine_data["player_name"] = analysis.player_name
     engine_data["strength_moments"] = [
         _build_strength_moment(move, player_color, capitalizes)
-        for move, capitalizes in _strength_moves(analysis)
+        for move, capitalizes in strength_candidates
     ]
     engine_data["weakness_moments"] = weakness_moments
     engine_data["resources"] = _build_resources(analysis, weakness_moments)

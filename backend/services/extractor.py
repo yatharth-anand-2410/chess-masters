@@ -2,12 +2,17 @@ from __future__ import annotations
 
 import io
 import re
+import threading
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
+from functools import lru_cache
 from typing import Dict, List, Optional, Tuple
 from urllib.parse import urlsplit
 
 import chess.pgn
 import requests
+
+from services import http
 
 LICHESS_HOST = "lichess.org"
 LICHESS_RESERVED_SEGMENTS = frozenset(
@@ -39,9 +44,18 @@ CHESS_COM_GAME_ID_PATTERN = re.compile(r"/(?:live|daily|computer)/(\d{5,})")
 CHESS_COM_TRAILING_ID_PATTERN = re.compile(r"/(\d{5,})/?$")
 CHESS_COM_ANY_ID_PATTERN = re.compile(r"(\d{5,})")
 
-DEFAULT_USER_AGENT = "AI-Chess-Game-Analyzer/1.0 (chess game coaching tool)"
+DEFAULT_USER_AGENT = http.DEFAULT_USER_AGENT
 ARCHIVE_MONTHS_TO_SCAN = 4
+ARCHIVE_FETCH_WORKERS = 4
 REQUEST_TIMEOUT_SECONDS = 30
+
+# Completed months never change, so their game lists are safe to cache. The
+# newest archive is always fetched fresh so a game finished seconds ago is
+# still found.
+_MAX_CACHED_MONTHS = 16
+_MONTH_CACHE: Dict[str, List[dict]] = {}
+_MONTH_CACHE_LOCKS: Dict[str, threading.Lock] = {}
+_MONTH_CACHE_GUARD = threading.Lock()
 
 LICHESS_EXPORT_URL = "https://lichess.org/game/export/{game_id}"
 CHESS_COM_ARCHIVES_URL = "https://api.chess.com/pub/player/{username}/games/archives"
@@ -78,6 +92,19 @@ class MoveClock:
 
 
 @dataclass(frozen=True)
+class ServerEval:
+    """A platform-provided evaluation for the position after one ply.
+
+    ``cp`` and ``mate`` are from White's perspective, matching PGN ``%eval``
+    annotations. Exactly one of the two is set.
+    """
+
+    ply: int
+    cp: Optional[int]
+    mate: Optional[int]
+
+
+@dataclass(frozen=True)
 class GameData:
     platform: str
     game_id: str
@@ -87,11 +114,12 @@ class GameData:
     started_at: Optional[str] = None
     time_control: Optional[str] = None
     player_move_times: Tuple[MoveClock, ...] = ()
+    server_evals: Tuple[ServerEval, ...] = ()
 
 
 def _get(url: str, params: Optional[dict[str, str]] = None) -> requests.Response:
     try:
-        response = requests.get(
+        response = http.get(
             url,
             params=params,
             headers={"User-Agent": DEFAULT_USER_AGENT},
@@ -152,7 +180,7 @@ def extract_lichess_game_meta(url: str) -> tuple[str, Optional[str], bool]:
 
 def resolve_lichess_color(url: str) -> Optional[str]:
     try:
-        response = requests.head(
+        response = http.head(
             url,
             headers={"User-Agent": DEFAULT_USER_AGENT},
             timeout=REQUEST_TIMEOUT_SECONDS,
@@ -282,6 +310,37 @@ def parse_player_move_times(pgn: str, player_color: Optional[str]) -> Tuple[Move
     return tuple(times)
 
 
+def parse_server_evals(pgn: str) -> Tuple[ServerEval, ...]:
+    """Read ``%eval`` annotations from the raw PGN.
+
+    Lichess includes these when a game has server-side analysis, which lets the
+    analyzer reuse them instead of re-running Stockfish. Values are normalized
+    to White's perspective; mate evaluations keep their signed distance.
+    """
+    game = _read_pgn(pgn)
+    if game is None:
+        return ()
+
+    evals: List[ServerEval] = []
+    for node in game.mainline():
+        try:
+            pov = node.eval()
+        except (ValueError, KeyError):
+            pov = None
+        if pov is None:
+            continue
+        white = pov.white()
+        if white.is_mate():
+            mate = white.mate()
+            if mate is not None:
+                evals.append(ServerEval(ply=node.ply(), cp=None, mate=int(mate)))
+            continue
+        cp = white.score()
+        if cp is not None:
+            evals.append(ServerEval(ply=node.ply(), cp=int(cp), mate=None))
+    return tuple(evals)
+
+
 def fetch_lichess_pgn(game_id: str) -> str:
     """Fetch the raw PGN (clock and eval comments included) for a game."""
     response = _get(
@@ -294,6 +353,59 @@ def fetch_lichess_pgn(game_id: str) -> str:
     return pgn
 
 
+def _fetch_chesscom_month(month_url: str) -> Tuple[List[dict], Optional[ExtractionError]]:
+    """Fetch one monthly archive, returning games plus a rate-limit error if any."""
+    try:
+        response = _get(month_url)
+        games = response.json().get("games", [])
+        return (games if isinstance(games, list) else []), None
+    except RateLimitError as exc:
+        return [], exc
+    except (GameNotFoundError, UpstreamRequestError):
+        return [], None
+    except ValueError:
+        return [], None
+
+
+def _month_lock(month_url: str) -> threading.Lock:
+    with _MONTH_CACHE_GUARD:
+        lock = _MONTH_CACHE_LOCKS.get(month_url)
+        if lock is None:
+            lock = threading.Lock()
+            _MONTH_CACHE_LOCKS[month_url] = lock
+        return lock
+
+
+def _get_chesscom_month(
+    month_url: str,
+    immutable: bool,
+) -> Tuple[List[dict], Optional[ExtractionError]]:
+    """Fetch a month, memoizing completed (immutable) months.
+
+    Concurrent callers requesting the same month share one network fetch.
+    """
+    if not immutable:
+        return _fetch_chesscom_month(month_url)
+
+    with _MONTH_CACHE_GUARD:
+        cached = _MONTH_CACHE.get(month_url)
+    if cached is not None:
+        return cached, None
+
+    with _month_lock(month_url):
+        with _MONTH_CACHE_GUARD:
+            cached = _MONTH_CACHE.get(month_url)
+        if cached is not None:
+            return cached, None
+        games, error = _fetch_chesscom_month(month_url)
+        if error is None:
+            with _MONTH_CACHE_GUARD:
+                _MONTH_CACHE[month_url] = games
+                while len(_MONTH_CACHE) > _MAX_CACHED_MONTHS:
+                    _MONTH_CACHE.pop(next(iter(_MONTH_CACHE)))
+        return games, error
+
+
 def fetch_chesscom_game(username: str, game_id: str) -> tuple[str, str, str]:
     """Return (raw PGN, player color, username) for a Chess.com game."""
     response = _get(CHESS_COM_ARCHIVES_URL.format(username=username))
@@ -301,9 +413,24 @@ def fetch_chesscom_game(username: str, game_id: str) -> tuple[str, str, str]:
     if not archives:
         raise GameNotFoundError(f"No monthly archives found for Chess.com user {username}.")
 
-    for month_url in reversed(archives[-ARCHIVE_MONTHS_TO_SCAN:]):
-        month_response = _get(month_url)
-        for game in month_response.json().get("games", []):
+    month_urls = list(reversed(archives[-ARCHIVE_MONTHS_TO_SCAN:]))
+    newest_month = archives[-1]
+
+    def fetch(month_url: str) -> Tuple[List[dict], Optional[ExtractionError]]:
+        return _get_chesscom_month(month_url, immutable=month_url != newest_month)
+
+    if len(month_urls) > 1:
+        workers = min(ARCHIVE_FETCH_WORKERS, len(month_urls))
+        with ThreadPoolExecutor(max_workers=workers) as executor:
+            month_results = list(executor.map(fetch, month_urls))
+    else:
+        month_results = [fetch(url) for url in month_urls]
+
+    rate_limit_error: Optional[ExtractionError] = None
+    for games, error in month_results:
+        if error is not None and rate_limit_error is None:
+            rate_limit_error = error
+        for game in games:
             if game.get("url", "").rstrip("/").endswith(game_id):
                 pgn = game.get("pgn", "")
                 if not pgn:
@@ -311,6 +438,8 @@ def fetch_chesscom_game(username: str, game_id: str) -> tuple[str, str, str]:
                 color = _player_color_for_game(game, username)
                 return pgn, color, username
 
+    if rate_limit_error is not None:
+        raise rate_limit_error
     raise GameNotFoundError(
         f"Could not find game {game_id} in the last {ARCHIVE_MONTHS_TO_SCAN} months "
         f"of archives for {username}. Older games are not supported."
@@ -328,7 +457,7 @@ def _player_color_for_game(game: dict, username: str) -> str:
     return "unknown"
 
 
-def fetch_game(
+def _fetch_game_uncached(
     platform: str,
     game_url: str,
     username: Optional[str] = None,
@@ -358,6 +487,7 @@ def fetch_game(
             started_at=metadata["started_at"],
             time_control=metadata["time_control"],
             player_move_times=parse_player_move_times(raw_pgn, color),
+            server_evals=parse_server_evals(raw_pgn),
         )
 
     if normalized in ("chess.com", "chesscom", "chess"):
@@ -383,3 +513,18 @@ def fetch_game(
         )
 
     raise InvalidGameUrlError(f"Unsupported platform: {platform}")
+
+
+@lru_cache(maxsize=64)
+def fetch_game(
+    platform: str,
+    game_url: str,
+    username: Optional[str] = None,
+    player_color: Optional[str] = None,
+) -> GameData:
+    """Fetch and normalize a game, memoizing successful lookups.
+
+    Repeat analyses of the same URL (retries, re-runs) skip the upstream calls
+    entirely. Failures are not cached.
+    """
+    return _fetch_game_uncached(platform, game_url, username, player_color)

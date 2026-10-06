@@ -100,6 +100,113 @@ def _model_name() -> str:
     return os.environ.get("GEMINI_MODEL", DEFAULT_MODEL)
 
 
+MAX_PROMPT_KEY_MOMENTS = 12
+MAX_PROMPT_PV_MOVES = 4
+
+_MOMENT_PROMPT_FIELDS = (
+    "move_number",
+    "san",
+    "phase",
+    "quality",
+    "centipawn_loss",
+    "eval_before_pawns",
+    "eval_after_pawns",
+    "best_move_san",
+    "note",
+    "better_move_idea",
+    "motif",
+    "motif_details",
+    "opening",
+    "tablebase",
+    "resource_theme",
+)
+
+
+def _compact_moment(moment: Dict[str, object]) -> Dict[str, object]:
+    compact: Dict[str, object] = {}
+    for field in _MOMENT_PROMPT_FIELDS:
+        value = moment.get(field)
+        if value is None or value == "" or value == [] or value == {}:
+            continue
+        compact[field] = value
+    blindspot = moment.get("blindspot")
+    if isinstance(blindspot, dict):
+        explanation = blindspot.get("explanation")
+        if explanation:
+            compact["blindspot"] = explanation
+    pv_san = moment.get("pv_san")
+    if isinstance(pv_san, list) and pv_san:
+        compact["pv_san"] = pv_san[:MAX_PROMPT_PV_MOVES]
+    return compact
+
+
+def _compact_key_moments(moments: object) -> List[Dict[str, object]]:
+    if not isinstance(moments, list):
+        return []
+    valid = [moment for moment in moments if isinstance(moment, dict)]
+    valid.sort(key=lambda moment: int(moment.get("centipawn_loss") or 0), reverse=True)
+    compact: List[Dict[str, object]] = []
+    for moment in valid[:MAX_PROMPT_KEY_MOMENTS]:
+        entry = {
+            key: moment.get(key)
+            for key in (
+                "move_number",
+                "san",
+                "phase",
+                "quality",
+                "centipawn_loss",
+                "eval_before_pawns",
+                "eval_after_pawns",
+                "best_move_san",
+            )
+            if moment.get(key) is not None
+        }
+        pv_san = moment.get("pv_san")
+        if isinstance(pv_san, list) and pv_san:
+            entry["pv_san"] = pv_san[:MAX_PROMPT_PV_MOVES]
+        compact.append(entry)
+    return compact
+
+
+def _compact_engine_data(engine_data: Dict[str, object]) -> Dict[str, object]:
+    """Trim the engine payload sent to Gemini to cut prompt tokens and TTFT.
+
+    The full payload (with FENs and principal variations for every key moment)
+    is kept for the UI; the model only needs the evidence it coaches from.
+    """
+    compact: Dict[str, object] = {}
+    for key in (
+        "player_color",
+        "player_name",
+        "result",
+        "opening_name",
+        "eco",
+        "eval_curve_pawns",
+        "statistics",
+        "phase_accuracies",
+        "overall_accuracy",
+        "started_at",
+        "time_control",
+        "termination",
+        "ended_in_checkmate",
+        "resources",
+        "psychology",
+    ):
+        value = engine_data.get(key)
+        if value is not None:
+            compact[key] = value
+    compact["key_moments"] = _compact_key_moments(engine_data.get("key_moments"))
+    for key in ("strength_moments", "weakness_moments"):
+        moments = engine_data.get(key)
+        if isinstance(moments, list):
+            compact[key] = [
+                _compact_moment(moment)
+                for moment in moments
+                if isinstance(moment, dict)
+            ]
+    return compact
+
+
 def _build_contents(game: extractor.GameData, engine_data: Dict[str, object]) -> str:
     player_label = engine_data.get("player_color", "unknown (assume White)")
     player_name = engine_data.get("player_name")
@@ -112,12 +219,28 @@ def _build_contents(game: extractor.GameData, engine_data: Dict[str, object]) ->
         "Analyze this chess game.\n\n"
         f"PGN:\n{game.pgn}\n\n"
         f"{identity}\n\n"
-        f"Engine data (JSON):\n{json.dumps(engine_data)}\n"
+        f"Engine data (JSON):\n{json.dumps(_compact_engine_data(engine_data))}\n"
     )
 
 
 def _is_retryable(error: errors.APIError) -> bool:
     return error.code in (429, 503)
+
+
+def _thinking_config() -> types.ThinkingConfig | None:
+    """Optional thinking budget override for latency tuning.
+
+    Only applied when GEMINI_THINKING_BUDGET is set, so switching to a model
+    that requires thinking (or disabling the override) stays a config change.
+    """
+    raw = os.environ.get("GEMINI_THINKING_BUDGET", "").strip()
+    if not raw:
+        return None
+    try:
+        budget = int(raw)
+    except ValueError:
+        return None
+    return types.ThinkingConfig(thinking_budget=budget)
 
 
 async def _open_stream(
@@ -132,7 +255,8 @@ async def _open_stream(
                 model=_model_name(),
                 contents=contents,
                 config=types.GenerateContentConfig(
-                    system_instruction=system_instruction
+                    system_instruction=system_instruction,
+                    thinking_config=_thinking_config(),
                 ),
             )
             return response
@@ -272,6 +396,7 @@ async def describe_moments(
                     system_instruction=MOMENT_COACH_SYSTEM_INSTRUCTION,
                     response_mime_type="application/json",
                     response_schema=MOMENT_DESCRIPTION_SCHEMA,
+                    thinking_config=_thinking_config(),
                 ),
             )
             break
@@ -409,7 +534,8 @@ async def stream_question_answer(
                 model=_model_name(),
                 contents=contents,
                 config=types.GenerateContentConfig(
-                    system_instruction=QA_SYSTEM_INSTRUCTION
+                    system_instruction=QA_SYSTEM_INSTRUCTION,
+                    thinking_config=_thinking_config(),
                 ),
             )
             break

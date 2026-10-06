@@ -5,8 +5,10 @@ import os
 import requests
 from typing import Dict, List, Optional
 
+from services import http
+
 EXPLORER_API = "https://explorer.lichess.ovh/masters"
-USER_AGENT = "AI-Chess-Game-Analyzer/1.0 (chess game coaching tool)"
+USER_AGENT = http.DEFAULT_USER_AGENT
 TIMEOUT_SECONDS = 12
 _cache: Dict[str, Optional[Dict[str, object]]] = {}
 
@@ -41,7 +43,7 @@ def opening_insight(fen: str, opening_name: Optional[str] = None, eco: Optional[
         "Authorization": f"Bearer {token}",
     }
     try:
-        response = requests.get(
+        response = http.get(
             EXPLORER_API,
             params={"fen": fen, "moves": 3, "topGames": 0, "recentGames": 0},
             headers=headers,
