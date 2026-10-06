@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chessmasters · A lamp-lit study for your games</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,400&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#0b1113;
+    --ink-2:#121b1e;
+    --ink-3:#1a2529;
+    --line:#2b3a3c;
+    --line-soft:#20302f;
+    --text:#ece6d8;
+    --text-muted:#93a3a0;
+    --gold:#c9993f;
+    --gold-bright:#e2b65f;
+    --brass-line:#4a3c22;
+    --green:#6fa383;
+    --teal:#2f6b62;
+    --teal-light:#57a496;
+    --oxblood:#7d3527;
+    --paper:#f3ecdc;
+    --paper-2:#e9e1cd;
+    --paper-line:#d6cbb1;
+    --paper-ink:#202725;
+    --paper-muted:#5f6a62;
+    --bronze:#8a6420;
+    --sq-light:#e6cfa2;
+    --sq-dark:#a97a52;
+    --piece-light:#f8efdb;
+    --piece-light-line:#2b2118;
+    --piece-dark:#241a12;
+    --piece-dark-line:#d9c7a8;
+    --arrow:#c9993f;
+    --arrow-b:#f3ecdc;
+    --radius-card:10px;
+    --radius-control:6px;
+    --wrap:1180px;
+    --font-display:"Fraunces",Georgia,serif;
+    --font-body:"DM Sans",ui-sans-serif,system-ui,sans-serif;
+    --font-mono:"DM Mono",ui-monospace,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{overflow-wrap:break-word;font-family:var(--font-body);background:var(--ink);color:var(--text);font-size:16.5px;line-height:1.6;-webkit-font-smoothing:antialiased;
+    background-image:radial-gradient(1100px 560px at 50% -10%,rgba(201,153,63,.14),transparent 62%);
+    background-repeat:no-repeat;
+  }
+  ::selection{background:rgba(201,153,63,.85);color:#17130a}
+  :focus-visible{outline:2px solid var(--gold-bright);outline-offset:2px;border-radius:3px}
+  ::placeholder{color:#93a3a0}
+  .mono{font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+  a{color:inherit}
+  button{font:inherit;cursor:pointer}
+  .wrap{max-width:var(--wrap);margin:0 auto;padding-left:1.5rem;padding-right:1.5rem}
+  .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+  .display{font-family:var(--font-display);font-variation-settings:"opsz" 90}
+
+  .nav{border-bottom:1px solid var(--line-soft)}
+  .nav-in{display:flex;align-items:center;height:64px;gap:1.5rem}
+  .brand{display:flex;align-items:center;gap:.65rem;text-decoration:none;font-family:var(--font-display);font-weight:600;font-size:1.15rem;letter-spacing:-.01em}
+  .brand svg{width:24px;height:24px;display:block}
+  .nav-links{margin-left:auto;display:flex;gap:1.4rem;align-items:center}
+  .nav-links a{color:var(--text-muted);text-decoration:none;font-size:.92rem}
+  .nav-links a:hover{color:var(--text)}
+  .signin{background:transparent;border:1px solid var(--line);color:var(--text);border-radius:var(--radius-control);padding:.45rem 1rem;font-size:.9rem;transition:border-color .15s,background .15s}
+  .signin:hover{border-color:var(--gold);background:rgba(201,153,63,.08)}
+
+  /* hero */
+  .hero{padding:5.5rem 0 4rem;text-align:center}
+  .hero h1{font-family:var(--font-display);font-variation-settings:"opsz" 120;font-weight:600;font-size:clamp(2.4rem,5vw,4.2rem);line-height:1.04;letter-spacing:-.02em;max-width:20ch;margin:0 auto;text-wrap:balance}
+  .hero h1 em{font-style:italic;color:var(--gold-bright)}
+  .hero .sub{margin:1.3rem auto 0;max-width:58ch;color:var(--text-muted);font-size:1.08rem}
+  .rule-brass{height:1px;background:linear-gradient(90deg,transparent,var(--brass-line) 20%,var(--brass-line) 80%,transparent);margin:2.6rem auto;max-width:760px}
+
+  .analyzer{max-width:820px;margin:0 auto;background:var(--ink-2);border:1px solid var(--line);border-radius:var(--radius-card);padding:1.4rem;text-align:left;
+    box-shadow:inset 0 1px 0 rgba(201,153,63,.12)}
+  .seg{display:inline-flex;border:1px solid var(--line);border-radius:var(--radius-control);overflow:hidden}
+  .seg-btn{background:transparent;border:0;color:var(--text-muted);padding:.48rem 1.1rem;font-weight:500;font-size:.88rem}
+  .seg-btn+.seg-btn{border-left:1px solid var(--line)}
+  .seg-btn[aria-pressed="true"]{background:var(--gold);color:#181c16;font-weight:600}
+  .analyzer-grid{display:grid;grid-template-columns:1fr auto;gap:.8rem;margin-top:1rem;align-items:end}
+  .field{display:flex;flex-direction:column;gap:.4rem}
+  .field[hidden]{display:none}
+  .field label{font-size:.76rem;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted);font-weight:500}
+  .field input{min-width:0;background:var(--ink-3);border:1px solid var(--line);border-radius:var(--radius-control);color:var(--text);font:inherit;font-size:.98rem;padding:.72rem .85rem;transition:border-color .15s}
+  .field input:focus{outline:none;border-color:var(--gold)}
+  .field .hint{font-size:.8rem;color:var(--text-muted)}
+  .analyze-btn{background:var(--gold);color:#181c16;border:0;border-radius:var(--radius-control);padding:.78rem 1.5rem;font-weight:600;font-size:.98rem;display:inline-flex;align-items:center;gap:.55rem;transition:background .15s}
+  .analyze-btn:hover{background:var(--gold-bright)}
+  .analyzer-foot{margin-top:.9rem;display:flex;flex-wrap:wrap;justify-content:space-between;gap:.25rem 1rem;font-size:.82rem;color:var(--text-muted)}
+
+  .status{margin:1.2rem auto 0;max-width:820px;display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--line-soft);border:1px solid var(--line-soft);border-radius:var(--radius-card);overflow:hidden;text-align:left}
+  .status-step{background:var(--ink-2);padding:1rem 1.1rem}
+  .status-step .dot{width:8px;height:8px;border-radius:50%;background:var(--line);display:inline-block;margin-right:.5rem;vertical-align:1px}
+  .status-step.done .dot{background:var(--green)}
+  .status-step.live .dot{background:var(--gold);animation:pulse 1.4s ease-in-out infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+  .status-step .t{font-size:.88rem;font-weight:500}
+  .status-step .s{margin-top:.35rem;font-size:.78rem;color:var(--text-muted)}
+
+  /* sections */
+  .band{padding:5rem 0}
+  .band h2{font-family:var(--font-display);font-variation-settings:"opsz" 90;font-weight:600;font-size:clamp(1.7rem,2.8vw,2.5rem);letter-spacing:-.02em;line-height:1.1;text-wrap:balance}
+  .band .lede{margin-top:.9rem;color:var(--text-muted);max-width:60ch}
+  .band-head{display:flex;align-items:flex-end;justify-content:space-between;gap:2rem}
+  .band-head .textlink{margin-bottom:.5rem}
+
+  .desk{margin-top:2.6rem;display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,.95fr);gap:2.2rem;align-items:center}
+  .plates{margin-top:2.6rem;display:grid;grid-template-columns:repeat(3,1fr);gap:1.2rem}
+  .plate{border:1px solid var(--brass-line);border-radius:var(--radius-card);padding:.9rem;background:linear-gradient(180deg,rgba(201,153,63,.05),transparent)}
+  .plate .board{border:1px solid var(--line-soft);border-radius:4px;overflow:hidden}
+  .plate .fig{margin-top:.7rem;font-size:.8rem;color:var(--text-muted)}
+  .plate .fig b{color:var(--gold);font-weight:600;font-family:var(--font-mono);font-size:.75rem;letter-spacing:.06em}
+
+  .sheet{background:var(--paper);color:var(--paper-ink);border-radius:var(--radius-card);padding:2.4rem 2.4rem 2rem;box-shadow:0 40px 70px -55px rgba(0,0,0,1)}
+  .sheet h3{font-family:var(--font-display);font-variation-settings:"opsz" 60;font-size:1.4rem;font-weight:600;letter-spacing:-.01em}
+  .sheet p{margin-top:.7rem;color:var(--paper-muted);font-size:.98rem;max-width:64ch}
+  .sheet .rule{height:1px;background:var(--paper-line);margin:1.3rem 0}
+  .sheet .stat{font-family:var(--font-mono);font-size:.82rem;color:var(--bronze)}
+  .textlink{display:inline-flex;align-items:center;gap:.5rem;color:var(--gold-bright);text-decoration:none;font-weight:500;border-bottom:1px solid var(--brass-line);padding-bottom:.2rem}
+  .textlink:hover{border-color:var(--gold)}
+  .sheet .textlink{color:var(--bronze);border-color:rgba(138,100,32,.4)}
+
+  .steps-list{margin-top:2.6rem;border-top:1px solid var(--line-soft)}
+  .step{display:grid;grid-template-columns:150px 1fr auto;gap:1.6rem;padding:1.6rem 0;border-bottom:1px solid var(--line-soft);align-items:baseline}
+  .step .n{font-family:var(--font-display);font-style:italic;color:var(--gold);font-size:1.05rem}
+  .step h3{font-size:1.15rem;font-weight:600;letter-spacing:-.01em}
+  .step p{margin-top:.35rem;color:var(--text-muted);font-size:.96rem;max-width:62ch}
+  .step .tag{font-size:.78rem;color:var(--text-muted);border:1px solid var(--line);border-radius:999px;padding:.22rem .6rem;white-space:nowrap}
+
+  .reviews{margin-top:2.6rem;display:grid;grid-template-columns:repeat(3,1fr);gap:1.4rem}
+  .review{border-top:1px solid var(--brass-line);padding-top:1.1rem}
+  .review .stars{color:var(--gold);letter-spacing:.15em;font-size:.9rem}
+  .review blockquote{margin-top:.7rem;font-family:var(--font-display);font-style:italic;font-size:1.05rem;color:var(--text)}
+  .review figcaption{margin-top:.8rem;font-size:.8rem;color:var(--text-muted)}
+
+  .plans{margin-top:2.6rem;display:grid;grid-template-columns:1fr 1fr;gap:1.4rem}
+  .plan{background:var(--ink-2);border:1px solid var(--line);border-radius:var(--radius-card);padding:2rem;display:flex;flex-direction:column}
+  .plan.paid{border-color:var(--brass-line);background:linear-gradient(180deg,rgba(201,153,63,.07),rgba(201,153,63,0) 45%),var(--ink-2)}
+  .plan h3{font-family:var(--font-display);font-size:1.35rem;font-weight:600}
+  .plan .price{margin-top:.7rem;font-family:var(--font-display);font-size:2.4rem;font-weight:600;letter-spacing:-.02em}
+  .plan .price small{font-family:var(--font-body);font-size:.92rem;color:var(--text-muted);font-weight:400;margin-left:.35rem}
+  .plan ul{list-style:none;margin-top:1.3rem;display:grid;gap:.6rem}
+  .plan li{color:var(--text-muted);font-size:.95rem;padding-left:1.3rem;position:relative}
+  .plan li::before{content:"";position:absolute;left:0;top:.55em;width:7px;height:7px;border:1px solid var(--gold);transform:rotate(45deg)}
+  .plan .cta{margin-top:auto;padding-top:1.8rem}
+  .btn-gold{display:inline-block;background:var(--gold);color:#181c16;border:0;border-radius:var(--radius-control);padding:.75rem 1.3rem;font-weight:600;font-size:.95rem;text-decoration:none}
+  .btn-gold:hover{background:var(--gold-bright)}
+  .btn-ghost{display:inline-block;background:transparent;border:1px solid var(--line);color:var(--text);border-radius:var(--radius-control);padding:.75rem 1.3rem;font-weight:500;font-size:.95rem;text-decoration:none}
+  .btn-ghost:hover{border-color:var(--gold)}
+
+  footer{border-top:1px solid var(--line-soft);padding:3rem 0 2.5rem}
+  .foot{display:flex;flex-wrap:wrap;gap:1.4rem;justify-content:space-between;align-items:flex-start}
+  .foot a{color:var(--text-muted);text-decoration:none;font-size:.87rem}
+  .foot a:hover{color:var(--text)}
+  .foot-links{display:flex;gap:1.3rem;flex-wrap:wrap}
+  .foot small{color:var(--text-muted);font-size:.8rem}
+  .disclaimer{margin-top:2rem;border-top:1px solid var(--line-soft);padding-top:1.3rem}
+
+  /* boards */
+  .board{width:100%;aspect-ratio:1/1}
+  .board svg{display:block;width:100%;height:100%}
+  .sq-l{fill:var(--sq-light)}
+  .sq-d{fill:var(--sq-dark)}
+  .sq-hl{fill:var(--gold);opacity:.5}
+  .piece{pointer-events:none}
+  .piece.pw{fill:var(--piece-light);stroke:var(--piece-light-line);stroke-width:1.1}
+  .piece.pb{fill:var(--piece-dark);stroke:var(--piece-dark-line);stroke-width:1.1}
+  .arrow{stroke:var(--arrow);stroke-width:5;stroke-linecap:round}
+  .arrowhead{fill:var(--arrow)}
+  .arrow.b{stroke:var(--arrow-b)}
+  .arrowhead.b{fill:var(--arrow-b)}
+
+  .hero-board-wrap{max-width:520px;margin:3rem auto 0;position:relative}
+  .hero-board-wrap .board{border:1px solid var(--brass-line);border-radius:var(--radius-card);overflow:hidden;box-shadow:none}
+  .hero-board-wrap .cap{margin-top:.9rem;font-size:.82rem;color:var(--text-muted);display:flex;justify-content:space-between;gap:1rem}
+
+  @media (max-width:960px){
+    .desk,.plans{grid-template-columns:1fr}
+    .plates{grid-template-columns:1fr 1fr}
+    .reviews{grid-template-columns:1fr}
+    .status{grid-template-columns:1fr}
+    .analyzer-grid{grid-template-columns:1fr}
+    .step{grid-template-columns:1fr;gap:.5rem}
+  }
+  @media (max-width:560px){
+    .plates{grid-template-columns:1fr}
+    .nav-links{display:none}
+    .hero{padding-top:4rem}
+  }
+  @media (prefers-reduced-motion:reduce){
+    *{animation:none!important;transition:none!important}
+  }
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <g id="pc-p"><circle cx="20" cy="14.2" r="5.6"/><path d="M15.4 19.4h9.2l1.7 7.8H13.7z"/><path d="M12.2 27.2h15.6l1.8 4.2H10.4z"/></g>
+    <g id="pc-r"><path d="M12 9.5h3.6v3.8h2.9V9.5h3v3.8h2.9V9.5H28v7.2l-3 2.6v8.2l3 2.6v3.4H12v-3.4l3-2.6v-8.2l-3-2.6z"/></g>
+    <g id="pc-n"><path d="M14.5 32.5h11.8l1.3 3.4H13.2z"/><path d="M16.2 30.9c-.4-4.6.4-8.2 2.2-10.8l-3-3.6 1.2-4.4c5.6 1.4 9.4 4.6 11.2 9.2 1.2 3 1.5 6.2 1 9.6-.3 2.2-2 3-3.6 2.3-1.7-.7-2-2.6-1.7-4.4.4-2.6-.4-4.6-2.6-5.6-2.1 3.4-4 5-6.6 5z"/></g>
+    <g id="pc-b"><circle cx="20" cy="7.8" r="2.7"/><path d="M20 10.4c4.4 4 6.6 7.9 6.6 11.7 0 3.4-3 5.6-6.6 5.6s-6.6-2.2-6.6-5.6c0-3.8 2.2-7.7 6.6-11.7z"/><rect class="slit" x="19.1" y="13.6" width="1.8" height="8"/><path d="M16.7 27.4h6.6l1.2 3.4H15.5z"/><path d="M13 30.8h14l1.4 3.6H11.6z"/></g>
+    <g id="pc-q"><circle cx="11.3" cy="12.4" r="2.4"/><circle cx="15.7" cy="9.2" r="2.4"/><circle cx="20" cy="7.8" r="2.6"/><circle cx="24.3" cy="9.2" r="2.4"/><circle cx="28.7" cy="12.4" r="2.4"/><path d="M11.5 14.5l3 9.5h11l3-9.5-4.3 4.6L20 11l-4.2 8.1z"/><path d="M14.5 24h11l1.1 5h-13.2z"/><path d="M12.6 29h14.8l1.4 3.6H11.2z"/></g>
+    <g id="pc-k"><path d="M18.5 4.6h3v2.9h2.9v3h-2.9v2.9h-3v-2.9h-2.9v-3h2.9z"/><path d="M14.2 21.8c0-3.6 2.6-6.6 5.8-6.6s5.8 3 5.8 6.6c0 2-1 3.5-1.9 4.5h-7.8c-.9-1-1.9-2.5-1.9-4.5z"/><path d="M14.9 25.8h10.2l1.2 4.2H13.7z"/><path d="M12.6 30h14.8l1.5 3.6H11.1z"/></g>
+  </defs>
+</svg>
+
+<header class="nav">
+  <div class="wrap nav-in">
+    <a class="brand" href="#">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M11.2 2.6h1.6v2.2h2.2v1.6h-2.2v2.2h-1.6V6.4H9V4.8h2.2z" fill="#c9993f"/>
+        <path d="M8.4 12.2c0-2.1 1.6-3.8 3.6-3.8s3.6 1.7 3.6 3.8c0 1.3-.6 2.3-1.2 3H9.6c-.6-.7-1.2-1.7-1.2-3z" fill="#c9993f"/>
+        <path d="M8.9 16h6.2l.8 2.6H8.1zM7 19.4h10l1 2.6H6z" fill="#c9993f"/>
+      </svg>
+      Chessmasters
+    </a>
+    <nav class="nav-links" aria-label="Primary">
+      <a href="#how">How it works</a>
+      <a href="#sample">Sample review</a>
+      <a href="#pricing">Pricing</a>
+      <button class="signin" type="button">Sign in with Google</button>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <section class="hero wrap">
+    <h1>Turn a finished game into <em>your next lesson.</em></h1>
+    <p class="sub">Paste a Lichess or Chess.com game. Stockfish measures every move, Gemini writes the coaching report, and it streams to your desk in seconds.</p>
+
+    <div class="rule-brass" aria-hidden="true"></div>
+
+    <form class="analyzer" onsubmit="return false" aria-label="Analyze a game">
+      <div class="seg" role="group" aria-label="Platform">
+        <button type="button" class="seg-btn" data-platform="lichess" aria-pressed="true">Lichess</button>
+        <button type="button" class="seg-btn" data-platform="chesscom" aria-pressed="false">Chess.com</button>
+      </div>
+      <div class="analyzer-grid">
+        <div class="field" id="username-field" hidden>
+          <label for="username">Chess.com username</label>
+          <input id="username" type="text" placeholder="e.g. hikaru" autocomplete="off">
+        </div>
+        <div class="field">
+          <label for="gameurl">Game URL</label>
+          <input id="gameurl" type="url" placeholder="https://lichess.org/abcd1234" autocomplete="off">
+        </div>
+        <button class="analyze-btn" type="submit">
+          Analyze my game
+          <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 8h11M9 3.5L13.5 8 9 12.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square"/></svg>
+        </button>
+      </div>
+      <div class="analyzer-foot">
+        <span>1 credit per game · batch up to 5</span>
+        <span>Free plan: 5 analyses used</span>
+      </div>
+    </form>
+
+    <div class="status" aria-label="Analysis status">
+      <div class="status-step done">
+        <div class="t"><span class="dot"></span>Game imported</div>
+        <div class="s mono">Morphy vs. Duke of Brunswick · 1.2s</div>
+      </div>
+      <div class="status-step done">
+        <div class="t"><span class="dot"></span>Engine measured 17 moves</div>
+        <div class="s mono">avg centipawn loss 8.7 · 9.4s</div>
+      </div>
+      <div class="status-step live">
+        <div class="t"><span class="dot"></span>Coach is writing</div>
+        <div class="s mono" id="streaming-label">Strength — pieces before the attack…</div>
+      </div>
+    </div>
+
+    <div class="hero-board-wrap">
+      <div class="board" data-fen="r3kb1r/p2n1ppp/p2pq3/4p1B1/3PP3/1Q6/PPP2PPP/2KR4 w k - 0 16" data-orient="w" data-hl="b8" data-arrows='[{"from":"b3","to":"b8"}]' data-label="Position after 15...Nxd7, before 16.Qb8+."></div>
+      <p class="cap"><span>The turning point the coach underlines: 16.Qb8+!!</span><span class="mono">Sample review</span></p>
+    </div>
+  </section>
+
+  <section class="band wrap" id="how">
+    <div class="band-head">
+      <div>
+        <h2>An hour of study, compressed into one report.</h2>
+        <p class="lede">The same pass a titled coach makes after your game: every move checked, the story told in order.</p>
+      </div>
+    </div>
+    <div class="steps-list">
+      <div class="step">
+        <span class="n">I. Fetch</span>
+        <div>
+          <h3>The game comes to your desk</h3>
+          <p>Lichess games arrive with evaluations attached. For Chess.com we scan your public archives and pull the matching game.</p>
+        </div>
+        <span class="tag mono">1.2s</span>
+      </div>
+      <div class="step">
+        <span class="n">II. Measure</span>
+        <div>
+          <h3>Stockfish reads every move</h3>
+          <p>Centipawn loss, blunders, brilliant moves: real numbers per position, so the coaching rests on evidence.</p>
+        </div>
+        <span class="tag mono">9.4s</span>
+      </div>
+      <div class="step">
+        <span class="n">III. Coach</span>
+        <div>
+          <h3>Gemini writes the lesson</h3>
+          <p>Strength, Weakness, Game Overview, Focus Areas and Resources — streamed to the screen as it is written.</p>
+        </div>
+        <span class="tag mono">14s</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="band wrap" id="sample" style="padding-top:1rem">
+    <div class="band-head">
+      <div>
+        <h2>The report is a document you keep.</h2>
+        <p class="lede">Not a dashboard of numbers: a written review with plates of the critical positions.</p>
+      </div>
+      <a class="textlink" href="report.html">Open the sample review
+        <svg width="13" height="13" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 8h11M9 3.5L13.5 8 9 12.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square"/></svg>
+      </a>
+    </div>
+
+    <div class="desk">
+      <div class="sheet">
+        <h3>Strength</h3>
+        <p>Your pieces arrived before your attack did. From move 6 every piece went to its best square: Bc4 and Qb3 pointed at f7, and Bg5 pinned the knight before a single pawn moved on the kingside.</p>
+        <div class="rule"></div>
+        <h3>Focus area</h3>
+        <p><strong>Exchange sacrifices.</strong> Twice you gave up a rook to remove the last defender — and both times the eighth rank was worth more than the material.</p>
+        <div class="rule"></div>
+        <p class="stat">Accuracy: Opening 92 · Middlegame 88 · Endgame n/a</p>
+      </div>
+      <div>
+        <div class="plate">
+          <div class="board" data-fen="rn2kb1r/p3qppp/p2p1n2/1p2p1B1/2BPP3/1Q6/PPP2PPP/R3K2R w KQkq - 0 11" data-orient="w" data-hl="b5" data-arrows='[{"from":"c4","to":"b5"}]' data-label="Plate I: before 11.Bxb5+."></div>
+          <p class="fig"><b>Plate I</b> · 11.Bxb5+ drags the last defender away.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="band wrap" style="padding-top:1rem">
+    <h2>Three plates from every review.</h2>
+    <p class="lede">Each critical moment is drawn on a plate with the idea marked in brass: the position, the move, and what it removed.</p>
+    <div class="plates">
+      <div class="plate">
+        <div class="board" data-fen="rn2kb1r/p3qppp/p2p1n2/1p2p1B1/2BPP3/1Q6/PPP2PPP/R3K2R w KQkq - 0 11" data-orient="w" data-hl="b5" data-arrows='[{"from":"c4","to":"b5"}]' data-label="Plate I: before 11.Bxb5+."></div>
+        <p class="fig"><b>Plate I</b> · the forcing check.</p>
+      </div>
+      <div class="plate">
+        <div class="board" data-fen="3rkb1r/p2nqppp/p2p1n2/1B2p1B1/3PP3/1Q6/PPP2PPP/2KR3R w k - 0 13" data-orient="w" data-hl="d7" data-arrows='[{"from":"d1","to":"d7"}]' data-label="Plate II: before 13.Rxd7."></div>
+        <p class="fig"><b>Plate II</b> · the defender comes off.</p>
+      </div>
+      <div class="plate">
+        <div class="board" data-fen="r3kb1r/p2n1ppp/p2pq3/4p1B1/3PP3/1Q6/PPP2PPP/2KR4 w k - 0 16" data-orient="w" data-hl="b8" data-arrows='[{"from":"b3","to":"b8"}]' data-label="Plate III: before 16.Qb8+."></div>
+        <p class="fig"><b>Plate III</b> · the queen walks into capture.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="band wrap">
+    <h2>Players who review their games improve faster.</h2>
+    <div class="reviews">
+      <figure class="review">
+        <div class="stars" aria-hidden="true">★★★★★</div>
+        <blockquote>“It told me why the move was bad in words I actually understood.”</blockquote>
+        <figcaption>Sample placeholder (replace before launch)</figcaption>
+      </figure>
+      <figure class="review">
+        <div class="stars" aria-hidden="true">★★★★★</div>
+        <blockquote>“The focus areas are the first practice plan I have ever actually followed.”</blockquote>
+        <figcaption>Sample placeholder (replace before launch)</figcaption>
+      </figure>
+      <figure class="review">
+        <div class="stars" aria-hidden="true">★★★★★</div>
+        <blockquote>“I stopped guessing what I did wrong. Now I know.”</blockquote>
+        <figcaption>Sample placeholder (replace before launch)</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section class="band wrap" id="pricing" style="padding-top:1rem">
+    <h2>Two ways to sit at the desk.</h2>
+    <div class="plans">
+      <div class="plan">
+        <h3>Free</h3>
+        <div class="price">₹0</div>
+        <ul>
+          <li>5 game analyses, full report</li>
+          <li>Strength, Weakness, Overview, Focus Areas</li>
+          <li>Lichess training links</li>
+        </ul>
+        <div class="cta"><a class="btn-ghost" href="#">Start with 5 free</a></div>
+      </div>
+      <div class="plan paid">
+        <h3>Coaching</h3>
+        <div class="price">₹399<small>/ month</small></div>
+        <ul>
+          <li>100 analyses per billing period</li>
+          <li>Ask follow-up questions on any game</li>
+          <li>Batch reviews for up to 5 games</li>
+          <li>Pause or cancel anytime</li>
+        </ul>
+        <div class="cta"><a class="btn-gold" href="#">Upgrade to Coaching</a></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="foot">
+      <div>
+        <a class="brand" href="#">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M11.2 2.6h1.6v2.2h2.2v1.6h-2.2v2.2h-1.6V6.4H9V4.8h2.2z" fill="#c9993f"/>
+            <path d="M8.4 12.2c0-2.1 1.6-3.8 3.6-3.8s3.6 1.7 3.6 3.8c0 1.3-.6 2.3-1.2 3H9.6c-.6-.7-1.2-1.7-1.2-3z" fill="#c9993f"/>
+            <path d="M8.9 16h6.2l.8 2.6H8.1zM7 19.4h10l1 2.6H6z" fill="#c9993f"/>
+          </svg>
+          Chessmasters
+        </a>
+      </div>
+      <nav class="foot-links" aria-label="Footer">
+        <a href="#how">How it works</a>
+        <a href="#pricing">Pricing</a>
+        <a href="#" onclick="return false">Terms</a>
+        <a href="#" onclick="return false">Privacy</a>
+        <a href="#" onclick="return false">Refunds</a>
+        <a href="#" onclick="return false">Contact</a>
+      </nav>
+      <small>© 2026 Chessmasters</small>
+    </div>
+    <div class="disclaimer">
+      <small>Not affiliated with Lichess or Chess.com. Design concept — sample analysis uses a public historical game with illustrative engine values.</small>
+    </div>
+  </div>
+</footer>
+
+<script>
+(function(){
+  var messages = ['Strength: pieces before the attack…','Weakness: recapture discipline…','Overview: the story of 17 moves…','Focus areas: exchange sacrifices…','Report ready · 13.9s'];
+  var el = document.getElementById('streaming-label');
+  var i = 0;
+  setInterval(function(){ i = (i+1)%messages.length; el.textContent = messages[i]; }, 2500);
+
+  document.querySelectorAll('.seg-btn').forEach(function(b){
+    b.addEventListener('click', function(){
+      document.querySelectorAll('.seg-btn').forEach(function(x){ x.setAttribute('aria-pressed', x===b ? 'true' : 'false'); });
+      var chesscom = b.dataset.platform === 'chesscom';
+      document.getElementById('username-field').hidden = !chesscom;
+      document.getElementById('gameurl').placeholder = chesscom ? 'https://www.chess.com/game/live/123456789' : 'https://lichess.org/abcd1234';
+    });
+  });
+
+  function renderBoard(el){
+    var fen = (el.dataset.fen || '').split(' ')[0];
+    var orient = el.dataset.orient || 'w';
+    var hl = (el.dataset.hl || '').split(',').map(function(s){return s.trim();}).filter(Boolean);
+    var arrows = el.dataset.arrows ? JSON.parse(el.dataset.arrows) : [];
+    var ns = 'http://www.w3.org/2000/svg';
+    var svg = document.createElementNS(ns, 'svg');
+    svg.setAttribute('viewBox', '0 0 320 320');
+    svg.setAttribute('role', 'img');
+    svg.setAttribute('aria-label', el.dataset.label || 'Chess position');
+    var files = 'abcdefgh';
+    var rows = fen.split('/');
+    var pieces = [];
+    rows.forEach(function(row, ri){
+      var f = 0;
+      for (var c = 0; c < row.length; c++){
+        var ch = row[c];
+        if (/\d/.test(ch)) { f += +ch; } else { pieces.push({ sq: files[f] + (8 - ri), p: ch }); f++; }
+      }
+    });
+    function pos(sq){
+      var file = files.indexOf(sq[0]);
+      var rank = +sq[1];
+      return [orient === 'w' ? file : 7 - file, orient === 'w' ? 8 - rank : rank - 1];
+    }
+    for (var y = 0; y < 8; y++) for (var x = 0; x < 8; x++){
+      var r = document.createElementNS(ns, 'rect');
+      r.setAttribute('x', x*40); r.setAttribute('y', y*40);
+      r.setAttribute('width', 40); r.setAttribute('height', 40);
+      r.setAttribute('class', ((x+y)%2===0) ? 'sq-l' : 'sq-d');
+      svg.appendChild(r);
+    }
+    hl.forEach(function(sq){
+      var p = pos(sq);
+      var r = document.createElementNS(ns, 'rect');
+      r.setAttribute('x', p[0]*40); r.setAttribute('y', p[1]*40);
+      r.setAttribute('width', 40); r.setAttribute('height', 40);
+      r.setAttribute('class', 'sq-hl');
+      svg.appendChild(r);
+    });
+    var glyph = { k:'pc-k', q:'pc-q', r:'pc-r', b:'pc-b', n:'pc-n', p:'pc-p' };
+    pieces.forEach(function(o){
+      var p = pos(o.sq);
+      var use = document.createElementNS(ns, 'use');
+      use.setAttribute('href', '#' + glyph[o.p.toLowerCase()]);
+      use.setAttribute('x', p[0]*40); use.setAttribute('y', p[1]*40);
+      use.setAttribute('class', 'piece ' + (o.p === o.p.toUpperCase() ? 'pw' : 'pb'));
+      svg.appendChild(use);
+    });
+    arrows.forEach(function(a){
+      var p1 = pos(a.from), p2 = pos(a.to);
+      var cx1 = p1[0]*40+20, cy1 = p1[1]*40+20, cx2 = p2[0]*40+20, cy2 = p2[1]*40+20;
+      var dx = cx2-cx1, dy = cy2-cy1, len = Math.sqrt(dx*dx+dy*dy) || 1;
+      var ux = dx/len, uy = dy/len;
+      var sx = cx1+ux*12, sy = cy1+uy*12, ex = cx2-ux*15, ey = cy2-uy*15;
+      var k = a.k === 'b' ? ' b' : '';
+      var line = document.createElementNS(ns, 'line');
+      line.setAttribute('x1', sx); line.setAttribute('y1', sy);
+      line.setAttribute('x2', ex); line.setAttribute('y2', ey);
+      line.setAttribute('class', 'arrow' + k);
+      svg.appendChild(line);
+      var poly = document.createElementNS(ns, 'polygon');
+      poly.setAttribute('points',
+        (cx2-ux*2) + ',' + (cy2-uy*2) + ' ' +
+        (ex - uy*7) + ',' + (ey + ux*7) + ' ' +
+        (ex + uy*7) + ',' + (ey - ux*7));
+      poly.setAttribute('class', 'arrowhead' + k);
+      svg.appendChild(poly);
+    });
+    el.appendChild(svg);
+  }
+  document.querySelectorAll('.board').forEach(renderBoard);
+})();
+</script>
+</body>
+</html>

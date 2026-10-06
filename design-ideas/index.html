@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Design directions: Chessmasters UI exploration</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Spline+Sans+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ground:#fafaf8;
+    --card:#ffffff;
+    --ink:#17181c;
+    --ink-soft:#585e66;
+    --muted:#63686f;
+    --line:#e3e3dd;
+    --line-strong:#c9c9c1;
+    --wrap:1120px;
+    --font-body:"Archivo",system-ui,sans-serif;
+    --font-mono:"Spline Sans Mono",ui-monospace,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{overflow-wrap:break-word;font-family:var(--font-body);background:var(--ground);color:var(--ink);font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased}
+  ::selection{background:#17181c;color:#fff}
+  :focus-visible{outline:2px solid var(--ink);outline-offset:2px;border-radius:3px}
+  a{color:inherit}
+  .mono{font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+  .wrap{max-width:var(--wrap);margin:0 auto;padding-left:1.5rem;padding-right:1.5rem}
+
+  header{border-bottom:2px solid var(--ink);padding:2.6rem 0 1.6rem}
+  .head-grid{display:flex;align-items:baseline;justify-content:space-between;gap:2rem;flex-wrap:wrap}
+  h1{font-size:clamp(1.7rem,3vw,2.4rem);font-weight:700;letter-spacing:-.02em;line-height:1.1}
+  .head-meta{font-family:var(--font-mono);font-size:.78rem;color:var(--muted);text-align:right}
+  .intro{margin-top:1.1rem;max-width:72ch;color:var(--ink-soft)}
+  .intro b{color:var(--ink)}
+
+  .dir{border-bottom:1px solid var(--line);padding:2.8rem 0}
+  .dir:last-of-type{border-bottom:0}
+  .dir-grid{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:3rem;align-items:start}
+  .dir-top{display:flex;align-items:baseline;gap:1rem}
+  .dir h2{font-size:clamp(1.4rem,2.4vw,1.9rem);font-weight:700;letter-spacing:-.02em}
+  .dir .thesis{margin-top:.7rem;font-size:1.05rem;color:var(--ink);max-width:56ch}
+  .dir .world{margin-top:.8rem;color:var(--ink-soft);max-width:60ch;font-size:.97rem}
+  .dir .world b{color:var(--ink);font-weight:600}
+  .dir .detail{margin-top:1.2rem;display:grid;gap:.55rem}
+  .d-row{display:grid;grid-template-columns:120px 1fr;gap:1rem;font-size:.88rem;border-top:1px solid var(--line);padding-top:.55rem}
+  .d-row .k{font-family:var(--font-mono);font-size:.78rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;padding-top:.15rem}
+  .d-row .v{color:var(--ink-soft)}
+  .d-row .v b{color:var(--ink);font-weight:600}
+  .links{margin-top:1.4rem;display:flex;gap:1rem;flex-wrap:wrap}
+  .go{display:inline-flex;align-items:center;gap:.5rem;text-decoration:none;font-weight:700;font-size:.9rem;border-bottom:2px solid var(--ink);padding-bottom:.15rem}
+  .go:hover{color:var(--muted);border-color:var(--muted)}
+
+  .preview{border:1px solid var(--line-strong);border-radius:8px;overflow:hidden;background:var(--card)}
+  .preview-head{display:flex;justify-content:space-between;align-items:center;padding:.6rem .8rem;border-bottom:1px solid var(--line);font-family:var(--font-mono);font-size:.76rem;color:var(--muted)}
+  .board{width:100%;aspect-ratio:1/1}
+  .board svg{display:block;width:100%;height:100%}
+  .swatches{display:flex;height:26px}
+  .swatches span{flex:1;border-right:1px solid rgba(0,0,0,.08)}
+  .swatches span:last-child{border-right:0}
+  .type-sample{padding:.8rem .9rem;border-top:1px solid var(--line)}
+  .type-sample .t1{font-size:1.35rem;font-weight:700;letter-spacing:-.02em}
+  .type-sample .t2{margin-top:.2rem;font-size:.82rem;color:var(--muted)}
+  .type-sample .t3{margin-top:.35rem;font-family:var(--font-mono);font-size:.78rem;color:var(--ink-soft)}
+
+  /* per-direction board palettes */
+  .p-clock{--sq-light:#e9e7e0;--sq-dark:#5d636b;--piece-light:#f2f2ee;--piece-light-line:#141518;--piece-dark:#141518;--piece-dark-line:#f2f2ee;--hl:#ff4a17;--ar:#ff4a17}
+  .p-bulletin{--sq-light:#e6d9bd;--sq-dark:#77593c;--piece-light:#f1e6d2;--piece-light-line:#171310;--piece-dark:#241b14;--piece-dark-line:#cdbfa2;--hl:#c9553f;--ar:#c9553f}
+  .p-scorebook{--sq-light:#ece2c8;--sq-dark:#5d8a6c;--piece-light:#faf6ea;--piece-light-line:#23282f;--piece-dark:#23282f;--piece-dark-line:#faf6ea;--hl:#cf3a24;--ar:#cf3a24}
+  .p-study{--sq-light:#e6cfa2;--sq-dark:#a97a52;--piece-light:#f8efdb;--piece-light-line:#2b2118;--piece-dark:#241a12;--piece-dark-line:#d9c7a8;--hl:#c9993f;--ar:#c9993f}
+  .sq-l{fill:var(--sq-light)}
+  .sq-d{fill:var(--sq-dark)}
+  .sq-hl{fill:var(--hl);opacity:.4}
+  .piece{pointer-events:none}
+  .piece.pw{fill:var(--piece-light);stroke:var(--piece-light-line);stroke-width:1.1}
+  .piece.pb{fill:var(--piece-dark);stroke:var(--piece-dark-line);stroke-width:1.1}
+  .arrow{stroke:var(--ar);stroke-width:5;stroke-linecap:round}
+  .arrowhead{fill:var(--ar)}
+
+  footer{border-top:2px solid var(--ink);padding:2rem 0 3rem;margin-top:1rem}
+  .foot{display:flex;justify-content:space-between;gap:1.5rem;flex-wrap:wrap;font-size:.82rem;color:var(--muted)}
+  .foot a{color:var(--ink-soft);text-decoration:underline;text-underline-offset:3px}
+  .note{margin-top:1.6rem;border:1px solid var(--line-strong);border-radius:8px;background:var(--card);padding:1.1rem 1.2rem}
+  .note h3{font-size:1rem;font-weight:700}
+  .note ul{margin:.6rem 0 0 1.1rem;color:var(--ink-soft);font-size:.9rem;display:grid;gap:.3rem}
+
+  @media (max-width:920px){
+    .dir-grid{grid-template-columns:1fr;gap:1.6rem}
+    .preview{max-width:420px}
+    .head-meta{text-align:left}
+  }
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <g id="pc-p"><circle cx="20" cy="14.2" r="5.6"/><path d="M15.4 19.4h9.2l1.7 7.8H13.7z"/><path d="M12.2 27.2h15.6l1.8 4.2H10.4z"/></g>
+    <g id="pc-r"><path d="M12 9.5h3.6v3.8h2.9V9.5h3v3.8h2.9V9.5H28v7.2l-3 2.6v8.2l3 2.6v3.4H12v-3.4l3-2.6v-8.2l-3-2.6z"/></g>
+    <g id="pc-n"><path d="M14.5 32.5h11.8l1.3 3.4H13.2z"/><path d="M16.2 30.9c-.4-4.6.4-8.2 2.2-10.8l-3-3.6 1.2-4.4c5.6 1.4 9.4 4.6 11.2 9.2 1.2 3 1.5 6.2 1 9.6-.3 2.2-2 3-3.6 2.3-1.7-.7-2-2.6-1.7-4.4.4-2.6-.4-4.6-2.6-5.6-2.1 3.4-4 5-6.6 5z"/></g>
+    <g id="pc-b"><circle cx="20" cy="7.8" r="2.7"/><path d="M20 10.4c4.4 4 6.6 7.9 6.6 11.7 0 3.4-3 5.6-6.6 5.6s-6.6-2.2-6.6-5.6c0-3.8 2.2-7.7 6.6-11.7z"/><rect class="slit" x="19.1" y="13.6" width="1.8" height="8"/><path d="M16.7 27.4h6.6l1.2 3.4H15.5z"/><path d="M13 30.8h14l1.4 3.6H11.6z"/></g>
+    <g id="pc-q"><circle cx="11.3" cy="12.4" r="2.4"/><circle cx="15.7" cy="9.2" r="2.4"/><circle cx="20" cy="7.8" r="2.6"/><circle cx="24.3" cy="9.2" r="2.4"/><circle cx="28.7" cy="12.4" r="2.4"/><path d="M11.5 14.5l3 9.5h11l3-9.5-4.3 4.6L20 11l-4.2 8.1z"/><path d="M14.5 24h11l1.1 5h-13.2z"/><path d="M12.6 29h14.8l1.4 3.6H11.2z"/></g>
+    <g id="pc-k"><path d="M18.5 4.6h3v2.9h2.9v3h-2.9v2.9h-3v-2.9h-2.9v-3h2.9z"/><path d="M14.2 21.8c0-3.6 2.6-6.6 5.8-6.6s5.8 3 5.8 6.6c0 2-1 3.5-1.9 4.5h-7.8c-.9-1-1.9-2.5-1.9-4.5z"/><path d="M14.9 25.8h10.2l1.2 4.2H13.7z"/><path d="M12.6 30h14.8l1.5 3.6H11.1z"/></g>
+  </defs>
+</svg>
+
+<header>
+  <div class="wrap">
+    <div class="head-grid">
+      <h1>Chessmasters: four design directions</h1>
+      <div class="head-meta">
+        UI exploration · October 2026<br>
+        2 surfaces each: landing + sample review
+      </div>
+    </div>
+    <p class="intro">Four complete visual worlds for the same product: paste a game, get a streamed coaching review. Each direction builds both the <b>landing page</b> (conversion) and the <b>sample review</b> (the working product): same content, same sample game, four different worlds. Open them side by side; the boards on this page are the same position rendered in each direction's palette.</p>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <section class="dir">
+    <div class="dir-grid">
+      <div>
+        <div class="dir-top"><h2>The Two Clocks</h2></div>
+        <p class="thesis">Chess-clock hardware as the interface: pure white and black registers, hairline seams, one signal orange. Every evaluation appears as a pair of registers: your move against the engine's.</p>
+        <p class="world">Built from mid-century tournament equipment: enamel-white and black fields, mechanical numerals, zero chrome. The signature move is the <b>dual register</b>: paired readouts for every claim, with the eval graph drawn as a barcode ribbon swept by a single orange hand.</p>
+        <div class="detail">
+          <div class="d-row"><span class="k">Palette</span><span class="v"><b>Pure white / ink black</b> fields, signal orange, steel hairlines</span></div>
+          <div class="d-row"><span class="k">Type</span><span class="v"><b>Jost</b> display and UI · <b>Roboto Mono</b> numerals and notation</span></div>
+          <div class="d-row"><span class="k">Signature</span><span class="v">The dual register: you played / engine line, paired on every finding</span></div>
+        </div>
+        <div class="links">
+          <a class="go" href="clock/landing.html">Landing
+            <svg width="13" height="13" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 8h11M9 3.5L13.5 8 9 12.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square"/></svg>
+          </a>
+          <a class="go" href="clock/report.html">Sample review
+            <svg width="13" height="13" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 8h11M9 3.5L13.5 8 9 12.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square"/></svg>
+          </a>
+        </div>
+      </div>
+      <div class="preview p-clock">
+        <div class="preview-head"><span>Move 16 · Qb8+!!</span><span>clock</span></div>
+        <div class="board" data-fen="r3kb1r/p2n1ppp/p2pq3/4p1B1/3PP3/1Q6/PPP2PPP/2KR4 w k - 0 16" data-orient="w" data-hl="b8" data-arrows='[{"from":"b3","to":"b8"}]' data-label="Position before 16.Qb8+ in the clock palette."></div>
+        <div class="swatches" aria-hidden="true"><span style="background:#0e0f11"></span><span style="background:#f2f2ee"></span><span style="background:#ff4a17"></span><span style="background:#31343a"></span></div>
+        <div class="type-sample">
+          <div class="t1" style="font-family:System-ui,sans-serif">Analysis register</div>
+          <div class="t2">Jost · Roboto Mono</div>
+          <div class="t3">11.Bxb5+ Nbd7 · +4.8</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="dir">
+    <div class="dir-grid">
+      <div>
+        <div class="dir-top"><h2>The Bulletin</h2></div>
+        <p class="thesis">The great tournament bulletins of 1895, set for the screen: warm ebony ground, boxwood-cream serifs, ruled notation columns, letterpress red for the annotations.</p>
+        <p class="world">The review becomes a printed dispatch: a Bodoni masthead, prose in Spectral, the score in Courier Prime, and margin notes in carmine. The signature move is <b>the annotated score</b>: the game's moves held in the margin with the coach's note pinned to each key move.</p>
+        <div class="detail">
+          <div class="d-row"><span class="k">Palette</span><span class="v"><b>Warm ebony</b> ground, cream ink, carmine annotations</span></div>
+          <div class="d-row"><span class="k">Type</span><span class="v"><b>Bodoni Moda</b> display · <b>Spectral</b> body · <b>Courier Prime</b> score</span></div>
+          <div class="d-row"><span class="k">Signature</span><span class="v">The annotated score: ruled move column with pinned margin notes</span></div>
+        </div>
+        <div class="links">
+          <a class="go" href="bulletin/landing.html">Landing
+            <svg width="13" height="13" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 8h11M9 3.5L13.5 8 9 12.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square"/></svg>
+          </a>
+          <a class="go" href="bulletin/report.html">Sample review
+            <svg width="13" height="13" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 8h11M9 3.5L13.5 8 9 12.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square"/></svg>
+          </a>
+        </div>
+      </div>
+      <div class="preview p-bulletin">
+        <div class="preview-head"><span>Move 16 · Qb8+!!</span><span>bulletin</span></div>
+        <div class="board" data-fen="r3kb1r/p2n1ppp/p2pq3/4p1B1/3PP3/1Q6/PPP2PPP/2KR4 w k - 0 16" data-orient="w" data-hl="b8" data-arrows='[{"from":"b3","to":"b8"}]' data-label="Position before 16.Qb8+ in the bulletin palette."></div>
+        <div class="swatches" aria-hidden="true"><span style="background:#171310"></span><span style="background:#f1e6d2"></span><span style="background:#c9553f"></span><span style="background:#3a2d22"></span></div>
+        <div class="type-sample">
+          <div class="t1" style="font-family:Georgia,serif">The annotated score</div>
+          <div class="t2">Bodoni Moda · Spectral · Courier Prime</div>
+          <div class="t3">11. Bxb5+ Nbd7 · +4.8</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="dir">
+    <div class="dir-grid">
+      <div>
+        <div class="dir-top"><h2>The Scorebook</h2></div>
+        <p class="thesis">Daylight, graph paper, and a red pencil. A coach at the board marking up your scoresheet: circles around the mistakes, arrows through the ideas, notes in the margin.</p>
+        <p class="world">Archivo's condensed sports-poster voice on ruled paper; green-and-cream board; every finding carries a pencil annotation. The signature move is <b>the coach's pencil</b>: hand-drawn circles and arrows drawn onto the position, and margin notes in pencil red.</p>
+        <div class="detail">
+          <div class="d-row"><span class="k">Palette</span><span class="v"><b>Paper white</b>, ink blue-black, pencil red, club green</span></div>
+          <div class="d-row"><span class="k">Type</span><span class="v"><b>Archivo</b> / <b>Archivo Narrow</b> · <b>Spline Sans Mono</b> notation</span></div>
+          <div class="d-row"><span class="k">Signature</span><span class="v">The coach's pencil: drawn circles, arrows, and margin notes</span></div>
+        </div>
+        <div class="links">
+          <a class="go" href="scorebook/landing.html">Landing
+            <svg width="13" height="13" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 8h11M9 3.5L13.5 8 9 12.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square"/></svg>
+          </a>
+          <a class="go" href="scorebook/report.html">Sample review
+            <svg width="13" height="13" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 8h11M9 3.5L13.5 8 9 12.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square"/></svg>
+          </a>
+        </div>
+      </div>
+      <div class="preview p-scorebook">
+        <div class="preview-head"><span>Move 16 · Qb8+!!</span><span>scorebook</span></div>
+        <div class="board" data-fen="r3kb1r/p2n1ppp/p2pq3/4p1B1/3PP3/1Q6/PPP2PPP/2KR4 w k - 0 16" data-orient="w" data-hl="b8" data-arrows='[{"from":"b3","to":"b8"}]' data-label="Position before 16.Qb8+ in the scorebook palette."></div>
+        <div class="swatches" aria-hidden="true"><span style="background:#f8f8f4"></span><span style="background:#20242c"></span><span style="background:#cf3a24"></span><span style="background:#4f7d5f"></span></div>
+        <div class="type-sample">
+          <div class="t1" style="font-family:system-ui,sans-serif;font-stretch:condensed">Marked up by the coach</div>
+          <div class="t2">Archivo · Archivo Narrow · Spline Sans Mono</div>
+          <div class="t3">11.Bxb5+ Nbd7 · +4.8</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="dir">
+    <div class="dir-grid">
+      <div>
+        <div class="dir-top"><h2>The Grandmaster's Study</h2></div>
+        <p class="thesis">The incumbent world, raised: the dark ink shell and antique gold you already have, pushed into a lamplit private study: brass rules, leather, parchment, engraved plates.</p>
+        <p class="world">Keeps Chessmasters' existing DNA (Fraunces, DM Sans, gold on ink, the parchment report) and removes its weakest habits (no colored sidebar cards, no eyebrow labels), replacing them with letterpress frames, plate-numbered diagrams, and a reading experience built for long prose. The signature move is <b>the plate and the pen</b>: key positions framed as numbered engraved plates with brass annotation lines.</p>
+        <div class="detail">
+          <div class="d-row"><span class="k">Palette</span><span class="v"><b>Ink green-black</b>, antique gold, parchment, teal, oxblood</span></div>
+          <div class="d-row"><span class="k">Type</span><span class="v"><b>Fraunces</b> display · <b>DM Sans</b> body · <b>DM Mono</b> notation</span></div>
+          <div class="d-row"><span class="k">Signature</span><span class="v">The plate and the pen: numbered engraved diagrams with brass annotations</span></div>
+        </div>
+        <div class="links">
+          <a class="go" href="study/landing.html">Landing
+            <svg width="13" height="13" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 8h11M9 3.5L13.5 8 9 12.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square"/></svg>
+          </a>
+          <a class="go" href="study/report.html">Sample review
+            <svg width="13" height="13" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 8h11M9 3.5L13.5 8 9 12.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square"/></svg>
+          </a>
+        </div>
+      </div>
+      <div class="preview p-study">
+        <div class="preview-head"><span>Move 16 · Qb8+!!</span><span>study</span></div>
+        <div class="board" data-fen="r3kb1r/p2n1ppp/p2pq3/4p1B1/3PP3/1Q6/PPP2PPP/2KR4 w k - 0 16" data-orient="w" data-hl="b8" data-arrows='[{"from":"b3","to":"b8"}]' data-label="Position before 16.Qb8+ in the study palette."></div>
+        <div class="swatches" aria-hidden="true"><span style="background:#0b1113"></span><span style="background:#f3ecdc"></span><span style="background:#c9993f"></span><span style="background:#2f6b62"></span></div>
+        <div class="type-sample">
+          <div class="t1" style="font-family:Georgia,serif">Your next lesson</div>
+          <div class="t2">Fraunces · DM Sans · DM Mono</div>
+          <div class="t3">11.Bxb5+ Nbd7 · +4.8</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="note">
+    <h3>How to judge these</h3>
+    <ul>
+      <li>Open the landing and the sample review for one direction together: the world must hold from marketing page to working screen.</li>
+      <li>Read the review, don't just look at it: is the coaching easy to follow, and can you tell what to do next?</li>
+      <li>Ask who it is for: players 800–1800 who want plain language, not engine numbers. Which world would they trust with their games?</li>
+      <li>Everything here is a design concept: the sample game is public history, engine values are illustrative, and review quotes are placeholders.</li>
+    </ul>
+  </div>
+
+</main>
+
+<footer>
+  <div class="wrap foot">
+    <span>Chessmasters UI exploration · four directions, built as single-file HTML.</span>
+    <span>Not affiliated with Lichess or Chess.com.</span>
+  </div>
+</footer>
+
+<script>
+(function(){
+  function renderBoard(el){
+    var fen = (el.dataset.fen || '').split(' ')[0];
+    var orient = el.dataset.orient || 'w';
+    var hl = (el.dataset.hl || '').split(',').map(function(s){return s.trim();}).filter(Boolean);
+    var arrows = el.dataset.arrows ? JSON.parse(el.dataset.arrows) : [];
+    var ns = 'http://www.w3.org/2000/svg';
+    var svg = document.createElementNS(ns, 'svg');
+    svg.setAttribute('viewBox', '0 0 320 320');
+    svg.setAttribute('role', 'img');
+    svg.setAttribute('aria-label', el.dataset.label || 'Chess position');
+    var files = 'abcdefgh';
+    var rows = fen.split('/');
+    var pieces = [];
+    rows.forEach(function(row, ri){
+      var f = 0;
+      for (var c = 0; c < row.length; c++){
+        var ch = row[c];
+        if (/\d/.test(ch)) { f += +ch; } else { pieces.push({ sq: files[f] + (8 - ri), p: ch }); f++; }
+      }
+    });
+    function pos(sq){
+      var file = files.indexOf(sq[0]);
+      var rank = +sq[1];
+      return [orient === 'w' ? file : 7 - file, orient === 'w' ? 8 - rank : rank - 1];
+    }
+    for (var y = 0; y < 8; y++) for (var x = 0; x < 8; x++){
+      var r = document.createElementNS(ns, 'rect');
+      r.setAttribute('x', x*40); r.setAttribute('y', y*40);
+      r.setAttribute('width', 40); r.setAttribute('height', 40);
+      r.setAttribute('class', ((x+y)%2===0) ? 'sq-l' : 'sq-d');
+      svg.appendChild(r);
+    }
+    hl.forEach(function(sq){
+      var p = pos(sq);
+      var r = document.createElementNS(ns, 'rect');
+      r.setAttribute('x', p[0]*40); r.setAttribute('y', p[1]*40);
+      r.setAttribute('width', 40); r.setAttribute('height', 40);
+      r.setAttribute('class', 'sq-hl');
+      svg.appendChild(r);
+    });
+    var glyph = { k:'pc-k', q:'pc-q', r:'pc-r', b:'pc-b', n:'pc-n', p:'pc-p' };
+    pieces.forEach(function(o){
+      var p = pos(o.sq);
+      var use = document.createElementNS(ns, 'use');
+      use.setAttribute('href', '#' + glyph[o.p.toLowerCase()]);
+      use.setAttribute('x', p[0]*40); use.setAttribute('y', p[1]*40);
+      use.setAttribute('class', 'piece ' + (o.p === o.p.toUpperCase() ? 'pw' : 'pb'));
+      svg.appendChild(use);
+    });
+    arrows.forEach(function(a){
+      var p1 = pos(a.from), p2 = pos(a.to);
+      var cx1 = p1[0]*40+20, cy1 = p1[1]*40+20, cx2 = p2[0]*40+20, cy2 = p2[1]*40+20;
+      var dx = cx2-cx1, dy = cy2-cy1, len = Math.sqrt(dx*dx+dy*dy) || 1;
+      var ux = dx/len, uy = dy/len;
+      var sx = cx1+ux*12, sy = cy1+uy*12, ex = cx2-ux*15, ey = cy2-uy*15;
+      var line = document.createElementNS(ns, 'line');
+      line.setAttribute('x1', sx); line.setAttribute('y1', sy);
+      line.setAttribute('x2', ex); line.setAttribute('y2', ey);
+      line.setAttribute('class', 'arrow');
+      svg.appendChild(line);
+      var poly = document.createElementNS(ns, 'polygon');
+      poly.setAttribute('points',
+        (cx2-ux*2) + ',' + (cy2-uy*2) + ' ' +
+        (ex - uy*7) + ',' + (ey + ux*7) + ' ' +
+        (ex + uy*7) + ',' + (ey - ux*7));
+      poly.setAttribute('class', 'arrowhead');
+      svg.appendChild(poly);
+    });
+    el.appendChild(svg);
+  }
+  document.querySelectorAll('.board').forEach(renderBoard);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sample review: Morphy vs. Duke of Brunswick · Chessmasters</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,400&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#0b1113;
+    --ink-2:#121b1e;
+    --ink-3:#1a2529;
+    --line:#2b3a3c;
+    --line-soft:#20302f;
+    --text:#ece6d8;
+    --text-muted:#93a3a0;
+    --gold:#c9993f;
+    --gold-bright:#e2b65f;
+    --brass-line:#4a3c22;
+    --green:#6fa383;
+    --teal:#2f6b62;
+    --teal-light:#57a496;
+    --oxblood:#7d3527;
+    --paper:#f3ecdc;
+    --paper-2:#e9e1cd;
+    --paper-line:#d6cbb1;
+    --paper-ink:#202725;
+    --paper-muted:#5f6a62;
+    --bronze:#7d5a1d;
+    --sq-light:#e6cfa2;
+    --sq-dark:#a97a52;
+    --piece-light:#f8efdb;
+    --piece-light-line:#2b2118;
+    --piece-dark:#241a12;
+    --piece-dark-line:#d9c7a8;
+    --arrow:#c9993f;
+    --arrow-b:#f3ecdc;
+    --radius-card:10px;
+    --radius-control:6px;
+    --wrap:1280px;
+    --font-display:"Fraunces",Georgia,serif;
+    --font-body:"DM Sans",ui-sans-serif,system-ui,sans-serif;
+    --font-mono:"DM Mono",ui-monospace,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{overflow-wrap:break-word;font-family:var(--font-body);background:var(--ink);color:var(--text);font-size:16.5px;line-height:1.65;-webkit-font-smoothing:antialiased;
+    background-image:radial-gradient(1000px 480px at 50% -8%,rgba(201,153,63,.12),transparent 60%);background-repeat:no-repeat}
+  ::selection{background:rgba(201,153,63,.85);color:#17130a}
+  :focus-visible{outline:2px solid var(--gold-bright);outline-offset:2px;border-radius:3px}
+  ::placeholder{color:#93a3a0}
+  .mono{font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+  a{color:inherit}
+  button{font:inherit;cursor:pointer}
+  .wrap{max-width:var(--wrap);margin:0 auto;padding-left:1.5rem;padding-right:1.5rem}
+  .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+  .nav{border-bottom:1px solid var(--line-soft);position:sticky;top:0;z-index:40;background:rgba(11,17,19,.92);backdrop-filter:blur(6px)}
+  .nav-in{display:flex;align-items:center;height:60px;gap:1.3rem}
+  .brand{display:flex;align-items:center;gap:.6rem;text-decoration:none;font-family:var(--font-display);font-weight:600;font-size:1.08rem}
+  .brand svg{width:22px;height:22px;display:block}
+  .backlink{display:flex;align-items:center;gap:.45rem;color:var(--text-muted);text-decoration:none;font-size:.88rem}
+  .backlink:hover{color:var(--text)}
+  .nav-right{margin-left:auto;display:flex;align-items:center;gap:.8rem}
+  .quota{font-size:.78rem;color:var(--text-muted);border:1px solid var(--line);border-radius:999px;padding:.3rem .7rem}
+  .nav-cta{background:var(--gold);color:#181c16;border:0;border-radius:var(--radius-control);padding:.46rem 1rem;font-weight:600;font-size:.86rem}
+  .nav-cta:hover{background:var(--gold-bright)}
+
+  .gamebar{padding:1.6rem 0 1.2rem}
+  .gamebar-in{border:1px solid var(--line);border-radius:var(--radius-card);padding:1.2rem 1.4rem;background:linear-gradient(180deg,rgba(201,153,63,.05),transparent 60%),var(--ink-2)}
+  .players{display:grid;grid-template-columns:1fr auto 1fr;gap:1rem;align-items:center}
+  .player{display:flex;align-items:center;gap:.75rem}
+  .player.opp{justify-content:flex-end;text-align:right}
+  .player-chip{width:28px;height:28px;flex:none;border-radius:4px;border:1px solid var(--brass-line);display:grid;place-items:center;background:var(--ink-3)}
+  .player-chip svg{width:16px;height:16px;display:block}
+  .player-chip.w svg{fill:var(--paper)}
+  .player-chip.b svg{fill:#241a12;stroke:#d9c7a8;stroke-width:1.2}
+  .player .name{font-weight:600;font-size:1rem}
+  .player .meta{font-size:.8rem;color:var(--text-muted)}
+  .result{font-family:var(--font-display);font-size:1.4rem;font-weight:600}
+  .gamebar-meta{margin-top:.9rem;padding-top:.8rem;border-top:1px solid var(--line-soft);display:flex;flex-wrap:wrap;gap:.5rem .9rem;align-items:center;font-size:.82rem;color:var(--text-muted)}
+  .chip{border:1px solid var(--line);border-radius:999px;padding:.18rem .6rem;font-size:.76rem}
+  .chip.sample{border-color:var(--brass-line);color:var(--gold)}
+  .gamebar-meta a{margin-left:auto;color:var(--gold-bright);text-decoration:none;font-weight:500;display:inline-flex;align-items:center;gap:.4rem}
+  .gamebar-meta a:hover{color:var(--text)}
+
+  .workspace{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:1.5rem;align-items:start;padding-bottom:4rem}
+
+  /* sheet reveal: the authored moment */
+  .report{background:var(--paper);color:var(--paper-ink);border-radius:var(--radius-card);padding:clamp(1.6rem,3vw,2.8rem);
+    box-shadow:0 46px 80px -60px rgba(0,0,0,1);
+    animation:unroll .9s cubic-bezier(.2,.7,.2,1) both;
+  }
+  @keyframes unroll{
+    from{clip-path:inset(0 0 96% 0);opacity:.4}
+    to{clip-path:inset(0 0 0% 0);opacity:1}
+  }
+
+  .report-head{border-bottom:1px solid var(--paper-line);padding-bottom:1.2rem}
+  .report-head .kicker-line{display:flex;justify-content:space-between;gap:1rem;font-size:.78rem;color:var(--bronze);letter-spacing:.08em;text-transform:uppercase}
+  .report-head h1{font-family:var(--font-display);font-variation-settings:"opsz" 80;font-weight:600;font-size:clamp(1.5rem,2.5vw,2.1rem);letter-spacing:-.02em;line-height:1.12;margin-top:.5rem;max-width:26ch}
+  .report-head .sub{margin-top:.5rem;font-size:.9rem;color:var(--paper-muted)}
+  .report-actions{display:flex;gap:.5rem;margin-top:1rem}
+  .ghost-btn{background:transparent;border:1px solid var(--paper-line);border-radius:var(--radius-control);padding:.4rem .8rem;font-size:.8rem;font-weight:500;color:var(--paper-ink);display:inline-flex;align-items:center;gap:.4rem}
+  .ghost-btn:hover{border-color:var(--bronze)}
+
+  .section{padding-top:2.4rem}
+  .section h2{font-family:var(--font-display);font-variation-settings:"opsz" 60;font-size:1.45rem;font-weight:600;letter-spacing:-.015em}
+  .section h2::after{content:"";display:block;width:44px;height:2px;background:var(--bronze);margin-top:.5rem;opacity:.65}
+  .section p{margin-top:1rem;max-width:68ch}
+  .section p.drop::first-letter{font-family:var(--font-display);float:left;font-size:3.1rem;line-height:.82;padding:.08em .12em 0 0;color:var(--bronze)}
+  .section .note{margin-top:.8rem;font-size:.84rem;color:var(--paper-muted);font-style:italic}
+  .margin-note{margin-top:1.2rem;border-left:0;border-top:1px solid var(--paper-line);border-bottom:1px solid var(--paper-line);padding:1rem 0;display:grid;grid-template-columns:150px 1fr;gap:1.2rem}
+  .margin-note .who{font-family:var(--font-display);font-style:italic;color:var(--bronze);font-size:.98rem}
+  .margin-note p{margin:0;font-size:.95rem;color:var(--paper-muted);max-width:56ch}
+  .margin-note p b{color:var(--paper-ink)}
+
+  .chart{margin-top:1.6rem;border:1px solid var(--paper-line);border-radius:8px;background:#f7f1e2;padding:1rem 1rem .8rem}
+  .chart .cap{display:flex;justify-content:space-between;font-size:.78rem;color:var(--paper-muted)}
+  .chart svg{display:block;width:100%;height:auto;margin-top:.6rem}
+  .chart .line{fill:none;stroke:var(--teal);stroke-width:2.2;stroke-linejoin:round;stroke-linecap:round}
+  .chart .area{fill:rgba(47,107,98,.12)}
+  .chart .zero{stroke:var(--paper-line);stroke-width:1;stroke-dasharray:4 4}
+  .chart .grid-line{stroke:var(--paper-line);stroke-width:1;opacity:.5}
+  .chart .pt{fill:var(--paper);stroke:var(--bronze);stroke-width:1.6}
+  .chart .pt.hit{fill:var(--oxblood);stroke:var(--oxblood)}
+  .chart .lbl{font-family:var(--font-mono);font-size:9px;fill:var(--paper-muted)}
+
+  .moves{margin-top:1.6rem;border-top:1px solid var(--paper-line);border-bottom:1px solid var(--paper-line);padding:1.1rem 0;column-count:2;column-gap:2.4rem;font-family:var(--font-mono);font-size:.86rem;color:var(--paper-ink)}
+  .moves .mv{display:flex;gap:.7rem;padding:.16rem 0;break-inside:avoid}
+  .moves .no{color:var(--paper-muted);width:1.6rem;text-align:right;flex:none}
+  .moves .hit{color:var(--oxblood);font-weight:500}
+  .moves .res{margin-top:.5rem;color:var(--bronze);font-weight:500}
+
+  .plate{margin-top:1.8rem}
+  .plate-frame{border:1px solid var(--brass-line);border-radius:8px;padding:.8rem;background:linear-gradient(180deg,rgba(201,153,63,.06),transparent)}
+  .plate-grid{display:grid;grid-template-columns:250px 1fr;gap:1.4rem;align-items:start}
+  .plate .board{border:1px solid var(--paper-line);border-radius:4px;overflow:hidden}
+  .plate h3{font-family:var(--font-display);font-size:1.08rem;font-weight:600;letter-spacing:-.01em}
+  .plate .figcap{margin-top:.6rem;font-size:.8rem;color:var(--bronze);font-family:var(--font-mono)}
+  .plate .why{margin-top:.8rem;font-size:.93rem;color:var(--paper-muted);max-width:52ch}
+  .plate .why b{color:var(--paper-ink)}
+  .plate .alt{margin-top:.8rem;font-size:.88rem;color:var(--paper-muted)}
+  .plate .alt span{font-family:var(--font-mono);color:var(--paper-ink)}
+
+  .resources{margin-top:1rem;border-top:1px solid var(--paper-line)}
+  .resource{display:flex;align-items:baseline;gap:.9rem;padding:.75rem 0;border-bottom:1px solid var(--paper-line)}
+  .resource .idx{font-family:var(--font-mono);font-size:.78rem;color:var(--bronze)}
+  .resource a{color:var(--paper-ink);font-weight:500;text-decoration:none;border-bottom:1.5px solid rgba(138,100,32,.4)}
+  .resource a:hover{color:var(--bronze)}
+  .resource .from{margin-left:auto;font-size:.78rem;color:var(--paper-muted);white-space:nowrap}
+
+  /* rail */
+  .rail{position:sticky;top:76px;display:grid;gap:1rem}
+  .thread{background:var(--ink-2);border:1px solid var(--line);border-radius:var(--radius-card);display:flex;flex-direction:column;max-height:calc(100vh - 170px)}
+  .thread-head{padding:.9rem 1rem;border-bottom:1px solid var(--line-soft);display:flex;justify-content:space-between;align-items:center}
+  .thread-head .t{font-weight:600;font-size:.95rem}
+  .thread-head .pill{font-size:.78rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--gold);border:1px solid var(--brass-line);border-radius:999px;padding:.14rem .5rem}
+  .msgs{padding:1rem;display:grid;gap:.9rem;overflow:auto}
+  .msg .who{font-size:.76rem;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted);font-weight:600}
+  .msg.user .who{color:var(--gold)}
+  .msg .bubble{margin-top:.35rem;font-size:.9rem;border-radius:8px;padding:.75rem .85rem}
+  .msg.user .bubble{background:var(--paper);color:var(--paper-ink)}
+  .msg.coach .bubble{background:var(--ink-3);border:1px solid var(--line);color:var(--text)}
+  .composer{border-top:1px solid var(--line-soft);padding:.8rem;display:grid;gap:.6rem}
+  .composer textarea{width:100%;background:var(--ink-3);border:1px solid var(--line);border-radius:var(--radius-control);color:var(--text);font:inherit;font-size:.9rem;padding:.6rem .7rem;resize:vertical;min-height:58px}
+  .composer textarea:focus{outline:none;border-color:var(--gold)}
+  .composer .row{display:flex;justify-content:space-between;align-items:center}
+  .composer .hint{font-size:.75rem;color:var(--text-muted)}
+  .composer button{background:var(--gold);color:#181c16;border:0;border-radius:var(--radius-control);padding:.5rem 1rem;font-weight:600;font-size:.85rem}
+  .composer button:hover{background:var(--gold-bright)}
+
+  .upgrade{border:1px solid var(--brass-line);border-radius:var(--radius-card);padding:1.1rem 1.2rem;background:linear-gradient(180deg,rgba(201,153,63,.06),transparent)}
+  .upgrade h3{font-family:var(--font-display);font-size:1.05rem;font-weight:600}
+  .upgrade p{margin-top:.4rem;font-size:.86rem;color:var(--text-muted)}
+  .upgrade .btn{display:inline-block;margin-top:.9rem;background:var(--gold);color:#181c16;border-radius:var(--radius-control);padding:.55rem 1rem;font-weight:600;font-size:.85rem;text-decoration:none}
+  .upgrade .btn:hover{background:var(--gold-bright)}
+
+  footer{border-top:1px solid var(--line-soft);padding:2.5rem 0}
+  .foot{display:flex;flex-wrap:wrap;gap:1.2rem;justify-content:space-between;align-items:center}
+  .foot-links{display:flex;gap:1.3rem;flex-wrap:wrap}
+  .foot a{color:var(--text-muted);text-decoration:none;font-size:.84rem}
+  .foot a:hover{color:var(--text)}
+  .foot small{color:var(--text-muted);font-size:.78rem}
+  .disclaimer{margin-top:1.6rem;border-top:1px solid var(--line-soft);padding-top:1.2rem}
+
+  .board{width:100%;aspect-ratio:1/1}
+  .board svg{display:block;width:100%;height:100%}
+  .sq-l{fill:var(--sq-light)}
+  .sq-d{fill:var(--sq-dark)}
+  .sq-hl{fill:var(--gold);opacity:.5}
+  .piece{pointer-events:none}
+  .piece.pw{fill:var(--piece-light);stroke:var(--piece-light-line);stroke-width:1.1}
+  .piece.pb{fill:var(--piece-dark);stroke:var(--piece-dark-line);stroke-width:1.1}
+  .arrow{stroke:var(--arrow);stroke-width:5;stroke-linecap:round}
+  .arrowhead{fill:var(--arrow)}
+  .arrow.b{stroke:var(--arrow-b)}
+  .arrowhead.b{fill:var(--arrow-b)}
+
+  @media (max-width:1080px){
+    .workspace{grid-template-columns:1fr}
+    .rail{position:static}
+    .thread{max-height:none}
+  }
+  @media (max-width:760px){
+    .players{grid-template-columns:1fr;gap:.7rem}
+    .player.opp{justify-content:flex-start;text-align:left}
+    .result{order:-1}
+    .plate-grid{grid-template-columns:1fr}
+    .margin-note{grid-template-columns:1fr;gap:.4rem}
+    .gamebar-meta a{margin-left:0}
+  }
+  @media (max-width:640px){.quota{display:none}.nav-in{gap:.7rem}.nav-cta{padding:.44rem .7rem}}
+  @media (prefers-reduced-motion:reduce){
+    *{animation:none!important;transition:none!important}
+    .report{clip-path:none;opacity:1}
+  }
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <g id="pc-p"><circle cx="20" cy="14.2" r="5.6"/><path d="M15.4 19.4h9.2l1.7 7.8H13.7z"/><path d="M12.2 27.2h15.6l1.8 4.2H10.4z"/></g>
+    <g id="pc-r"><path d="M12 9.5h3.6v3.8h2.9V9.5h3v3.8h2.9V9.5H28v7.2l-3 2.6v8.2l3 2.6v3.4H12v-3.4l3-2.6v-8.2l-3-2.6z"/></g>
+    <g id="pc-n"><path d="M14.5 32.5h11.8l1.3 3.4H13.2z"/><path d="M16.2 30.9c-.4-4.6.4-8.2 2.2-10.8l-3-3.6 1.2-4.4c5.6 1.4 9.4 4.6 11.2 9.2 1.2 3 1.5 6.2 1 9.6-.3 2.2-2 3-3.6 2.3-1.7-.7-2-2.6-1.7-4.4.4-2.6-.4-4.6-2.6-5.6-2.1 3.4-4 5-6.6 5z"/></g>
+    <g id="pc-b"><circle cx="20" cy="7.8" r="2.7"/><path d="M20 10.4c4.4 4 6.6 7.9 6.6 11.7 0 3.4-3 5.6-6.6 5.6s-6.6-2.2-6.6-5.6c0-3.8 2.2-7.7 6.6-11.7z"/><rect class="slit" x="19.1" y="13.6" width="1.8" height="8"/><path d="M16.7 27.4h6.6l1.2 3.4H15.5z"/><path d="M13 30.8h14l1.4 3.6H11.6z"/></g>
+    <g id="pc-q"><circle cx="11.3" cy="12.4" r="2.4"/><circle cx="15.7" cy="9.2" r="2.4"/><circle cx="20" cy="7.8" r="2.6"/><circle cx="24.3" cy="9.2" r="2.4"/><circle cx="28.7" cy="12.4" r="2.4"/><path d="M11.5 14.5l3 9.5h11l3-9.5-4.3 4.6L20 11l-4.2 8.1z"/><path d="M14.5 24h11l1.1 5h-13.2z"/><path d="M12.6 29h14.8l1.4 3.6H11.2z"/></g>
+    <g id="pc-k"><path d="M18.5 4.6h3v2.9h2.9v3h-2.9v2.9h-3v-2.9h-2.9v-3h2.9z"/><path d="M14.2 21.8c0-3.6 2.6-6.6 5.8-6.6s5.8 3 5.8 6.6c0 2-1 3.5-1.9 4.5h-7.8c-.9-1-1.9-2.5-1.9-4.5z"/><path d="M14.9 25.8h10.2l1.2 4.2H13.7z"/><path d="M12.6 30h14.8l1.5 3.6H11.1z"/></g>
+  </defs>
+</svg>
+
+<header class="nav">
+  <div class="wrap nav-in">
+    <a class="brand" href="landing.html">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M11.2 2.6h1.6v2.2h2.2v1.6h-2.2v2.2h-1.6V6.4H9V4.8h2.2z" fill="#c9993f"/>
+        <path d="M8.4 12.2c0-2.1 1.6-3.8 3.6-3.8s3.6 1.7 3.6 3.8c0 1.3-.6 2.3-1.2 3H9.6c-.6-.7-1.2-1.7-1.2-3z" fill="#c9993f"/>
+        <path d="M8.9 16h6.2l.8 2.6H8.1zM7 19.4h10l1 2.6H6z" fill="#c9993f"/>
+      </svg>
+      Chessmasters
+    </a>
+    <a class="backlink" href="landing.html">
+      <svg width="13" height="13" viewBox="0 0 16 16" aria-hidden="true"><path d="M14 8H3M7 3.5L2.5 8 7 12.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square"/></svg>
+      All analyses
+    </a>
+    <div class="nav-right">
+      <span class="quota mono">1 of 100 this period</span>
+      <button class="nav-cta" type="button">Upgrade plan</button>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="gamebar" aria-label="Game details">
+    <div class="gamebar-in">
+      <div class="players">
+        <div class="player">
+          <span class="player-chip w" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M11.4 3.2h1.2v2.6h2.6v1.2h-2.6v2.6h-1.2V7h-2.6V5.8h2.6zM9.6 11c0-1.8 1.2-3.2 2.4-3.2S14.4 9.2 14.4 11c0 1.1-.5 1.9-.9 2.5h-3c-.4-.6-.9-1.4-.9-2.5zM9.2 14.5h5.6l.8 2.4H8.4zM7.8 18h8.4l1 2.4H6.8z"/></svg></span>
+          <div>
+            <div class="name">You <span class="mono" style="color:var(--text-muted);font-weight:400;font-size:.8rem">(1420)</span></div>
+            <div class="meta">White</div>
+          </div>
+        </div>
+        <div class="result mono">1–0</div>
+        <div class="player opp">
+          <div>
+            <div class="name">Opponent <span class="mono" style="color:var(--text-muted);font-weight:400;font-size:.8rem">(1436)</span></div>
+            <div class="meta">Black · Duke of Brunswick</div>
+          </div>
+          <span class="player-chip b" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M11.4 3.2h1.2v2.6h2.6v1.2h-2.6v2.6h-1.2V7h-2.6V5.8h2.6zM9.6 11c0-1.8 1.2-3.2 2.4-3.2S14.4 9.2 14.4 11c0 1.1-.5 1.9-.9 2.5h-3c-.4-.6-.9-1.4-.9-2.5zM9.2 14.5h5.6l.8 2.4H8.4zM7.8 18h8.4l1 2.4H6.8z"/></svg></span>
+        </div>
+      </div>
+      <div class="gamebar-meta">
+        <span class="chip">Lichess</span>
+        <span class="chip">Italian Game · C50</span>
+        <span class="chip">17 moves · 13 min</span>
+        <span class="chip sample">Sample analysis</span>
+        <span>14 March 2026</span>
+        <a href="#" onclick="return false">View original game
+          <svg width="12" height="12" viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3h7v7M13 3L4 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square"/></svg>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <div class="workspace">
+    <article class="report">
+      <header class="report-head">
+        <div class="kicker-line">
+          <span>Coaching review · No. 001</span>
+          <span class="mono">avg centipawn loss 8.7</span>
+        </div>
+        <h1>The game was over on move 11</h1>
+        <p class="sub">Morphy vs. Duke of Brunswick &amp; Count Isouard, Paris Opera House, 1858</p>
+        <div class="report-actions">
+          <button class="ghost-btn" type="button">
+            <svg width="13" height="13" viewBox="0 0 16 16" aria-hidden="true"><rect x="5" y="5" width="9" height="9" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M11 5V2H2v9h3" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>
+            Copy report
+          </button>
+          <button class="ghost-btn" type="button">
+            <svg width="13" height="13" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 12l4-5 3 3 5-7" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="square"/></svg>
+            Share
+          </button>
+        </div>
+      </header>
+
+      <section class="section">
+        <h2>Strength</h2>
+        <p class="drop">Your pieces arrived before your attack did. From move 6 every piece went to its best square: Bc4 and Qb3 pointed at f7, Nc3 held the centre, and Bg5 pinned the knight before a single pawn moved on the kingside. When the sacrifices came, they were not gambles: they were the natural conclusion of a position you had already won.</p>
+        <p class="note">Engine note · average centipawn loss 8.7 against a 40-point target for your rating band.</p>
+      </section>
+
+      <section class="section">
+        <h2>Weakness</h2>
+        <p>You recaptured with the piece doing the most work, twice. 5.Qxf3 pulled the queen into a pin line that didn't exist yet, and it cost two tempi of development. The habit to build: after every capture, ask which recapture leaves your best piece where it belongs.</p>
+        <div class="margin-note">
+          <span class="who">In the margin</span>
+          <p><b>5.Qxf3</b> — the queen recaptures. <b>5.gxf3</b> keeps her free to attack and opens the g-file for the rook. You still won; at 1600+ this gets punished by ...d5 and ...Bc5 hitting f3.</p>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2>Game Overview</h2>
+        <p>A seventeen-move miniature decided by two removal sacrifices. Black never finished developing; your rooks reached the eighth rank first. Move 11 was the last moment Black could have defended. After that, every white move was a check or a capture.</p>
+
+        <div class="chart">
+          <div class="cap"><span>Evaluation through the game</span><span class="mono">+10 = white winning · dashed = level</span></div>
+          <svg id="eval-chart" viewBox="0 0 640 180" role="img" aria-label="Evaluation rises from level to a forced mate across 17 moves.">
+          </svg>
+          <div class="cap"><span class="mono">move 1</span><span class="mono">move 8</span><span class="mono">move 16 · Qb8+!!</span></div>
+        </div>
+
+        <div class="moves" role="list" aria-label="Moves of the game">
+          <div class="mv" role="listitem"><span class="no">1</span><span>e4 e5</span></div>
+          <div class="mv" role="listitem"><span class="no">2</span><span>Nf3 d6</span></div>
+          <div class="mv" role="listitem"><span class="no">3</span><span>d4 Bg4</span></div>
+          <div class="mv" role="listitem"><span class="no">4</span><span>dxe5 Bxf3</span></div>
+          <div class="mv hit" role="listitem"><span class="no">5</span><span>Qxf3 dxe5</span></div>
+          <div class="mv" role="listitem"><span class="no">6</span><span>Bc4 Nf6</span></div>
+          <div class="mv" role="listitem"><span class="no">7</span><span>Qb3 Qe7</span></div>
+          <div class="mv" role="listitem"><span class="no">8</span><span>Nc3 c6</span></div>
+          <div class="mv" role="listitem"><span class="no">9</span><span>Bg5 b5</span></div>
+          <div class="mv" role="listitem"><span class="no">10</span><span>Nxb5 cxb5</span></div>
+          <div class="mv hit" role="listitem"><span class="no">11</span><span>Bxb5+ Nbd7</span></div>
+          <div class="mv" role="listitem"><span class="no">12</span><span>O-O-O Rd8</span></div>
+          <div class="mv hit" role="listitem"><span class="no">13</span><span>Rxd7 Rxd7</span></div>
+          <div class="mv" role="listitem"><span class="no">14</span><span>Rd1 Qe6</span></div>
+          <div class="mv" role="listitem"><span class="no">15</span><span>Bxd7+ Nxd7</span></div>
+          <div class="mv hit" role="listitem"><span class="no">16</span><span>Qb8+ Nxb8</span></div>
+          <div class="mv hit" role="listitem"><span class="no">17</span><span>Rd8#</span></div>
+          <div class="mv res" role="listitem"><span class="no"></span><span>1–0 · mate</span></div>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2>Key moments</h2>
+
+        <div class="plate">
+          <div class="plate-frame">
+            <div class="plate-grid">
+              <div>
+                <div class="board" data-fen="rn2kb1r/p3qppp/p2p1n2/1p2p1B1/2BPP3/1Q6/PPP2PPP/R3K2R w KQkq - 0 11" data-orient="w" data-hl="b5" data-arrows='[{"from":"c4","to":"b5"}]' data-label="Plate I: before 11.Bxb5+."></div>
+                <p class="figcap">Plate I · after 10...cxb5</p>
+              </div>
+              <div>
+                <h3>The check that forced the trade</h3>
+                <p class="why"><b>11.Bxb5+</b> drags the last kingside defender away with tempo. Black must block with a knight, so the rook defending d7 never gets , which is exactly why <b>13.Rxd7</b> works two moves later.</p>
+                <p class="alt">You played <span>11.Bxb5+</span> · Engine line <span>11.Bxb5+ Nbd7 12.O-O-O</span></p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="plate">
+          <div class="plate-frame">
+            <div class="plate-grid">
+              <div>
+                <div class="board" data-fen="3rkb1r/p2nqppp/p2p1n2/1B2p1B1/3PP3/1Q6/PPP2PPP/2KR3R w k - 0 13" data-orient="w" data-hl="d7" data-arrows='[{"from":"d1","to":"d7"}]' data-label="Plate II: before 13.Rxd7."></div>
+                <p class="figcap">Plate II · after 12...Rd8</p>
+              </div>
+              <div>
+                <h3>Removing the defender</h3>
+                <p class="why"><b>13.Rxd7</b> gives a rook for a knight to tear the eighth rank open. Exchange sacrifices are not about the material count: the rook buys the d-file, and the d-file decides the game.</p>
+                <p class="alt">You played <span>13.Rxd7</span> · Engine line <span>13.Rxd7 Rxd7 14.Rd1</span></p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="plate">
+          <div class="plate-frame">
+            <div class="plate-grid">
+              <div>
+                <div class="board" data-fen="r3kb1r/p2n1ppp/p2pq3/4p1B1/3PP3/1Q6/PPP2PPP/2KR4 w k - 0 16" data-orient="w" data-hl="b8,d8" data-arrows='[{"from":"b3","to":"b8"},{"from":"d1","to":"d8","k":"b"}]' data-label="Plate III: before 16.Qb8+, with the mating rook line shown."></div>
+                <p class="figcap">Plate III · after 15...Nxd7</p>
+              </div>
+              <div>
+                <h3>The queen walks into capture</h3>
+                <p class="why"><b>16.Qb8+!!</b> is the only mate in one: the queen is bait, and the back rank was already undefended. Count the defenders before the sacrifice: here, d8 had none left.</p>
+                <p class="alt">You played <span>16.Qb8+!! Nxb8 17.Rd8#</span></p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2>Focus Areas</h2>
+        <div class="margin-note">
+          <span class="who">Train next</span>
+          <p><b>Exchange sacrifices</b>: give material to remove the one piece holding the position together. You found the idea here; the next step is trusting it when the material count looks bad for two more moves.</p>
+        </div>
+        <div class="margin-note">
+          <span class="who">Then</span>
+          <p><b>Recapture discipline</b>: choose the recapturing piece that keeps your best piece pointed at the king. 5.Qxf3 cost two tempi here.</p>
+        </div>
+
+        <div class="resources" aria-label="Training resources">
+          <div class="resource"><span class="idx">I</span><a href="https://lichess.org/training/sacrifice" target="_blank" rel="noopener">Sacrifice puzzles</a><span class="from">from move 11</span></div>
+          <div class="resource"><span class="idx">II</span><a href="https://lichess.org/training/deflection" target="_blank" rel="noopener">Deflection puzzles</a><span class="from">from move 13</span></div>
+          <div class="resource"><span class="idx">III</span><a href="https://lichess.org/training/capturingDefender" target="_blank" rel="noopener">Capturing the defender</a><span class="from">from move 13</span></div>
+          <div class="resource"><span class="idx">IV</span><a href="https://lichess.org/training/backRankMate" target="_blank" rel="noopener">Back-rank mate patterns</a><span class="from">from move 16</span></div>
+          <div class="resource"><span class="idx">V</span><a href="https://lichess.org/training/italianGame" target="_blank" rel="noopener">Italian Game tactics</a><span class="from">the opening</span></div>
+        </div>
+      </section>
+    </article>
+
+    <aside class="rail" aria-label="Ask about this game">
+      <div class="thread">
+        <div class="thread-head">
+          <span class="t">Ask about this game</span>
+          <span class="pill">Coaching plan</span>
+        </div>
+        <div class="msgs">
+          <div class="msg user">
+            <div class="who">You</div>
+            <div class="bubble">Why did the engine call 5.Qxf3 an inaccuracy? The queen felt natural.</div>
+          </div>
+          <div class="msg coach">
+            <div class="who">Coach</div>
+            <div class="bubble">Natural is the problem: it is the move a developing player plays on autopilot. The queen on f3 blocks the f-pawn and your knight on b1 now needs three moves to reach the kingside. 5.gxf3 keeps g2 free and opens the g-file. You still won because Black never punished it; at 1600+ it gets punished, usually with ...d5 and ...Bc5 hitting f3 directly.</div>
+          </div>
+          <div class="msg user">
+            <div class="who">You</div>
+            <div class="bubble">What should I drill this week?</div>
+          </div>
+          <div class="msg coach">
+            <div class="who">Coach</div>
+            <div class="bubble">Twenty minutes a day on sacrifice puzzles, starting with the reading list below the report. Before each one, say out loud which defender you are removing. The habit matters more than the puzzle rating.</div>
+          </div>
+        </div>
+        <div class="composer">
+          <label class="sr-only" for="ask">Ask a follow-up question</label>
+          <textarea id="ask" placeholder="Ask a follow-up about any move…"></textarea>
+          <div class="row">
+            <span class="hint">Included with your plan</span>
+            <button type="button">Ask coach</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="upgrade">
+        <h3>Reviewing five games a week?</h3>
+        <p>Batch mode analyzes up to 5 games at once and keeps the whole set in your history.</p>
+        <a class="btn" href="landing.html#pricing">See the Coaching plan</a>
+      </div>
+    </aside>
+  </div>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="foot">
+      <a class="brand" href="landing.html">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M11.2 2.6h1.6v2.2h2.2v1.6h-2.2v2.2h-1.6V6.4H9V4.8h2.2z" fill="#c9993f"/>
+          <path d="M8.4 12.2c0-2.1 1.6-3.8 3.6-3.8s3.6 1.7 3.6 3.8c0 1.3-.6 2.3-1.2 3H9.6c-.6-.7-1.2-1.7-1.2-3z" fill="#c9993f"/>
+          <path d="M8.9 16h6.2l.8 2.6H8.1zM7 19.4h10l1 2.6H6z" fill="#c9993f"/>
+        </svg>
+        Chessmasters
+      </a>
+      <nav class="foot-links" aria-label="Footer">
+        <a href="landing.html#how">How it works</a>
+        <a href="landing.html#pricing">Pricing</a>
+        <a href="#" onclick="return false">Terms</a>
+        <a href="#" onclick="return false">Privacy</a>
+        <a href="#" onclick="return false">Contact</a>
+      </nav>
+      <small>© 2026 Chessmasters</small>
+    </div>
+    <div class="disclaimer">
+      <small>Not affiliated with Lichess or Chess.com. Design concept: the game is a public historical match and the engine values shown are illustrative.</small>
+    </div>
+  </div>
+</footer>
+
+<script>
+(function(){
+  // eval line chart
+  var data = [0.3,0.3,0.2,0.4,0.3,0.4,0.5,0.6,0.8,1.1,2.4,3.1,4.8,6.5,8.2,9.9,10];
+  var svg = document.getElementById('eval-chart');
+  var W = 640, H = 180, padL = 34, padR = 14, padT = 14, padB = 26;
+  var n = data.length;
+  function X(i){ return padL + i*(W-padL-padR)/(n-1); }
+  function Y(v){ return padT + (1 - Math.min(v,10)/10) * (H-padT-padB); }
+  var ns = 'http://www.w3.org/2000/svg';
+  for (var g = 0; g <= 4; g++){
+    var yv = g*2.5;
+    var gy = Y(yv);
+    var line = document.createElementNS(ns, 'line');
+    line.setAttribute('x1', padL); line.setAttribute('x2', W-padR);
+    line.setAttribute('y1', gy); line.setAttribute('y2', gy);
+    line.setAttribute('class', g === 2 ? 'zero' : 'grid-line');
+    svg.appendChild(line);
+    var lbl = document.createElementNS(ns, 'text');
+    lbl.setAttribute('x', 4); lbl.setAttribute('y', gy+3);
+    lbl.setAttribute('class', 'lbl');
+    lbl.textContent = g === 2 ? '0' : ('+' + yv);
+    svg.appendChild(lbl);
+  }
+  var d = '', a = '';
+  data.forEach(function(v,i){
+    d += (i === 0 ? 'M' : 'L') + X(i) + ' ' + Y(v) + ' ';
+  });
+  a = d + 'L' + X(n-1) + ' ' + Y(0) + ' L' + X(0) + ' ' + Y(0) + ' Z';
+  var area = document.createElementNS(ns, 'path');
+  area.setAttribute('d', a); area.setAttribute('class', 'area');
+  svg.appendChild(area);
+  var path = document.createElementNS(ns, 'path');
+  path.setAttribute('d', d); path.setAttribute('class', 'line');
+  svg.appendChild(path);
+  data.forEach(function(v,i){
+    if (i % 2 === 0 || i === n-1){
+      var c = document.createElementNS(ns, 'circle');
+      c.setAttribute('cx', X(i)); c.setAttribute('cy', Y(v)); c.setAttribute('r', 3.4);
+      c.setAttribute('class', 'pt' + ((i === 15 || i === 16) ? ' hit' : ''));
+      svg.appendChild(c);
+    }
+  });
+
+  function renderBoard(el){
+    var fen = (el.dataset.fen || '').split(' ')[0];
+    var orient = el.dataset.orient || 'w';
+    var hl = (el.dataset.hl || '').split(',').map(function(s){return s.trim();}).filter(Boolean);
+    var arrows = el.dataset.arrows ? JSON.parse(el.dataset.arrows) : [];
+    var ns = 'http://www.w3.org/2000/svg';
+    var svg = document.createElementNS(ns, 'svg');
+    svg.setAttribute('viewBox', '0 0 320 320');
+    svg.setAttribute('role', 'img');
+    svg.setAttribute('aria-label', el.dataset.label || 'Chess position');
+    var files = 'abcdefgh';
+    var rows = fen.split('/');
+    var pieces = [];
+    rows.forEach(function(row, ri){
+      var f = 0;
+      for (var c = 0; c < row.length; c++){
+        var ch = row[c];
+        if (/\d/.test(ch)) { f += +ch; } else { pieces.push({ sq: files[f] + (8 - ri), p: ch }); f++; }
+      }
+    });
+    function pos(sq){
+      var file = files.indexOf(sq[0]);
+      var rank = +sq[1];
+      return [orient === 'w' ? file : 7 - file, orient === 'w' ? 8 - rank : rank - 1];
+    }
+    for (var y = 0; y < 8; y++) for (var x = 0; x < 8; x++){
+      var r = document.createElementNS(ns, 'rect');
+      r.setAttribute('x', x*40); r.setAttribute('y', y*40);
+      r.setAttribute('width', 40); r.setAttribute('height', 40);
+      r.setAttribute('class', ((x+y)%2===0) ? 'sq-l' : 'sq-d');
+      svg.appendChild(r);
+    }
+    hl.forEach(function(sq){
+      var p = pos(sq);
+      var r = document.createElementNS(ns, 'rect');
+      r.setAttribute('x', p[0]*40); r.setAttribute('y', p[1]*40);
+      r.setAttribute('width', 40); r.setAttribute('height', 40);
+      r.setAttribute('class', 'sq-hl');
+      svg.appendChild(r);
+    });
+    var glyph = { k:'pc-k', q:'pc-q', r:'pc-r', b:'pc-b', n:'pc-n', p:'pc-p' };
+    pieces.forEach(function(o){
+      var p = pos(o.sq);
+      var use = document.createElementNS(ns, 'use');
+      use.setAttribute('href', '#' + glyph[o.p.toLowerCase()]);
+      use.setAttribute('x', p[0]*40); use.setAttribute('y', p[1]*40);
+      use.setAttribute('class', 'piece ' + (o.p === o.p.toUpperCase() ? 'pw' : 'pb'));
+      svg.appendChild(use);
+    });
+    arrows.forEach(function(a){
+      var p1 = pos(a.from), p2 = pos(a.to);
+      var cx1 = p1[0]*40+20, cy1 = p1[1]*40+20, cx2 = p2[0]*40+20, cy2 = p2[1]*40+20;
+      var dx = cx2-cx1, dy = cy2-cy1, len = Math.sqrt(dx*dx+dy*dy) || 1;
+      var ux = dx/len, uy = dy/len;
+      var sx = cx1+ux*12, sy = cy1+uy*12, ex = cx2-ux*15, ey = cy2-uy*15;
+      var k = a.k === 'b' ? ' b' : '';
+      var line = document.createElementNS(ns, 'line');
+      line.setAttribute('x1', sx); line.setAttribute('y1', sy);
+      line.setAttribute('x2', ex); line.setAttribute('y2', ey);
+      line.setAttribute('class', 'arrow' + k);
+      svg.appendChild(line);
+      var poly = document.createElementNS(ns, 'polygon');
+      poly.setAttribute('points',
+        (cx2-ux*2) + ',' + (cy2-uy*2) + ' ' +
+        (ex - uy*7) + ',' + (ey + ux*7) + ' ' +
+        (ex + uy*7) + ',' + (ey - ux*7));
+      poly.setAttribute('class', 'arrowhead' + k);
+      svg.appendChild(poly);
+    });
+    el.appendChild(svg);
+  }
+  document.querySelectorAll('.board').forEach(renderBoard);
+})();
+</script>
+</body>
+</html>

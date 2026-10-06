@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chessmasters · Your game, on the clock</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Jost:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Roboto+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --field-w:#f2f2ee;
+    --field-w-2:#e7e7e2;
+    --field-b:#0e0f11;
+    --field-b-2:#16181b;
+    --ink:#141518;
+    --ink-on-b:#f4f4f1;
+    --muted-w:#5b5e63;
+    --muted-b:#a2a6ab;
+    --line-w:#d3d3cd;
+    --line-b:#2a2d31;
+    --orange:#ff4a17;
+    --orange-deep:#b7340c;
+    --orange-soft:#ffd9cc;
+    --sq-light:#e9e7e0;
+    --sq-dark:#5d636b;
+    --piece-light:#f2f2ee;
+    --piece-light-line:#141518;
+    --piece-dark:#141518;
+    --piece-dark-line:#f2f2ee;
+    --arrow:#ff4a17;
+    --arrow-b:#f2f2ee;
+    --radius:3px;
+    --pad:clamp(1.25rem,3vw,2.5rem);
+    --wrap:1180px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{overflow-wrap:break-word;
+    font-family:"Jost",system-ui,sans-serif;
+    background:var(--field-b);
+    color:var(--ink-on-b);
+    font-size:17px;
+    line-height:1.55;
+    -webkit-font-smoothing:antialiased;
+  }
+  ::selection{background:var(--orange);color:#fff}
+  :focus-visible{outline:2px solid var(--orange);outline-offset:2px;border-radius:2px}
+  ::placeholder{color:var(--muted-w)}
+  a{color:inherit}
+  button{font:inherit;cursor:pointer}
+  .mono{font-family:"Roboto Mono",monospace;font-variant-numeric:tabular-nums}
+  .wrap{max-width:var(--wrap);margin:0 auto;padding-left:var(--pad);padding-right:var(--pad)}
+  .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+  /* ---------- nav ---------- */
+  .nav{
+    position:sticky;top:0;z-index:40;
+    background:var(--field-b);border-bottom:1px solid var(--line-b);
+  }
+  .nav-in{display:flex;align-items:center;gap:1.6rem;height:60px}
+  .brand{display:flex;align-items:center;gap:.6rem;text-decoration:none;font-weight:700;letter-spacing:.01em;font-size:1.05rem}
+  .brand-mark{width:22px;height:22px;display:block}
+  .nav-links{display:flex;gap:1.4rem;margin-left:auto;align-items:center}
+  .nav-links a{color:var(--muted-b);text-decoration:none;font-size:.92rem;font-weight:500}
+  .nav-links a:hover{color:var(--ink-on-b)}
+  .nav-signin{
+    background:transparent;border:1px solid var(--line-b);color:var(--ink-on-b);
+    border-radius:var(--radius);padding:.42rem .95rem;font-weight:500;font-size:.9rem;
+    transition:border-color .15s,background .15s;
+  }
+  .nav-signin:hover{border-color:var(--muted-b);background:var(--field-b-2)}
+
+  /* ---------- hero ---------- */
+  .hero{display:grid;grid-template-columns:1.02fr .98fr;min-height:min(86vh,780px)}
+  .hero-left{background:var(--field-w);color:var(--ink);display:flex;align-items:center}
+  .hero-left-in{width:100%;max-width:640px;margin-left:auto;padding:4.5rem var(--pad) 4rem}
+  .hero h1{
+    font-size:clamp(2.5rem,4.6vw,4.1rem);
+    line-height:1.02;font-weight:600;letter-spacing:-.03em;text-wrap:balance;
+  }
+  .hero h1 .reg{display:inline-block;background:var(--field-b);color:var(--ink-on-b);padding:.02em .18em .08em;margin-top:.12em}
+  .hero-sub{margin-top:1.4rem;color:var(--muted-w);max-width:52ch;font-size:1.06rem}
+  .hero-form{margin-top:2rem;background:#fff;border:1px solid var(--line-w);border-radius:var(--radius);padding:1.4rem}
+  .seg{display:inline-flex;border:1px solid var(--line-w);border-radius:var(--radius);overflow:hidden}
+  .seg-btn{
+    background:transparent;border:0;color:var(--muted-w);padding:.48rem 1.05rem;font-weight:600;font-size:.88rem;
+    transition:background .15s,color .15s;
+  }
+  .seg-btn+.seg-btn{border-left:1px solid var(--line-w)}
+  .seg-btn[aria-pressed="true"]{background:var(--field-b);color:var(--ink-on-b)}
+  .field{margin-top:1rem}
+  .field label{display:block;font-size:.8rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted-w);margin-bottom:.4rem}
+  .field input{min-width:0;
+    width:100%;background:#fff;border:1px solid var(--line-w);border-radius:var(--radius);
+    padding:.72rem .85rem;font:inherit;font-size:.98rem;color:var(--ink);
+    transition:border-color .15s,box-shadow .15s;
+  }
+  .field input:focus{outline:none;border-color:var(--ink);box-shadow:0 0 0 3px var(--orange-soft)}
+  .field .hint{font-size:.82rem;color:var(--muted-w);margin-top:.4rem}
+  .submit{
+    margin-top:1.2rem;width:100%;background:var(--orange);color:#141518;border:0;border-radius:var(--radius);
+    padding:.85rem 1rem;font-weight:600;font-size:1rem;letter-spacing:.01em;
+    display:flex;align-items:center;justify-content:center;gap:.6rem;
+    transition:background .15s,transform .12s;
+  }
+  .submit:hover{background:#ff6b3d}
+  .submit:active{transform:translateY(1px)}
+  .form-note{margin-top:.7rem;font-size:.82rem;color:var(--muted-w);display:flex;justify-content:space-between;gap:1rem;flex-wrap:wrap;gap:.25rem 1rem}
+
+  .status-clock{margin-top:1.5rem;border:1px solid var(--line-w);border-radius:var(--radius);overflow:hidden}
+  .status-row{display:grid;grid-template-columns:auto 1fr auto;gap:.9rem;align-items:center;padding:.7rem .9rem;background:#fff}
+  .status-row+.status-row{border-top:1px solid var(--line-w)}
+  .status-dot{width:10px;height:10px;border-radius:50%;background:var(--line-w);position:relative}
+  .status-row.is-done .status-dot{background:var(--ink)}
+  .status-row.is-live .status-dot{background:var(--orange);animation:pip 1.1s ease-in-out infinite}
+  .status-label{font-size:.9rem;font-weight:500}
+  .status-row:not(.is-done):not(.is-live) .status-label{color:var(--muted-w)}
+  .status-time{font-size:.82rem;color:var(--muted-w)}
+  @keyframes pip{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.5);opacity:.55}}
+
+  .hero-right{background:var(--field-b);display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden}
+  .register{width:min(440px,84%);}
+  .register-head{display:flex;justify-content:space-between;align-items:baseline;border-bottom:1px solid var(--line-b);padding-bottom:.6rem}
+  .register-head .rlabel{font-size:.78rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted-b);font-weight:600}
+  .register-head .rvalue{font-size:.78rem;color:var(--muted-b)}
+  .board{width:100%;aspect-ratio:1/1}
+  .board svg{display:block;width:100%;height:100%}
+  .sq-l{fill:var(--sq-light)}
+  .sq-d{fill:var(--sq-dark)}
+  .sq-hl{fill:var(--orange);opacity:.42}
+  .piece{pointer-events:none}
+  .piece.pw{fill:var(--piece-light);stroke:var(--piece-light-line);stroke-width:1.1}
+  .piece.pb{fill:var(--piece-dark);stroke:var(--piece-dark-line);stroke-width:1.1}
+  .arrow{stroke-width:5;stroke-linecap:round}
+  .arrowhead{}
+  .arrow,.arrowhead{fill:var(--arrow)}
+  .arrow{stroke:var(--arrow)}
+  .arrow.b{stroke:var(--arrow-b)}
+  .arrowhead.b{fill:var(--arrow-b)}
+  .eval-register{margin-top:1rem;border:1px solid var(--line-b);border-radius:var(--radius);background:var(--field-b-2)}
+  .eval-top{display:flex;align-items:center;justify-content:space-between;padding:.75rem 1rem}
+  .eval-top .who{font-size:.8rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted-b);font-weight:600}
+  .eval-top .val{font-size:1.9rem;font-weight:700;color:var(--ink-on-b)}
+  .eval-top .val span{font-size:.95rem;color:var(--muted-b);font-weight:500;margin-left:.35rem}
+  .ribbon{position:relative;height:74px;border-top:1px solid var(--line-b);background:var(--field-b)}
+  .ribbon-bars{position:absolute;inset:0;display:flex;align-items:stretch;gap:2px;padding:0 12px}
+  .rb{flex:1;position:relative}
+  .rb i{position:absolute;left:0;right:0;display:block;border-radius:1px;min-height:2px}
+  .rb .up{background:var(--field-w);bottom:50%;}
+  .rb .down{background:var(--orange);top:50%}
+  .rb-axis{position:absolute;left:0;right:0;top:50%;height:1px;background:var(--line-b)}
+  .sweep{position:absolute;top:0;bottom:0;width:2px;background:var(--orange);left:78%;animation:sweep 2.6s cubic-bezier(.16,1,.3,1) .35s both}
+  .sweep::after{content:"";position:absolute;top:-3px;left:-3px;width:8px;height:8px;background:var(--orange);transform:rotate(45deg)}
+  @keyframes sweep{from{left:2%;opacity:0}to{left:78%;opacity:1}}
+  .ribbon-caption{display:flex;justify-content:space-between;padding:.55rem 1rem .7rem;font-size:.78rem;color:var(--muted-b)}
+  .hero-right .register-note{margin-top:.9rem;font-size:.8rem;color:var(--muted-b);text-align:center}
+
+  /* ---------- sections ---------- */
+  .band{padding:5.5rem 0}
+  .band-w{background:var(--field-w);color:var(--ink)}
+  .band-b{background:var(--field-b)}
+  .band h2{font-size:clamp(1.7rem,2.6vw,2.4rem);font-weight:600;letter-spacing:-.025em;line-height:1.1;text-wrap:balance}
+  .band .lede{margin-top:.9rem;color:var(--muted-w);max-width:62ch}
+  .band-b .lede{color:var(--muted-b)}
+
+  .steps{margin-top:3rem;border-top:1px solid var(--line-w)}
+  .step{display:grid;grid-template-columns:110px 1fr auto;gap:1.5rem;align-items:baseline;padding:1.5rem 0;border-bottom:1px solid var(--line-w)}
+  .step-n{font-size:.9rem;color:var(--muted-w)}
+  .step h3{font-size:1.15rem;font-weight:600;letter-spacing:-.01em}
+  .step p{margin-top:.35rem;color:var(--muted-w);max-width:60ch;font-size:.96rem}
+  .step-tag{font-size:.78rem;color:var(--muted-w);border:1px solid var(--line-w);padding:.22rem .55rem;border-radius:999px;white-space:nowrap}
+
+  .preview{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:3rem;align-items:start;margin-top:3rem}
+  .preview-doc{background:var(--field-w);color:var(--ink);border-radius:var(--radius);padding:2rem 2rem 1.8rem}
+  .preview-doc h3{font-size:1.25rem;font-weight:600;letter-spacing:-.02em}
+  .preview-doc p{margin-top:.7rem;color:var(--muted-w);font-size:.97rem}
+  .preview-doc .snippet-rule{margin:1.2rem 0;border:0;border-top:1px solid var(--line-w)}
+  .preview .board-panel{background:var(--field-b-2);border:1px solid var(--line-b);border-radius:var(--radius);padding:1.4rem}
+  .preview .board-panel .cap{margin-top:.8rem;font-size:.82rem;color:var(--muted-b)}
+  .textlink{display:inline-flex;align-items:center;gap:.5rem;margin-top:1.4rem;color:var(--ink);font-weight:600;text-decoration:none;border-bottom:1.5px solid var(--orange);padding-bottom:.15rem}
+  .band-b .textlink{color:var(--ink-on-b)}
+  .textlink:hover{color:var(--orange-deep)}
+  .band-b .textlink:hover{color:var(--orange)}
+
+  .reviews{margin-top:3rem;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1.5rem}
+  .review{border-top:2px solid var(--ink);padding-top:1.1rem}
+  .review .stars{display:flex;gap:.2rem}
+  .review .stars svg{width:14px;height:14px;fill:var(--orange)}
+  .review blockquote{margin-top:.8rem;font-size:.98rem;color:var(--ink)}
+  .review figcaption{margin-top:.9rem;font-size:.82rem;color:var(--muted-w)}
+  .placeholder-note{margin-top:1.6rem;font-size:.8rem;color:var(--muted-w);font-style:italic}
+
+  .plans{margin-top:3rem;display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;align-items:stretch}
+  .plan{border-radius:var(--radius);padding:2rem;display:flex;flex-direction:column}
+  .plan-free{background:var(--field-w);color:var(--ink)}
+  .plan-paid{background:var(--field-b-2);border:1px solid var(--line-b);color:var(--ink-on-b)}
+  .plan h3{font-size:1.3rem;font-weight:600;letter-spacing:-.01em}
+  .plan .price{margin-top:.9rem;font-size:2.3rem;font-weight:700;letter-spacing:-.02em}
+  .plan .price small{font-size:.95rem;font-weight:500;color:var(--muted-w);margin-left:.3rem}
+  .plan-paid .price small{color:var(--muted-b)}
+  .plan ul{list-style:none;margin-top:1.4rem;display:grid;gap:.65rem}
+  .plan li{display:flex;gap:.65rem;align-items:baseline;font-size:.96rem;color:var(--muted-w)}
+  .plan-paid li{color:var(--muted-b)}
+  .plan li svg{width:14px;height:14px;flex:none;transform:translateY(1px)}
+  .plan-paid li svg path{stroke:var(--orange)}
+  .plan .cta{margin-top:auto;padding-top:1.8rem}
+  .btn-ink{display:inline-block;background:var(--field-b);color:var(--ink-on-b);border:0;border-radius:var(--radius);padding:.75rem 1.3rem;font-weight:600;text-decoration:none;font-size:.95rem}
+  .btn-orange{display:inline-block;background:var(--orange);color:#141518;border:0;border-radius:var(--radius);padding:.75rem 1.3rem;font-weight:600;text-decoration:none;font-size:.95rem}
+  .btn-orange:hover{background:#ff6b3d}
+  .btn-ink:hover{background:#000}
+
+  footer{background:var(--field-b);border-top:1px solid var(--line-b);padding:3rem 0 2.5rem}
+  .foot{display:flex;flex-wrap:wrap;gap:1.5rem;justify-content:space-between;align-items:flex-start}
+  .foot-links{display:flex;gap:1.4rem;flex-wrap:wrap}
+  .foot a{color:var(--muted-b);text-decoration:none;font-size:.88rem}
+  .foot a:hover{color:var(--ink-on-b)}
+  .foot small{color:var(--muted-b);font-size:.8rem}
+  .disclaimer{margin-top:2rem;border-top:1px solid var(--line-b);padding-top:1.4rem}
+
+  @media (max-width:960px){
+    .hero{grid-template-columns:1fr;min-height:0}
+    .hero-left-in{padding:3.5rem var(--pad) 3rem;max-width:none}
+    .hero-right{padding:3rem var(--pad) 3.5rem}
+    .preview,.plans{grid-template-columns:1fr}
+    .reviews{grid-template-columns:1fr}
+    .step{grid-template-columns:64px 1fr;grid-template-rows:auto auto}
+    .step-tag{grid-column:2}
+  }
+  @media (max-width:560px){
+    body{font-size:16px}
+    .nav-links{display:none}
+    .step{grid-template-columns:1fr;gap:.5rem}
+    .step-tag{grid-column:1;justify-self:start}
+    .form-note{flex-direction:column;gap:.25rem}
+  }
+  @media (prefers-reduced-motion:reduce){
+    *{animation:none!important;transition:none!important}
+    html{scroll-behavior:auto}
+  }
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <g id="pc-p"><circle cx="20" cy="14.2" r="5.6"/><path d="M15.4 19.4h9.2l1.7 7.8H13.7z"/><path d="M12.2 27.2h15.6l1.8 4.2H10.4z"/></g>
+    <g id="pc-r"><path d="M12 9.5h3.6v3.8h2.9V9.5h3v3.8h2.9V9.5H28v7.2l-3 2.6v8.2l3 2.6v3.4H12v-3.4l3-2.6v-8.2l-3-2.6z"/></g>
+    <g id="pc-n"><path d="M14.5 32.5h11.8l1.3 3.4H13.2z"/><path d="M16.2 30.9c-.4-4.6.4-8.2 2.2-10.8l-3-3.6 1.2-4.4c5.6 1.4 9.4 4.6 11.2 9.2 1.2 3 1.5 6.2 1 9.6-.3 2.2-2 3-3.6 2.3-1.7-.7-2-2.6-1.7-4.4.4-2.6-.4-4.6-2.6-5.6-2.1 3.4-4 5-6.6 5z"/></g>
+    <g id="pc-b"><circle cx="20" cy="7.8" r="2.7"/><path d="M20 10.4c4.4 4 6.6 7.9 6.6 11.7 0 3.4-3 5.6-6.6 5.6s-6.6-2.2-6.6-5.6c0-3.8 2.2-7.7 6.6-11.7z"/><rect class="slit" x="19.1" y="13.6" width="1.8" height="8"/><path d="M16.7 27.4h6.6l1.2 3.4H15.5z"/><path d="M13 30.8h14l1.4 3.6H11.6z"/></g>
+    <g id="pc-q"><circle cx="11.3" cy="12.4" r="2.4"/><circle cx="15.7" cy="9.2" r="2.4"/><circle cx="20" cy="7.8" r="2.6"/><circle cx="24.3" cy="9.2" r="2.4"/><circle cx="28.7" cy="12.4" r="2.4"/><path d="M11.5 14.5l3 9.5h11l3-9.5-4.3 4.6L20 11l-4.2 8.1z"/><path d="M14.5 24h11l1.1 5h-13.2z"/><path d="M12.6 29h14.8l1.4 3.6H11.2z"/></g>
+    <g id="pc-k"><path d="M18.5 4.6h3v2.9h2.9v3h-2.9v2.9h-3v-2.9h-2.9v-3h2.9z"/><path d="M14.2 21.8c0-3.6 2.6-6.6 5.8-6.6s5.8 3 5.8 6.6c0 2-1 3.5-1.9 4.5h-7.8c-.9-1-1.9-2.5-1.9-4.5z"/><path d="M14.9 25.8h10.2l1.2 4.2H13.7z"/><path d="M12.6 30h14.8l1.5 3.6H11.1z"/></g>
+  </defs>
+</svg>
+
+<header class="nav">
+  <div class="wrap nav-in">
+    <a class="brand" href="#">
+      <svg class="brand-mark" viewBox="0 0 24 24" aria-hidden="true">
+        <rect x="1" y="1" width="22" height="22" fill="none" stroke="#ff4a17" stroke-width="2"/>
+        <rect x="1" y="1" width="11" height="11" fill="#f2f2ee"/>
+        <rect x="12" y="12" width="11" height="11" fill="#f2f2ee"/>
+      </svg>
+      Chessmasters
+    </a>
+    <nav class="nav-links" aria-label="Primary">
+      <a href="#how">How it works</a>
+      <a href="#sample">Sample review</a>
+      <a href="#pricing">Pricing</a>
+      <button class="nav-signin" type="button">Sign in with Google</button>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <section class="hero">
+    <div class="hero-left">
+      <div class="hero-left-in">
+        <h1>Turn a finished game into <span class="reg">a verdict on every move.</span></h1>
+        <p class="hero-sub">Paste a Lichess or Chess.com game. Stockfish measures it, Gemini coaches it, and the review streams back in seconds: strengths, weaknesses, and exactly what to train next.</p>
+
+        <form class="hero-form" onsubmit="return false" aria-label="Analyze a game">
+          <div class="seg" role="group" aria-label="Platform">
+            <button type="button" class="seg-btn" data-platform="lichess" aria-pressed="true">Lichess</button>
+            <button type="button" class="seg-btn" data-platform="chesscom" aria-pressed="false">Chess.com</button>
+          </div>
+          <div class="field" id="username-field" hidden>
+            <label for="username">Chess.com username</label>
+            <input id="username" name="username" type="text" placeholder="e.g. hikaru" autocomplete="off">
+            <p class="hint">We scan your public archives to find the game.</p>
+          </div>
+          <div class="field">
+            <label for="gameurl" id="url-label">Game URL</label>
+            <input id="gameurl" name="gameurl" type="url" placeholder="https://lichess.org/abcd1234" autocomplete="off">
+          </div>
+          <button class="submit" type="submit">
+            Analyze my game
+            <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 8h11M9 3.5L13.5 8 9 12.5" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="square"/></svg>
+          </button>
+          <div class="form-note">
+            <span>1 credit per game · batch up to 5</span>
+            <span>Free plan: 5 analyses used</span>
+          </div>
+        </form>
+
+        <div class="status-clock" id="status-clock" aria-live="polite">
+          <div class="status-row is-done">
+            <span class="status-dot"></span>
+            <span class="status-label">Game imported · Morphy vs. Duke of Brunswick, 1858</span>
+            <span class="status-time mono">1.2s</span>
+          </div>
+          <div class="status-row is-done">
+            <span class="status-dot"></span>
+            <span class="status-label">Stockfish checked all 17 moves</span>
+            <span class="status-time mono">9.4s</span>
+          </div>
+          <div class="status-row is-live" id="status-live">
+            <span class="status-dot"></span>
+            <span class="status-label" id="status-live-label">Coach is writing your report…</span>
+            <span class="status-time mono" id="status-live-time">3.1s</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="hero-right">
+      <div class="register">
+        <div class="register-head">
+          <span class="rlabel">Reg. 003 · Sample review</span>
+          <span class="rvalue mono">17 moves · 1–0</span>
+        </div>
+        <div class="board" data-fen="r3kb1r/p2n1ppp/p2pq3/4p1B1/3PP3/1Q6/PPP2PPP/2KR4 w k - 0 16" data-orient="w" data-hl="b8,d8" data-arrows='[{"from":"b3","to":"b8"},{"from":"d1","to":"d8","k":"b"}]' data-label="Position after 15...Nxd7. White to play."></div>
+        <div class="eval-register">
+          <div class="eval-top">
+            <span class="who">Evaluation · move 16</span>
+            <span class="val">+9.9<span>with 16.Qb8+!!</span></span>
+          </div>
+          <div class="ribbon">
+            <div class="rb-axis"></div>
+            <div class="ribbon-bars" id="ribbon-bars"></div>
+            <div class="sweep" aria-hidden="true"></div>
+          </div>
+          <div class="ribbon-caption"><span class="mono">1</span><span class="mono">moves 5–14 · +0.3 → +6.5</span><span class="mono">17</span></div>
+        </div>
+        <p class="register-note">The sweep marks move 16: the queen sacrifice the coach flags as the turning point.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="band band-w" id="how">
+    <div class="wrap">
+      <h2>One game in. A full review out, while you watch.</h2>
+      <p class="lede">No engine skills required. The report names the motifs, shows the board, and links the exact puzzles to train.</p>
+      <div class="steps">
+        <div class="step">
+          <span class="step-n mono">Step 1</span>
+          <div>
+            <h3>Fetch the game</h3>
+            <p>Lichess games arrive with their evaluations attached. For Chess.com we scan your public archives and pull the matching game.</p>
+          </div>
+          <span class="step-tag mono">1.2s avg</span>
+        </div>
+        <div class="step">
+          <span class="step-n mono">Step 2</span>
+          <div>
+            <h3>Measure every move</h3>
+            <p>Stockfish scores each position, so centipawn loss, blunders and brilliant moves are real numbers, not guesses.</p>
+          </div>
+          <span class="step-tag mono">9.4s avg</span>
+        </div>
+        <div class="step">
+          <span class="step-n mono">Step 3</span>
+          <div>
+            <h3>Write the coaching report</h3>
+            <p>Your strengths, your weaknesses, the story of the game, focus areas, and Lichess resources: streamed straight to the screen as it is written.</p>
+          </div>
+          <span class="step-tag mono">14s avg</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="band band-b" id="sample">
+    <div class="wrap">
+      <h2>The review reads like a coach watched your game.</h2>
+      <div class="preview">
+        <div class="preview-doc">
+          <h3>Strength</h3>
+          <p>Your pieces arrived before your attack did. From move 6 every piece went to its best square: Bc4 and Qb3 pointed at f7, and Bg5 pinned the knight before a single pawn moved on the kingside.</p>
+          <hr class="snippet-rule">
+          <p><strong>Focus area · Exchange sacrifices.</strong> Twice you gave up a rook to remove the last defender: 13.Rxd7 and 16.Qb8+. Both times, the eighth rank was worth more than the material.</p>
+          <hr class="snippet-rule">
+          <p class="mono" style="font-size:.82rem">Accuracy: Opening 92 · Middlegame 88 · Endgame n/a</p>
+          <a class="textlink" href="report.html">See the full sample review
+            <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 8h11M9 3.5L13.5 8 9 12.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square"/></svg>
+          </a>
+        </div>
+        <div class="board-panel">
+          <div class="board" data-fen="3rkb1r/p2nqppp/p2p1n2/1B2p1B1/3PP3/1Q6/PPP2PPP/2KR3R w k - 0 13" data-orient="w" data-hl="d7" data-arrows='[{"from":"d1","to":"d7"}]' data-label="Position before 13.Rxd7, the exchange sacrifice."></div>
+          <p class="cap">Moment 13 · The rook takes the knight: the first defender comes off.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="band band-w">
+    <div class="wrap">
+      <h2>Players who review their games improve faster.</h2>
+      <div class="reviews">
+        <figure class="review">
+          <div class="stars" role="img" aria-label="5 out of 5 stars">
+            <svg viewBox="0 0 24 24"><path d="M12 2l3 6.6 7 .8-5.2 4.8 1.4 7-6.2-3.6L5.8 21l1.4-7L2 9.4l7-.8z"/></svg>
+            <svg viewBox="0 0 24 24"><path d="M12 2l3 6.6 7 .8-5.2 4.8 1.4 7-6.2-3.6L5.8 21l1.4-7L2 9.4l7-.8z"/></svg>
+            <svg viewBox="0 0 24 24"><path d="M12 2l3 6.6 7 .8-5.2 4.8 1.4 7-6.2-3.6L5.8 21l1.4-7L2 9.4l7-.8z"/></svg>
+            <svg viewBox="0 0 24 24"><path d="M12 2l3 6.6 7 .8-5.2 4.8 1.4 7-6.2-3.6L5.8 21l1.4-7L2 9.4l7-.8z"/></svg>
+            <svg viewBox="0 0 24 24"><path d="M12 2l3 6.6 7 .8-5.2 4.8 1.4 7-6.2-3.6L5.8 21l1.4-7L2 9.4l7-.8z"/></svg>
+          </div>
+          <blockquote>“It told me why the move was bad in words I actually understood.”</blockquote>
+          <figcaption>Sample placeholder (replace before launch)</figcaption>
+        </figure>
+        <figure class="review">
+          <div class="stars" role="img" aria-label="5 out of 5 stars">
+            <svg viewBox="0 0 24 24"><path d="M12 2l3 6.6 7 .8-5.2 4.8 1.4 7-6.2-3.6L5.8 21l1.4-7L2 9.4l7-.8z"/></svg>
+            <svg viewBox="0 0 24 24"><path d="M12 2l3 6.6 7 .8-5.2 4.8 1.4 7-6.2-3.6L5.8 21l1.4-7L2 9.4l7-.8z"/></svg>
+            <svg viewBox="0 0 24 24"><path d="M12 2l3 6.6 7 .8-5.2 4.8 1.4 7-6.2-3.6L5.8 21l1.4-7L2 9.4l7-.8z"/></svg>
+            <svg viewBox="0 0 24 24"><path d="M12 2l3 6.6 7 .8-5.2 4.8 1.4 7-6.2-3.6L5.8 21l1.4-7L2 9.4l7-.8z"/></svg>
+            <svg viewBox="0 0 24 24"><path d="M12 2l3 6.6 7 .8-5.2 4.8 1.4 7-6.2-3.6L5.8 21l1.4-7L2 9.4l7-.8z"/></svg>
+          </div>
+          <blockquote>“The focus areas are the first practice plan I have ever actually followed.”</blockquote>
+          <figcaption>Sample placeholder (replace before launch)</figcaption>
+        </figure>
+        <figure class="review">
+          <div class="stars" role="img" aria-label="5 out of 5 stars">
+            <svg viewBox="0 0 24 24"><path d="M12 2l3 6.6 7 .8-5.2 4.8 1.4 7-6.2-3.6L5.8 21l1.4-7L2 9.4l7-.8z"/></svg>
+            <svg viewBox="0 0 24 24"><path d="M12 2l3 6.6 7 .8-5.2 4.8 1.4 7-6.2-3.6L5.8 21l1.4-7L2 9.4l7-.8z"/></svg>
+            <svg viewBox="0 0 24 24"><path d="M12 2l3 6.6 7 .8-5.2 4.8 1.4 7-6.2-3.6L5.8 21l1.4-7L2 9.4l7-.8z"/></svg>
+            <svg viewBox="0 0 24 24"><path d="M12 2l3 6.6 7 .8-5.2 4.8 1.4 7-6.2-3.6L5.8 21l1.4-7L2 9.4l7-.8z"/></svg>
+            <svg viewBox="0 0 24 24"><path d="M12 2l3 6.6 7 .8-5.2 4.8 1.4 7-6.2-3.6L5.8 21l1.4-7L2 9.4l7-.8z"/></svg>
+          </div>
+          <blockquote>“I stopped guessing what I did wrong. Now I know.”</blockquote>
+          <figcaption>Sample placeholder (replace before launch)</figcaption>
+        </figure>
+      </div>
+      <p class="placeholder-note">These quotes are layout placeholders, not real customer reviews. Replace with verified feedback before publishing.</p>
+    </div>
+  </section>
+
+  <section class="band band-b" id="pricing">
+    <div class="wrap">
+      <h2>Two registers. Pick the one you need.</h2>
+      <div class="plans">
+        <div class="plan plan-free">
+          <h3>Free</h3>
+          <div class="price">₹0</div>
+          <ul>
+            <li><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 8.5l3.5 3.5 7.5-8" fill="none" stroke="#141518" stroke-width="2" stroke-linecap="square"/></svg>5 game analyses, full report</li>
+            <li><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 8.5l3.5 3.5 7.5-8" fill="none" stroke="#141518" stroke-width="2" stroke-linecap="square"/></svg>Strength, Weakness, Overview, Focus Areas</li>
+            <li><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 8.5l3.5 3.5 7.5-8" fill="none" stroke="#141518" stroke-width="2" stroke-linecap="square"/></svg>Lichess training links</li>
+          </ul>
+          <div class="cta"><a class="btn-ink" href="#">Start with 5 free</a></div>
+        </div>
+        <div class="plan plan-paid">
+          <h3>Coaching</h3>
+          <div class="price">₹399<small>/ month</small></div>
+          <ul>
+            <li><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 8.5l3.5 3.5 7.5-8" fill="none" stroke-width="2" stroke-linecap="square"/></svg>100 analyses per billing period</li>
+            <li><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 8.5l3.5 3.5 7.5-8" fill="none" stroke-width="2" stroke-linecap="square"/></svg>Ask follow-up questions on any game</li>
+            <li><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 8.5l3.5 3.5 7.5-8" fill="none" stroke-width="2" stroke-linecap="square"/></svg>Batch reviews for up to 5 games</li>
+            <li><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 8.5l3.5 3.5 7.5-8" fill="none" stroke-width="2" stroke-linecap="square"/></svg>Pause or cancel anytime</li>
+          </ul>
+          <div class="cta"><a class="btn-orange" href="#">Upgrade to Coaching</a></div>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="foot">
+      <div>
+        <a class="brand" href="#">
+          <svg class="brand-mark" viewBox="0 0 24 24" aria-hidden="true">
+            <rect x="1" y="1" width="22" height="22" fill="none" stroke="#ff4a17" stroke-width="2"/>
+            <rect x="1" y="1" width="11" height="11" fill="#f2f2ee"/>
+            <rect x="12" y="12" width="11" height="11" fill="#f2f2ee"/>
+          </svg>
+          Chessmasters
+        </a>
+      </div>
+      <nav class="foot-links" aria-label="Footer">
+        <a href="#how">How it works</a>
+        <a href="#pricing">Pricing</a>
+        <a href="#">Terms</a>
+        <a href="#">Privacy</a>
+        <a href="#">Refunds</a>
+        <a href="#">Contact</a>
+      </nav>
+      <small>© 2026 Chessmasters</small>
+    </div>
+    <div class="disclaimer">
+      <small>Not affiliated with Lichess or Chess.com. Design concept: the sample analysis on this page uses a public historical game with illustrative engine values.</small>
+    </div>
+  </div>
+</footer>
+
+<script>
+(function(){
+  // --- platform toggle ---
+  var buttons = document.querySelectorAll('.seg-btn');
+  var userField = document.getElementById('username-field');
+  var urlLabel = document.getElementById('url-label');
+  var gameurl = document.getElementById('gameurl');
+  buttons.forEach(function(b){
+    b.addEventListener('click', function(){
+      buttons.forEach(function(x){ x.setAttribute('aria-pressed', x===b ? 'true' : 'false'); });
+      var chesscom = b.dataset.platform === 'chesscom';
+      userField.hidden = !chesscom;
+      urlLabel.textContent = chesscom ? 'Game URL' : 'Game URL';
+      gameurl.placeholder = chesscom ? 'https://www.chess.com/game/live/123456789' : 'https://lichess.org/abcd1234';
+    });
+  });
+
+  // --- status clock demo ---
+  var liveLabel = document.getElementById('status-live-label');
+  var liveTime = document.getElementById('status-live-time');
+  var messages = [
+    ['Coach is writing your report…', '3.1s'],
+    ['Strength: pieces before the attack', '5.8s'],
+    ['Weakness: the missed knight sortie', '8.2s'],
+    ['Focus areas: exchange sacrifices', '11.6s'],
+    ['Report ready', '13.9s']
+  ];
+  var i = 0;
+  setInterval(function(){
+    i = (i + 1) % messages.length;
+    liveLabel.textContent = messages[i][0];
+    liveTime.textContent = messages[i][1];
+  }, 2600);
+
+  // --- eval ribbon ---
+  var data = [0.3,0.3,0.2,0.4,0.3,0.4,0.5,0.6,0.8,1.1,2.4,3.1,4.8,6.5,8.2,9.9,9.9];
+  var bars = document.getElementById('ribbon-bars');
+  data.forEach(function(v){
+    var b = document.createElement('div');
+    b.className = 'rb';
+    var fill = document.createElement('i');
+    var h = Math.min(Math.abs(v)/10*50, 50);
+    fill.className = v >= 0 ? 'up' : 'down';
+    fill.style.height = Math.max(h,2) + '%';
+    b.appendChild(fill);
+    bars.appendChild(b);
+  });
+
+  // --- boards ---
+  function renderBoard(el){
+    var fen = (el.dataset.fen || '').split(' ')[0];
+    var orient = el.dataset.orient || 'w';
+    var hl = (el.dataset.hl || '').split(',').map(function(s){return s.trim();}).filter(Boolean);
+    var arrows = el.dataset.arrows ? JSON.parse(el.dataset.arrows) : [];
+    var ns = 'http://www.w3.org/2000/svg';
+    var svg = document.createElementNS(ns, 'svg');
+    svg.setAttribute('viewBox', '0 0 320 320');
+    svg.setAttribute('role', 'img');
+    svg.setAttribute('aria-label', el.dataset.label || 'Chess position');
+    var files = 'abcdefgh';
+    var rows = fen.split('/');
+    var pieces = [];
+    rows.forEach(function(row, ri){
+      var f = 0;
+      for (var c = 0; c < row.length; c++){
+        var ch = row[c];
+        if (/\d/.test(ch)) { f += +ch; }
+        else { pieces.push({ sq: files[f] + (8 - ri), p: ch }); f++; }
+      }
+    });
+    function pos(sq){
+      var file = files.indexOf(sq[0]);
+      var rank = +sq[1];
+      var x = orient === 'w' ? file : 7 - file;
+      var y = orient === 'w' ? 8 - rank : rank - 1;
+      return [x, y];
+    }
+    for (var y = 0; y < 8; y++){
+      for (var x = 0; x < 8; x++){
+        var r = document.createElementNS(ns, 'rect');
+        r.setAttribute('x', x * 40); r.setAttribute('y', y * 40);
+        r.setAttribute('width', 40); r.setAttribute('height', 40);
+        r.setAttribute('class', ((x + y) % 2 === 0) ? 'sq-l' : 'sq-d');
+        svg.appendChild(r);
+      }
+    }
+    hl.forEach(function(sq){
+      var p = pos(sq);
+      var r = document.createElementNS(ns, 'rect');
+      r.setAttribute('x', p[0] * 40); r.setAttribute('y', p[1] * 40);
+      r.setAttribute('width', 40); r.setAttribute('height', 40);
+      r.setAttribute('class', 'sq-hl');
+      svg.appendChild(r);
+    });
+    var glyph = { k:'pc-k', q:'pc-q', r:'pc-r', b:'pc-b', n:'pc-n', p:'pc-p' };
+    pieces.forEach(function(o){
+      var p = pos(o.sq);
+      var use = document.createElementNS(ns, 'use');
+      use.setAttribute('href', '#' + glyph[o.p.toLowerCase()]);
+      use.setAttribute('x', p[0] * 40); use.setAttribute('y', p[1] * 40);
+      use.setAttribute('class', 'piece ' + (o.p === o.p.toUpperCase() ? 'pw' : 'pb'));
+      svg.appendChild(use);
+    });
+    arrows.forEach(function(a){
+      var p1 = pos(a.from), p2 = pos(a.to);
+      var cx1 = p1[0]*40+20, cy1 = p1[1]*40+20, cx2 = p2[0]*40+20, cy2 = p2[1]*40+20;
+      var dx = cx2-cx1, dy = cy2-cy1, len = Math.sqrt(dx*dx+dy*dy) || 1;
+      var ux = dx/len, uy = dy/len;
+      var sx = cx1+ux*12, sy = cy1+uy*12, ex = cx2-ux*15, ey = cy2-uy*15;
+      var k = a.k === 'b' ? ' b' : '';
+      var line = document.createElementNS(ns, 'line');
+      line.setAttribute('x1', sx); line.setAttribute('y1', sy);
+      line.setAttribute('x2', ex); line.setAttribute('y2', ey);
+      line.setAttribute('class', 'arrow' + k);
+      svg.appendChild(line);
+      var hx = cx2-ux*2, hy = cy2-uy*2;
+      var poly = document.createElementNS(ns, 'polygon');
+      poly.setAttribute('points',
+        hx + ',' + hy + ' ' +
+        (ex - uy*7) + ',' + (ey + ux*7) + ' ' +
+        (ex + uy*7) + ',' + (ey - ux*7));
+      poly.setAttribute('class', 'arrowhead' + k);
+      svg.appendChild(poly);
+    });
+    el.appendChild(svg);
+  }
+  document.querySelectorAll('.board').forEach(renderBoard);
+})();
+</script>
+</body>
+</html>

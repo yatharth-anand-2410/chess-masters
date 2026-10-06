@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chessmasters · The coach's pencil on every move</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&family=Archivo+Narrow:wght@600;700&family=Spline+Sans+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#f8f8f4;
+    --paper-2:#efe9d8;
+    --grid:rgba(32,36,44,.05);
+    --ink:#20242c;
+    --ink-soft:#565d68;
+    --muted:#5f6670;
+    --line:#d9d2bf;
+    --line-strong:#b9b29d;
+    --pencil:#b5321e;
+    --pencil-soft:rgba(207,58,36,.13);
+    --green:#2c5d46;
+    --green-soft:rgba(44,93,70,.12);
+    --sq-light:#ece2c8;
+    --sq-dark:#5d8a6c;
+    --piece-light:#faf6ea;
+    --piece-light-line:#23282f;
+    --piece-dark:#23282f;
+    --piece-dark-line:#faf6ea;
+    --arrow:#cf3a24;
+    --arrow-b:#23282f;
+    --wrap:1160px;
+    --font-body:"Archivo",system-ui,sans-serif;
+    --font-narrow:"Archivo Narrow",system-ui,sans-serif;
+    --font-mono:"Spline Sans Mono",ui-monospace,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{overflow-wrap:break-word;
+    font-family:var(--font-body);color:var(--ink);font-size:16.5px;line-height:1.58;-webkit-font-smoothing:antialiased;
+    background-color:var(--paper);
+    background-image:
+      linear-gradient(var(--grid) 1px,transparent 1px);
+    background-size:100% 32px;
+  }
+  ::selection{background:var(--pencil);color:#fff}
+  :focus-visible{outline:2px solid var(--pencil);outline-offset:2px;border-radius:3px}
+  ::placeholder{color:#5f6670}
+  .mono{font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+  a{color:inherit}
+  button{font:inherit;cursor:pointer}
+  .wrap{max-width:var(--wrap);margin:0 auto;padding-left:1.5rem;padding-right:1.5rem}
+  .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+  .nav{border-bottom:2px solid var(--ink);background:rgba(247,244,234,.94);position:sticky;top:0;z-index:40}
+  .nav-in{display:flex;align-items:center;height:58px;gap:1.4rem}
+  .brand{text-decoration:none;font-family:var(--font-narrow);font-weight:700;font-size:1.28rem;letter-spacing:.1em;text-transform:uppercase}
+  .brand:hover{color:var(--pencil)}
+  .nav-links{margin-left:auto;display:flex;gap:1.4rem;align-items:center}
+  .nav-links a{color:var(--ink-soft);text-decoration:none;font-size:.86rem;font-weight:500}
+  .nav-links a:hover{color:var(--ink)}
+  .signin{background:var(--ink);color:var(--paper);border:0;padding:.46rem 1rem;border-radius:4px;font-size:.84rem;font-weight:600}
+  .signin:hover{background:#000}
+
+  .hero{padding:4rem 0 3.4rem;border-bottom:2px solid var(--ink)}
+  .hero-grid{display:grid;grid-template-columns:1.05fr .95fr;gap:3.2rem;align-items:center}
+  .hero h1{font-family:var(--font-narrow);font-weight:700;font-size:clamp(2.4rem,4.8vw,4rem);line-height:1.02;letter-spacing:-.01em;text-wrap:balance}
+  .hero h1 mark{background:var(--pencil-soft);color:var(--pencil);padding:0 .12em;border-bottom:3px solid var(--pencil)}
+  .hero .sub{margin-top:1.1rem;color:var(--ink-soft);max-width:52ch;font-size:1.04rem}
+  .hero .scoresheet-line{margin-top:1.4rem;display:flex;flex-wrap:wrap;gap:.25rem 1.6rem;font-size:.85rem;color:var(--muted)}
+  .hero .scoresheet-line b{color:var(--ink);font-weight:600}
+
+  .form-card{margin-top:1.8rem;background:#fff;border-radius:6px;padding:1.3rem;box-shadow:0 18px 40px -34px rgba(32,36,44,.55)}
+  .seg{display:inline-flex;border:1px solid var(--line-strong);border-radius:4px;overflow:hidden}
+  .seg-btn{background:transparent;border:0;color:var(--ink-soft);padding:.46rem 1.05rem;font-weight:600;font-size:.85rem}
+  .seg-btn+.seg-btn{border-left:1px solid var(--line-strong)}
+  .seg-btn[aria-pressed="true"]{background:var(--ink);color:var(--paper)}
+  .form-grid{display:grid;grid-template-columns:1fr auto;gap:1rem;margin-top:1rem;align-items:end}
+  .field label{display:block;font-size:.78rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;color:var(--muted);margin-bottom:.35rem}
+  .field input{min-width:0;width:100%;background:var(--paper);border:1px solid var(--line-strong);border-radius:4px;font:inherit;font-size:.98rem;padding:.68rem .8rem;color:var(--ink)}
+  .field input:focus{outline:none;border-color:var(--pencil);box-shadow:0 0 0 3px var(--pencil-soft)}
+  .field .hint{margin-top:.35rem;font-size:.78rem;color:var(--muted)}
+  .submit{background:var(--pencil);color:#fff;border:0;border-radius:4px;padding:.76rem 1.4rem;font-weight:700;font-size:.94rem;display:inline-flex;gap:.5rem;align-items:center}
+  .submit:hover{background:#a92d1b}
+  .form-meta{margin-top:.9rem;display:flex;flex-wrap:wrap;justify-content:space-between;gap:.25rem 1rem;font-size:.78rem;color:var(--muted)}
+
+  .clip{border-radius:6px;background:#fff;padding:1rem;box-shadow:0 24px 50px -40px rgba(32,36,44,.6)}
+  .clip-head{display:flex;justify-content:space-between;align-items:baseline;border-bottom:1px solid var(--line);padding-bottom:.55rem;font-size:.8rem;color:var(--muted)}
+  .clip-head b{color:var(--ink);font-weight:600}
+  .board-wrap{position:relative;margin-top:.9rem}
+  .board{width:100%;aspect-ratio:1/1}
+  .board svg{display:block;width:100%;height:100%}
+  .sq-l{fill:var(--sq-light)}
+  .sq-d{fill:var(--sq-dark)}
+  .sq-hl{fill:var(--pencil);opacity:.3}
+  .piece{pointer-events:none}
+  .piece.pw{fill:var(--piece-light);stroke:var(--piece-light-line);stroke-width:1.1}
+  .piece.pb{fill:var(--piece-dark);stroke:var(--piece-dark-line);stroke-width:1.1}
+  .arrow{stroke:var(--arrow);stroke-width:5;stroke-linecap:round}
+  .arrowhead{fill:var(--arrow)}
+  .arrow.b{stroke:var(--arrow-b)}
+  .arrowhead.b{fill:var(--arrow-b)}
+  .marks{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+  .pencil{fill:none;stroke:var(--pencil);stroke-width:3;stroke-linecap:round;stroke-linejoin:round;
+    stroke-dasharray:600;stroke-dashoffset:600;animation:draw 1.5s cubic-bezier(.3,.7,.3,1) .35s forwards}
+  @keyframes draw{to{stroke-dashoffset:0}}
+  .clip-note{margin-top:.9rem;border-top:1px dashed var(--line-strong);padding-top:.8rem;font-size:.9rem;color:var(--ink-soft)}
+  .clip-note b{color:var(--ink);font-weight:600}
+  .clip-note .pencil-b{color:var(--pencil);font-weight:600}
+
+  .band{padding:4.4rem 0}
+  .band h2{font-family:var(--font-narrow);font-weight:700;font-size:clamp(1.8rem,3vw,2.6rem);line-height:1.06;letter-spacing:-.01em;text-wrap:balance}
+  .band .lede{margin-top:.7rem;color:var(--ink-soft);max-width:60ch}
+
+  .checklist{margin-top:2.2rem;border-top:2px solid var(--ink)}
+  .check-row{display:grid;grid-template-columns:56px 1fr auto;gap:1.4rem;align-items:baseline;padding:1.3rem 0;border-bottom:1px solid var(--line-strong)}
+  .check-box{width:26px;height:26px;border:2px solid var(--ink);border-radius:4px;position:relative;transform:translateY(4px)}
+  .check-box svg{position:absolute;inset:-4px;width:34px;height:34px}
+  .check-box svg path{fill:none;stroke:var(--pencil);stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
+  .check-row h3{font-size:1.12rem;font-weight:700;letter-spacing:-.01em}
+  .check-row p{margin-top:.25rem;color:var(--ink-soft);font-size:.95rem;max-width:62ch}
+  .check-row .tag{font-family:var(--font-mono);font-size:.76rem;color:var(--muted);white-space:nowrap}
+
+  .preview{margin-top:2.4rem;display:grid;grid-template-columns:1.02fr .98fr;gap:2.6rem;align-items:start}
+  .preview-doc{background:#fff;border:1px solid var(--line);border-radius:6px;padding:2rem}
+  .preview-doc .doc-tab{display:inline-block;background:var(--green-soft);color:var(--green);font-size:.78rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;padding:.25rem .6rem;border-radius:3px}
+  .preview-doc h3{font-family:var(--font-narrow);font-size:1.45rem;font-weight:700;margin-top:1rem;letter-spacing:-.01em}
+  .preview-doc p{margin-top:.7rem;color:var(--ink-soft);font-size:.97rem;max-width:62ch}
+  .preview-doc .rule{border:0;border-top:1px dashed var(--line-strong);margin:1.1rem 0}
+  .preview-doc .stat{font-family:var(--font-mono);font-size:.8rem;color:var(--green)}
+  .textlink{display:inline-flex;align-items:center;gap:.5rem;margin-top:1.3rem;color:var(--pencil);font-weight:700;text-decoration:none;border-bottom:2px solid var(--pencil);padding-bottom:.15rem}
+  .textlink:hover{color:#a92d1b}
+
+  .reviews{margin-top:2.2rem;display:grid;grid-template-columns:repeat(3,1fr);gap:1.4rem}
+  .review{background:#fff;border:1px solid var(--line);border-radius:6px;padding:1.3rem}
+  .review .stars{color:var(--pencil);letter-spacing:.18em;font-size:.85rem}
+  .review blockquote{margin-top:.6rem;font-size:1rem;font-weight:500}
+  .review figcaption{margin-top:.7rem;font-size:.78rem;color:var(--muted)}
+
+  .plans{margin-top:2.2rem;display:grid;grid-template-columns:1fr 1fr;gap:1.4rem}
+  .plan{background:#fff;border:1px solid var(--line);border-radius:6px;padding:1.9rem;display:flex;flex-direction:column}
+  .plan.paid{border:2px solid var(--ink)}
+  .plan h3{font-family:var(--font-narrow);font-size:1.35rem;font-weight:700}
+  .plan .price{margin-top:.4rem;font-family:var(--font-narrow);font-size:2.3rem;font-weight:700}
+  .plan .price small{font-family:var(--font-body);font-size:.9rem;color:var(--muted);font-weight:500;margin-left:.3rem}
+  .plan ul{list-style:none;margin-top:1.2rem;display:grid;gap:.55rem}
+  .plan li{color:var(--ink-soft);font-size:.95rem;padding-left:1.6rem;position:relative}
+  .plan li::before{content:"";position:absolute;left:0;top:.32em;width:12px;height:7px;border-left:2.5px solid var(--pencil);border-bottom:2.5px solid var(--pencil);transform:rotate(-45deg)}
+  .plan .cta{margin-top:auto;padding-top:1.6rem}
+  .btn-ink{display:inline-block;background:var(--ink);color:var(--paper);border-radius:4px;padding:.72rem 1.3rem;font-weight:700;font-size:.92rem;text-decoration:none}
+  .btn-ink:hover{background:#000}
+  .btn-pencil{display:inline-block;background:var(--pencil);color:#fff;border-radius:4px;padding:.72rem 1.3rem;font-weight:700;font-size:.92rem;text-decoration:none}
+  .btn-pencil:hover{background:#a92d1b}
+
+  footer{border-top:2px solid var(--ink);padding:2.4rem 0;background:rgba(247,244,234,.7)}
+  .foot{display:flex;flex-wrap:wrap;gap:1.3rem;justify-content:space-between;align-items:baseline}
+  .foot-links{display:flex;gap:1.3rem;flex-wrap:wrap}
+  .foot a{color:var(--ink-soft);text-decoration:none;font-size:.84rem;font-weight:500}
+  .foot a:hover{color:var(--ink)}
+  .foot small{font-size:.78rem;color:var(--muted)}
+  .disclaimer{margin-top:1.5rem;border-top:1px solid var(--line);padding-top:1.1rem;font-size:.78rem;color:var(--muted)}
+
+  @media (max-width:960px){
+    .hero-grid,.preview,.plans{grid-template-columns:1fr}
+    .reviews{grid-template-columns:1fr}
+    .form-grid{grid-template-columns:1fr}
+  }
+  @media (max-width:560px){
+    .nav-links a:not(.signin){display:none}
+    .check-row{grid-template-columns:44px 1fr}
+    .check-row .tag{grid-column:2}
+  }
+  @media (prefers-reduced-motion:reduce){
+    *{animation:none!important;transition:none!important}
+    .pencil{stroke-dashoffset:0}
+  }
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <g id="pc-p"><circle cx="20" cy="14.2" r="5.6"/><path d="M15.4 19.4h9.2l1.7 7.8H13.7z"/><path d="M12.2 27.2h15.6l1.8 4.2H10.4z"/></g>
+    <g id="pc-r"><path d="M12 9.5h3.6v3.8h2.9V9.5h3v3.8h2.9V9.5H28v7.2l-3 2.6v8.2l3 2.6v3.4H12v-3.4l3-2.6v-8.2l-3-2.6z"/></g>
+    <g id="pc-n"><path d="M14.5 32.5h11.8l1.3 3.4H13.2z"/><path d="M16.2 30.9c-.4-4.6.4-8.2 2.2-10.8l-3-3.6 1.2-4.4c5.6 1.4 9.4 4.6 11.2 9.2 1.2 3 1.5 6.2 1 9.6-.3 2.2-2 3-3.6 2.3-1.7-.7-2-2.6-1.7-4.4.4-2.6-.4-4.6-2.6-5.6-2.1 3.4-4 5-6.6 5z"/></g>
+    <g id="pc-b"><circle cx="20" cy="7.8" r="2.7"/><path d="M20 10.4c4.4 4 6.6 7.9 6.6 11.7 0 3.4-3 5.6-6.6 5.6s-6.6-2.2-6.6-5.6c0-3.8 2.2-7.7 6.6-11.7z"/><rect class="slit" x="19.1" y="13.6" width="1.8" height="8"/><path d="M16.7 27.4h6.6l1.2 3.4H15.5z"/><path d="M13 30.8h14l1.4 3.6H11.6z"/></g>
+    <g id="pc-q"><circle cx="11.3" cy="12.4" r="2.4"/><circle cx="15.7" cy="9.2" r="2.4"/><circle cx="20" cy="7.8" r="2.6"/><circle cx="24.3" cy="9.2" r="2.4"/><circle cx="28.7" cy="12.4" r="2.4"/><path d="M11.5 14.5l3 9.5h11l3-9.5-4.3 4.6L20 11l-4.2 8.1z"/><path d="M14.5 24h11l1.1 5h-13.2z"/><path d="M12.6 29h14.8l1.4 3.6H11.2z"/></g>
+    <g id="pc-k"><path d="M18.5 4.6h3v2.9h2.9v3h-2.9v2.9h-3v-2.9h-2.9v-3h2.9z"/><path d="M14.2 21.8c0-3.6 2.6-6.6 5.8-6.6s5.8 3 5.8 6.6c0 2-1 3.5-1.9 4.5h-7.8c-.9-1-1.9-2.5-1.9-4.5z"/><path d="M14.9 25.8h10.2l1.2 4.2H13.7z"/><path d="M12.6 30h14.8l1.5 3.6H11.1z"/></g>
+  </defs>
+</svg>
+
+<header class="nav">
+  <div class="wrap nav-in">
+    <a class="brand" href="#">Chessmasters</a>
+    <nav class="nav-links" aria-label="Primary">
+      <a href="#how">How it works</a>
+      <a href="#sample">Sample review</a>
+      <a href="#pricing">Pricing</a>
+      <button class="signin" type="button">Sign in with Google</button>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <section class="hero">
+    <div class="wrap hero-grid">
+      <div>
+        <h1>The coach's pencil on <mark>every move</mark>.</h1>
+        <p class="sub">Paste a Lichess or Chess.com game. Stockfish scores all of it, Gemini marks it up like a coach at the board, and the annotated scorebook streams back in seconds.</p>
+        <div class="scoresheet-line">
+          <span><b>Strength</b> · <b>Weakness</b> · <b>Focus areas</b></span>
+          <span class="mono">avg review 14s</span>
+        </div>
+
+        <form class="form-card" onsubmit="return false" aria-label="Analyze a game">
+          <div class="seg" role="group" aria-label="Platform">
+            <button type="button" class="seg-btn" data-platform="lichess" aria-pressed="true">Lichess</button>
+            <button type="button" class="seg-btn" data-platform="chesscom" aria-pressed="false">Chess.com</button>
+          </div>
+          <div class="form-grid">
+            <div class="field" id="username-field" hidden>
+              <label for="username">Chess.com username</label>
+              <input id="username" type="text" placeholder="e.g. hikaru" autocomplete="off">
+            </div>
+            <div class="field">
+              <label for="gameurl">Game URL</label>
+              <input id="gameurl" type="url" placeholder="https://lichess.org/abcd1234" autocomplete="off">
+            </div>
+            <button class="submit" type="submit">
+              Mark up my game
+              <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 8h11M9 3.5L13.5 8 9 12.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square"/></svg>
+            </button>
+          </div>
+          <div class="form-meta">
+            <span>1 credit per game · batch up to 5</span>
+            <span>Free plan: 5 analyses used</span>
+          </div>
+        </form>
+      </div>
+
+      <div class="clip">
+        <div class="clip-head"><span><b>Moment 16</b> · White to play</span><span class="mono">sample</span></div>
+        <div class="board-wrap">
+          <div class="board" data-fen="r3kb1r/p2n1ppp/p2pq3/4p1B1/3PP3/1Q6/PPP2PPP/2KR4 w k - 0 16" data-orient="w" data-hl="b8,d8" data-arrows='[{"from":"b3","to":"b8"}]' data-label="Before 16.Qb8+, the queen sacrifice."></div>
+          <svg class="marks" viewBox="0 0 320 320" aria-hidden="true">
+            <path class="pencil" d="M34 22 C 33 9, 45 1, 61 3 C 78 5, 86 15, 82 27 C 78 40, 58 44, 44 36 C 36 30, 34 25, 38 18"/>
+          </svg>
+        </div>
+        <p class="clip-note"><span class="pencil-b">Circled by the coach:</span> <b>16.Qb8+!!</b>: the queen walks into capture. d8 had no defenders left, so the rook delivers mate next move.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="band wrap" id="how">
+    <h2>Three steps, all ticked off before you finish your coffee.</h2>
+    <p class="lede">Same routine a coach runs at the board: fetch, measure, mark up.</p>
+    <div class="checklist">
+      <div class="check-row">
+        <div class="check-box"><svg viewBox="0 0 34 34" aria-hidden="true"><path d="M7 19l7 7 14-17"/></svg></div>
+        <div>
+          <h3>Fetch the game</h3>
+          <p>Lichess games arrive with their evaluations attached. For Chess.com we scan your public archives and pull the matching game.</p>
+        </div>
+        <span class="tag">1.2s</span>
+      </div>
+      <div class="check-row">
+        <div class="check-box"><svg viewBox="0 0 34 34" aria-hidden="true"><path d="M7 19l7 7 14-17"/></svg></div>
+        <div>
+          <h3>Measure every move</h3>
+          <p>Centipawn loss, blunders, brilliant moves: real engine numbers per position, so the markup rests on evidence.</p>
+        </div>
+        <span class="tag">9.4s</span>
+      </div>
+      <div class="check-row">
+        <div class="check-box"><svg viewBox="0 0 34 34" aria-hidden="true"><path d="M7 19l7 7 14-17"/></svg></div>
+        <div>
+          <h3>Mark up the scorebook</h3>
+          <p>Strength, Weakness, Game Overview, Focus Areas and Resources — written and streamed as the coach works through your game.</p>
+        </div>
+        <span class="tag">14s</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="band wrap" id="sample" style="padding-top:0">
+    <h2>The review you can actually practice from.</h2>
+    <div class="preview">
+      <div class="preview-doc">
+        <h3>Your pieces arrived before your attack did.</h3>
+        <p>From move 6 every piece went to its best square: Bc4 and Qb3 pointed at f7, and Bg5 pinned the knight before a single pawn moved on the kingside.</p>
+        <hr class="rule">
+        <p><strong>Focus area: exchange sacrifices.</strong> Twice you gave up a rook to remove the last defender, and both times the eighth rank was worth more than the material.</p>
+        <hr class="rule">
+        <p class="stat">accuracy: opening 92 · middlegame 88 · endgame n/a</p>
+        <a class="textlink" href="report.html">Open the sample scorebook
+          <svg width="13" height="13" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 8h11M9 3.5L13.5 8 9 12.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square"/></svg>
+        </a>
+      </div>
+      <div class="clip">
+        <div class="clip-head"><span><b>Moment 13</b> · the defender comes off</span><span class="mono">sample</span></div>
+        <div class="board-wrap">
+          <div class="board" data-fen="3rkb1r/p2nqppp/p2p1n2/1B2p1B1/3PP3/1Q6/PPP2PPP/2KR3R w k - 0 13" data-orient="w" data-hl="d7" data-arrows='[{"from":"d1","to":"d7"}]' data-label="Before 13.Rxd7, the exchange sacrifice."></div>
+          <svg class="marks" viewBox="0 0 320 320" aria-hidden="true">
+            <path class="pencil" d="M114 58 C 112 40, 124 31, 140 33 C 158 35, 167 48, 161 64 C 155 79, 136 84, 122 74 C 111 66, 110 55, 117 48"/>
+          </svg>
+        </div>
+        <p class="clip-note"><span class="pencil-b">Circled:</span> <b>13.Rxd7</b>: a rook for a knight to tear the eighth rank open. The d-file decides the game.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="band wrap" style="padding-top:0">
+    <h2>Players who review their games improve faster.</h2>
+    <div class="reviews">
+      <figure class="review">
+        <div class="stars" aria-hidden="true">★★★★★</div>
+        <blockquote>“It told me why the move was bad in words I actually understood.”</blockquote>
+        <figcaption>Sample placeholder (replace before launch)</figcaption>
+      </figure>
+      <figure class="review">
+        <div class="stars" aria-hidden="true">★★★★★</div>
+        <blockquote>“The focus areas are the first practice plan I have ever actually followed.”</blockquote>
+        <figcaption>Sample placeholder (replace before launch)</figcaption>
+      </figure>
+      <figure class="review">
+        <div class="stars" aria-hidden="true">★★★★★</div>
+        <blockquote>“I stopped guessing what I did wrong. Now I know.”</blockquote>
+        <figcaption>Sample placeholder (replace before launch)</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section class="band wrap" id="pricing" style="padding-top:0">
+    <h2>Start free. Upgrade when the pencil earns it.</h2>
+    <div class="plans">
+      <div class="plan">
+        <h3>Free</h3>
+        <div class="price">₹0</div>
+        <ul>
+          <li>5 game analyses, full review</li>
+          <li>Strength, Weakness, Overview, Focus Areas</li>
+          <li>Lichess training links</li>
+        </ul>
+        <div class="cta"><a class="btn-ink" href="#">Start with 5 free</a></div>
+      </div>
+      <div class="plan paid">
+        <h3>Coaching</h3>
+        <div class="price">₹399<small>/ month</small></div>
+        <ul>
+          <li>100 analyses per billing period</li>
+          <li>Ask follow-up questions on any game</li>
+          <li>Batch reviews for up to 5 games</li>
+          <li>Pause or cancel anytime</li>
+        </ul>
+        <div class="cta"><a class="btn-pencil" href="#">Upgrade to Coaching</a></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="foot">
+      <a class="brand" href="#">Chessmasters</a>
+      <nav class="foot-links" aria-label="Footer">
+        <a href="#how">How it works</a>
+        <a href="#pricing">Pricing</a>
+        <a href="#" onclick="return false">Terms</a>
+        <a href="#" onclick="return false">Privacy</a>
+        <a href="#" onclick="return false">Refunds</a>
+        <a href="#" onclick="return false">Contact</a>
+      </nav>
+      <small>© 2026 Chessmasters · not affiliated with Lichess or Chess.com</small>
+    </div>
+    <div class="disclaimer">
+      Design concept: the sample review analyzes a public historical game with illustrative engine values.
+    </div>
+  </div>
+</footer>
+
+<script>
+(function(){
+  document.querySelectorAll('.seg-btn').forEach(function(b){
+    b.addEventListener('click', function(){
+      document.querySelectorAll('.seg-btn').forEach(function(x){ x.setAttribute('aria-pressed', x===b ? 'true' : 'false'); });
+      var chesscom = b.dataset.platform === 'chesscom';
+      document.getElementById('username-field').hidden = !chesscom;
+      document.getElementById('gameurl').placeholder = chesscom ? 'https://www.chess.com/game/live/123456789' : 'https://lichess.org/abcd1234';
+    });
+  });
+
+  function renderBoard(el){
+    var fen = (el.dataset.fen || '').split(' ')[0];
+    var orient = el.dataset.orient || 'w';
+    var hl = (el.dataset.hl || '').split(',').map(function(s){return s.trim();}).filter(Boolean);
+    var arrows = el.dataset.arrows ? JSON.parse(el.dataset.arrows) : [];
+    var ns = 'http://www.w3.org/2000/svg';
+    var svg = document.createElementNS(ns, 'svg');
+    svg.setAttribute('viewBox', '0 0 320 320');
+    svg.setAttribute('role', 'img');
+    svg.setAttribute('aria-label', el.dataset.label || 'Chess position');
+    var files = 'abcdefgh';
+    var rows = fen.split('/');
+    var pieces = [];
+    rows.forEach(function(row, ri){
+      var f = 0;
+      for (var c = 0; c < row.length; c++){
+        var ch = row[c];
+        if (/\d/.test(ch)) { f += +ch; } else { pieces.push({ sq: files[f] + (8 - ri), p: ch }); f++; }
+      }
+    });
+    function pos(sq){
+      var file = files.indexOf(sq[0]);
+      var rank = +sq[1];
+      return [orient === 'w' ? file : 7 - file, orient === 'w' ? 8 - rank : rank - 1];
+    }
+    for (var y = 0; y < 8; y++) for (var x = 0; x < 8; x++){
+      var r = document.createElementNS(ns, 'rect');
+      r.setAttribute('x', x*40); r.setAttribute('y', y*40);
+      r.setAttribute('width', 40); r.setAttribute('height', 40);
+      r.setAttribute('class', ((x+y)%2===0) ? 'sq-l' : 'sq-d');
+      svg.appendChild(r);
+    }
+    hl.forEach(function(sq){
+      var p = pos(sq);
+      var r = document.createElementNS(ns, 'rect');
+      r.setAttribute('x', p[0]*40); r.setAttribute('y', p[1]*40);
+      r.setAttribute('width', 40); r.setAttribute('height', 40);
+      r.setAttribute('class', 'sq-hl');
+      svg.appendChild(r);
+    });
+    var glyph = { k:'pc-k', q:'pc-q', r:'pc-r', b:'pc-b', n:'pc-n', p:'pc-p' };
+    pieces.forEach(function(o){
+      var p = pos(o.sq);
+      var use = document.createElementNS(ns, 'use');
+      use.setAttribute('href', '#' + glyph[o.p.toLowerCase()]);
+      use.setAttribute('x', p[0]*40); use.setAttribute('y', p[1]*40);
+      use.setAttribute('class', 'piece ' + (o.p === o.p.toUpperCase() ? 'pw' : 'pb'));
+      svg.appendChild(use);
+    });
+    arrows.forEach(function(a){
+      var p1 = pos(a.from), p2 = pos(a.to);
+      var cx1 = p1[0]*40+20, cy1 = p1[1]*40+20, cx2 = p2[0]*40+20, cy2 = p2[1]*40+20;
+      var dx = cx2-cx1, dy = cy2-cy1, len = Math.sqrt(dx*dx+dy*dy) || 1;
+      var ux = dx/len, uy = dy/len;
+      var sx = cx1+ux*12, sy = cy1+uy*12, ex = cx2-ux*15, ey = cy2-uy*15;
+      var k = a.k === 'b' ? ' b' : '';
+      var line = document.createElementNS(ns, 'line');
+      line.setAttribute('x1', sx); line.setAttribute('y1', sy);
+      line.setAttribute('x2', ex); line.setAttribute('y2', ey);
+      line.setAttribute('class', 'arrow' + k);
+      svg.appendChild(line);
+      var poly = document.createElementNS(ns, 'polygon');
+      poly.setAttribute('points',
+        (cx2-ux*2) + ',' + (cy2-uy*2) + ' ' +
+        (ex - uy*7) + ',' + (ey + ux*7) + ' ' +
+        (ex + uy*7) + ',' + (ey - ux*7));
+      poly.setAttribute('class', 'arrowhead' + k);
+      svg.appendChild(poly);
+    });
+    el.appendChild(svg);
+  }
+  document.querySelectorAll('.board').forEach(renderBoard);
+})();
+</script>
+</body>
+</html>
