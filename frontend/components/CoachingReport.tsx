@@ -142,11 +142,20 @@ export default function CoachingReport({
   const normalized = normalizeCharts(hideIncompleteChartTag(content));
   const sections = splitSections(normalized);
   const sectionClassName = pending ? "report report-pending" : "report";
+  const psychologyProfile = insights?.psychology ?? null;
+  const hasPsychologySection = sections.some((section) =>
+    section.heading.toLowerCase().includes("psychology")
+  );
 
   if (sections.length === 0) {
     return (
       <section className={sectionClassName}>
         <MemoizedMarkdown markdown={normalized} />
+        {psychologyProfile && (
+          <div className="report-section">
+            <PsychologyPanel profile={psychologyProfile} />
+          </div>
+        )}
       </section>
     );
   }
@@ -173,7 +182,7 @@ export default function CoachingReport({
                 <SectionBoardsSkeleton />
               ) : null)}
             {heading.includes("psychology") && (
-              <PsychologyPanel profile={insights?.psychology} />
+              <PsychologyPanel profile={psychologyProfile} />
             )}
             {heading.includes("resources") && (
               <ResourceLinks resources={insights?.resources} />
@@ -181,6 +190,11 @@ export default function CoachingReport({
           </div>
         );
       })}
+      {psychologyProfile && !hasPsychologySection && (
+        <div className="report-section">
+          <PsychologyPanel profile={psychologyProfile} />
+        </div>
+      )}
     </section>
   );
 }

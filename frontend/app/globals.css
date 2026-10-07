@@ -2498,6 +2498,41 @@ body:has(.analysis-dashboard) .site-footer {
   font-size: 0.8rem;
 }
 
+.psych-unlock {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin: 0.65rem 0 0;
+  padding: 0.5rem 0.75rem;
+  border: 1px dashed var(--line);
+  border-radius: var(--radius-control);
+  background: var(--ink-2);
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.psych-unlock.unlocked {
+  border-style: solid;
+  border-color: rgba(111, 163, 131, 0.45);
+  background: rgba(111, 163, 131, 0.08);
+  color: var(--text);
+}
+
+.psych-unlock-badge {
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  background: rgba(111, 163, 131, 0.16);
+  border: 1px solid rgba(111, 163, 131, 0.5);
+  color: var(--green);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
 .batch-progress {
   margin-top: 1rem;
   padding: 0.9rem 1rem;

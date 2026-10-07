@@ -31,6 +31,7 @@ type AnalyzerFormProps = {
 };
 
 export const MAX_BATCH_GAMES = 5;
+export const PSYCHOLOGY_MIN_GAMES = 3;
 
 type BatchRow = {
   id: number;
@@ -170,6 +171,12 @@ export default function AnalyzerForm({
     platform !== "lichess" || validGames.every((row) => row.color !== null);
   const usernameReady = platform !== "chess.com" || Boolean(username.trim());
   const multiGame = validGames.length > 1;
+  const psychologyUnlocked = validGames.length >= PSYCHOLOGY_MIN_GAMES;
+  const gamesToPsychology = Math.max(
+    PSYCHOLOGY_MIN_GAMES - validGames.length,
+    0
+  );
+  const psychologyHintAvailable = rowLimit >= PSYCHOLOGY_MIN_GAMES;
   const submitDisabled =
     disabled ||
     validGames.length === 0 ||
@@ -308,6 +315,26 @@ export default function AnalyzerForm({
             {validGames.length} of {rowLimit} games · 1 credit per game
           </span>
         </div>
+        {psychologyHintAvailable && (
+          <p
+            className={`psych-unlock${psychologyUnlocked ? " unlocked" : ""}`}
+            aria-live="polite"
+          >
+            {psychologyUnlocked ? (
+              <>
+                <span className="psych-unlock-badge">Unlocked</span>
+                Psychology profile — your report includes a mental-game
+                breakdown.
+              </>
+            ) : (
+              <>
+                Add {gamesToPsychology} more{" "}
+                {gamesToPsychology === 1 ? "game" : "games"} to unlock the
+                Psychology profile.
+              </>
+            )}
+          </p>
+        )}
       </div>
 
       <button type="submit" className="btn" disabled={submitDisabled}>
