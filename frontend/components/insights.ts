@@ -156,6 +156,23 @@ export type PsychologyProfile = {
   caveats?: string[];
 };
 
+export function isPsychologyProfile(
+  value: unknown
+): value is PsychologyProfile {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const profile = value as Partial<PsychologyProfile>;
+  if (typeof profile.sample_size !== "number") {
+    return false;
+  }
+  return (
+    (profile.dimensions !== undefined && profile.dimensions !== null) ||
+    (profile.type_scores !== undefined && profile.type_scores !== null) ||
+    typeof profile.headline === "string"
+  );
+}
+
 export type InsightsData = {
   strength_moments: InsightMoment[];
   weakness_moments: InsightMoment[];

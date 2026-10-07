@@ -3,15 +3,22 @@ import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
 import AccuracyChart from "./AccuracyChart";
+import LockedPsychologyPreview from "./LockedPsychologyPreview";
 import PsychologyPanel from "./PsychologyPanel";
 import ResourceLinks from "./ResourceLinks";
 import SectionInsightBoards from "./SectionInsightBoards";
-import type { InsightsData } from "./insights";
+import {
+  isPsychologyProfile,
+  type InsightsData,
+  type PsychologyProfile,
+} from "./insights";
 
 type CoachingReportProps = {
   content: string;
   insights?: InsightsData | null;
   pending?: boolean;
+  psychologyLocked?: boolean;
+  gamesAnalyzed?: number;
 };
 
 const EVALCHART_PATTERN =
@@ -116,10 +123,30 @@ function SectionBoardsSkeleton() {
   );
 }
 
+function PsychologySlot({
+  profile,
+  locked,
+  gamesAnalyzed,
+}: {
+  profile: PsychologyProfile | null;
+  locked: boolean;
+  gamesAnalyzed: number;
+}) {
+  if (profile) {
+    return <PsychologyPanel profile={profile} />;
+  }
+  if (locked) {
+    return <LockedPsychologyPreview gamesAnalyzed={gamesAnalyzed} />;
+  }
+  return null;
+}
+
 export default function CoachingReport({
   content,
   insights,
   pending = false,
+  psychologyLocked = false,
+  gamesAnalyzed = 0,
 }: CoachingReportProps) {
   if (!content.trim()) {
     if (!pending) {
@@ -142,7 +169,11 @@ export default function CoachingReport({
   const normalized = normalizeCharts(hideIncompleteChartTag(content));
   const sections = splitSections(normalized);
   const sectionClassName = pending ? "report report-pending" : "report";
-  const psychologyProfile = insights?.psychology ?? null;
+  const rawPsychology = insights?.psychology ?? null;
+  const psychologyProfile = isPsychologyProfile(rawPsychology)
+    ? rawPsychology
+    : null;
+  const showLockedPsychology = psychologyLocked && !psychologyProfile;
   const hasPsychologySection = sections.some((section) =>
     section.heading.toLowerCase().includes("psychology")
   );
@@ -151,9 +182,13 @@ export default function CoachingReport({
     return (
       <section className={sectionClassName}>
         <MemoizedMarkdown markdown={normalized} />
-        {psychologyProfile && (
+        {(psychologyProfile || showLockedPsychology) && (
           <div className="report-section">
-            <PsychologyPanel profile={psychologyProfile} />
+            <PsychologySlot
+              profile={psychologyProfile}
+              locked={showLockedPsychology}
+              gamesAnalyzed={gamesAnalyzed}
+            />
           </div>
         )}
       </section>
@@ -182,7 +217,11 @@ export default function CoachingReport({
                 <SectionBoardsSkeleton />
               ) : null)}
             {heading.includes("psychology") && (
-              <PsychologyPanel profile={psychologyProfile} />
+              <PsychologySlot
+                profile={psychologyProfile}
+                locked={showLockedPsychology}
+                gamesAnalyzed={gamesAnalyzed}
+              />
             )}
             {heading.includes("resources") && (
               <ResourceLinks resources={insights?.resources} />
@@ -190,9 +229,13 @@ export default function CoachingReport({
           </div>
         );
       })}
-      {psychologyProfile && !hasPsychologySection && (
+      {(psychologyProfile || showLockedPsychology) && !hasPsychologySection && (
         <div className="report-section">
-          <PsychologyPanel profile={psychologyProfile} />
+          <PsychologySlot
+            profile={psychologyProfile}
+            locked={showLockedPsychology}
+            gamesAnalyzed={gamesAnalyzed}
+          />
         </div>
       )}
     </section>

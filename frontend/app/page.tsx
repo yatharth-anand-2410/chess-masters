@@ -655,6 +655,39 @@ export default function HomePage() {
         </aside>
       </section>
 
+      <section className="mindset-callout" aria-labelledby="mindset-title">
+        <div className="mindset-copy">
+          <p className="mindset-kicker">Progressive unlock</p>
+          <h2 className="mindset-title" id="mindset-title">
+            Stockfish fixes your moves. We fix your mindset.
+          </h2>
+          <p className="mindset-lede">
+            Play 3 games to unlock your AI Psychological Profile. Discover your
+            Tilt Resistance, Composure, and unique Playing Style based on your
+            actual blunders.
+          </p>
+        </div>
+        <div className="mindset-emblem" aria-hidden="true">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.7"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <rect x="4" y="10.5" width="16" height="9.5" rx="2" />
+            <path d="M8 10.5V8a4 4 0 0 1 8 0v2.5" />
+            <circle cx="12" cy="15.25" r="1.1" fill="currentColor" stroke="none" />
+          </svg>
+          <span className="mindset-pips">
+            <span className="mindset-pip" />
+            <span className="mindset-pip" />
+            <span className="mindset-pip" />
+          </span>
+        </div>
+      </section>
+
       {(isAnalyzing || markdown) && (
         <CoachingReport
           content={markdown}

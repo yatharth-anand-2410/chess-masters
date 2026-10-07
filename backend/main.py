@@ -211,6 +211,15 @@ def _usage_payload(usage: dict) -> dict:
     }
 
 
+async def _usage_payload_with_count(usage: dict, user_id: str) -> dict:
+    """Usage payload plus the lifetime analyzed-game count (unlock progress)."""
+    payload = _usage_payload(usage)
+    payload["total_games_analyzed"] = await asyncio.to_thread(
+        db.count_completed_analyses, user_id
+    )
+    return payload
+
+
 def _unix_to_iso(value: object) -> Optional[str]:
     if not value:
         return None
@@ -432,7 +441,11 @@ async def stream_analysis(
                 {
                     "message": "Analysis complete",
                     "analysis_id": analysis_id,
-                    "usage": _usage_payload(usage) if usage else None,
+                    "usage": (
+                        await _usage_payload_with_count(usage, user_id)
+                        if usage
+                        else None
+                    ),
                 },
             )
         except (extractor.ExtractionError, engine.EngineError) as exc:
@@ -771,7 +784,7 @@ async def stream_batch_analysis(
                 {
                     "message": "Analysis complete",
                     "batch_id": batch_id,
-                    "usage": _usage_payload(usage),
+                    "usage": await _usage_payload_with_count(usage, user_id),
                 },
             )
         except genai_errors.APIError as exc:
@@ -985,7 +998,7 @@ async def account_usage(
     user: Dict[str, object] = Depends(get_current_user),
 ) -> dict:
     usage = await asyncio.to_thread(db.get_usage, str(user["id"]))
-    return _usage_payload(usage)
+    return await _usage_payload_with_count(usage, str(user["id"]))
 
 
 @app.post("/api/account/claim-guest-trial")
@@ -998,7 +1011,7 @@ async def claim_guest_trial(
     """
     await asyncio.to_thread(db.claim_guest_trial, str(user["id"]))
     usage = await asyncio.to_thread(db.get_usage, str(user["id"]))
-    return _usage_payload(usage)
+    return await _usage_payload_with_count(usage, str(user["id"]))
 
 
 class BillingVerifyRequest(BaseModel):

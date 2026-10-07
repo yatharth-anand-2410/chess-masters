@@ -7,6 +7,7 @@ export type Usage = {
   paid_analysis_limit: number;
   analyses_remaining: number;
   qna_enabled: boolean;
+  total_games_analyzed: number;
   subscription_status?: string;
   current_period_end?: string | null;
 };

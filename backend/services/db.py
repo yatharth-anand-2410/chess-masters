@@ -169,6 +169,33 @@ def list_analyses(
     return response.json()
 
 
+def count_completed_analyses(user_id: str) -> int:
+    """Lifetime count of successfully analyzed games (standalone + batch)."""
+    url, _key = _config()
+    response = requests.get(
+        f"{url}/rest/v1/analyses",
+        params={
+            "select": "id",
+            "user_id": f"eq.{user_id}",
+            "status": "eq.completed",
+            "limit": "1",
+        },
+        headers={
+            **_service_headers(),
+            "Prefer": "count=exact",
+        },
+        timeout=TIMEOUT,
+    )
+    response.raise_for_status()
+    content_range = response.headers.get("Content-Range", "")
+    if "/" not in content_range:
+        return 0
+    try:
+        return int(content_range.rsplit("/", 1)[-1])
+    except ValueError:
+        return 0
+
+
 def create_batch(user_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
     url, _key = _config()
     response = requests.post(

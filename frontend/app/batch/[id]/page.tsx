@@ -6,8 +6,9 @@ import { useParams, useRouter } from "next/navigation";
 import AuthButton from "../../../components/AuthButton";
 import CoachingReport from "../../../components/CoachingReport";
 import GameAnalysisCard from "../../../components/GameAnalysisCard";
+import { PSYCHOLOGY_MIN_GAMES } from "../../../components/AnalyzerForm";
 import type { InsightsData } from "../../../components/insights";
-import { apiGet, type BatchDetail } from "../../../lib/api";
+import { apiGet, type BatchDetail, type Usage } from "../../../lib/api";
 import { createClient } from "../../../lib/supabase-client";
 import type { User } from "@supabase/supabase-js";
 
@@ -30,6 +31,7 @@ export default function BatchDetailPage() {
 
   const [user, setUser] = useState<User | null>(null);
   const [detail, setDetail] = useState<BatchDetail | null>(null);
+  const [usage, setUsage] = useState<Usage | null>(null);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -42,11 +44,12 @@ export default function BatchDetailPage() {
         return;
       }
       try {
-        const result = await apiGet<BatchDetail>(
-          `/api/batches/${batchId}`,
-          session.access_token
-        );
+        const [result, usageResult] = await Promise.all([
+          apiGet<BatchDetail>(`/api/batches/${batchId}`, session.access_token),
+          apiGet<Usage>("/api/account/usage", session.access_token),
+        ]);
         setDetail(result);
+        setUsage(usageResult);
       } catch (err) {
         setError(
           err instanceof Error ? err.message : "Failed to load batch analysis."
@@ -80,6 +83,9 @@ export default function BatchDetailPage() {
   const completed = detail.games.filter(
     (game) => game.status === "completed"
   ).length;
+  const gamesAnalyzed = usage?.total_games_analyzed ?? 0;
+  const psychologyLocked =
+    usage !== null && gamesAnalyzed < PSYCHOLOGY_MIN_GAMES;
 
   return (
     <main className="dashboard analysis-dashboard">
@@ -114,7 +120,12 @@ export default function BatchDetailPage() {
       </div>
 
       {batch.report_markdown ? (
-        <CoachingReport content={batch.report_markdown} insights={insights} />
+        <CoachingReport
+          content={batch.report_markdown}
+          insights={insights}
+          psychologyLocked={psychologyLocked}
+          gamesAnalyzed={gamesAnalyzed}
+        />
       ) : (
         <div className="error-banner">
           {batch.error_message ?? "This multi-game report has no report."}

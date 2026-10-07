@@ -6,7 +6,9 @@ import { useParams, useRouter } from "next/navigation";
 import AuthButton from "../../../components/AuthButton";
 import AnalysisThread, { type ThreadMessage } from "../../../components/AnalysisThread";
 import CoachingReport from "../../../components/CoachingReport";
+import LockedPsychologyPreview from "../../../components/LockedPsychologyPreview";
 import SectionInsightBoards from "../../../components/SectionInsightBoards";
+import { PSYCHOLOGY_MIN_GAMES } from "../../../components/AnalyzerForm";
 import type { InsightsData } from "../../../components/insights";
 import { apiGet, externalGameUrl } from "../../../lib/api";
 import type { Usage } from "../../../lib/api";
@@ -108,6 +110,9 @@ export default function AnalysisDetailPage() {
   const insights = analysis.insights ?? null;
   const platformLabel = analysis.platform === "lichess" ? "Lichess" : "Chess.com";
   const colorLabel = analysis.player_color === "white" ? "White" : "Black";
+  const gamesAnalyzed = usage?.total_games_analyzed ?? 0;
+  const psychologyLocked =
+    usage !== null && gamesAnalyzed < PSYCHOLOGY_MIN_GAMES;
 
   return (
     <main className="dashboard analysis-dashboard">
@@ -158,7 +163,12 @@ export default function AnalysisDetailPage() {
       <div className="analysis-workspace">
         <div className="analysis-report-column">
           {analysis.report_markdown ? (
-            <CoachingReport content={analysis.report_markdown} insights={insights} />
+            <CoachingReport
+              content={analysis.report_markdown}
+              insights={insights}
+              psychologyLocked={psychologyLocked}
+              gamesAnalyzed={gamesAnalyzed}
+            />
           ) : insights &&
             ((insights.weakness_moments?.length ?? 0) > 0 ||
               (insights.strength_moments?.length ?? 0) > 0) ? (
@@ -191,6 +201,12 @@ export default function AnalysisDetailPage() {
                 <div className="report-section">
                   <h2>Weakness</h2>
                   <SectionInsightBoards moments={insights.weakness_moments} />
+                </div>
+              )}
+              {psychologyLocked && (
+                <div className="report-section">
+                  <h2>Psychology</h2>
+                  <LockedPsychologyPreview gamesAnalyzed={gamesAnalyzed} />
                 </div>
               )}
             </section>
