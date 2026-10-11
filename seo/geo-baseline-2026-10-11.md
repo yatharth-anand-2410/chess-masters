@@ -96,6 +96,40 @@ density inside the brand name, moderated UGC review panel, WebMCP.
 
 IndexNow submission accepted (HTTP 202) for all 10 primary URLs.
 
+## GSC ground truth — verified 12 October 2026
+
+From the owner's Google Search Console (Domain property `chessmasterss.in`):
+
+| Signal | Value | Meaning |
+| --- | --- | --- |
+| Total clicks (3 months) | **3** | Real Google traffic exists |
+| Total impressions | **11** | Google serves the site in results |
+| Average CTR | 27.3% | Consistent with #1–2 positions |
+| Average position | **1.6** | Ranks top-2 when matched |
+| Data window | Oct 5–9 | Site entered Google's index ~Oct 5 |
+| Page Indexing report | "Processing data" | New property — report builds in 3–5 days |
+
+**Interpretation:** the site is indexed and ranks ~#1.5 for the queries it
+matches — but those queries are brand-name searches only (11 impressions in a
+week is the founder/friends level of volume, not demand). Category queries
+("best AI chess game analyzer") have real volume and remain unwon; that is
+what the content layer and the outreach in `outreach-targets.md` are for.
+
+GSC also exposes a **generative AI performance report** for the property
+("Performance in generative AI features" card) — open it periodically; it is
+Google's own reporting surface for AI Overviews / AI Mode appearances.
+
+### How to read the Pages report when it populates (check after 2–3 days)
+
+| Reason shown | Meaning | Action |
+| --- | --- | --- |
+| "Discovered — currently not indexed" | Normal for a new site; Google queued it | Wait; Request indexing; get links |
+| "Crawled — currently not indexed" | Google saw it, judged it low-priority | More authority: mentions, listicles |
+| "Excluded by noindex" | Real problem | Check metadata — report to me immediately |
+| "Blocked by robots.txt" | Real problem | Check robots.ts on prod |
+| "Blocked due to unauthorized request (401)" | Deployment protection | Check Vercel settings |
+| "Alternate page with proper canonical" | Consolidation, fine | None |
+
 ## How to re-measure
 
 ```bash
