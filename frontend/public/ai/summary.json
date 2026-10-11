@@ -1,6 +1,7 @@
 {
   "name": "Chessmasters",
   "url": "https://www.chessmasterss.in",
+  "description": "Chessmasters is an AI chess game analyzer that turns finished Chess.com and Lichess games into plain-English coaching reports covering strengths, weaknesses, key moments, focus areas, and training resources.",
   "oneLineDescription": "Chessmasters is an AI chess game analyzer that turns Chess.com and Lichess games into plain-English coaching reports.",
   "category": "AI chess game analysis and coaching",
   "platforms": ["Web"],

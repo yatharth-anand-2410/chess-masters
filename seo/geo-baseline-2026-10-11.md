@@ -52,6 +52,25 @@ Other measured facts at baseline:
 - IndexNow key deployed; `scripts/indexnow.mjs` submits URLs to Bing after
   deploys.
 
+## Final pre-deploy measurement (11 October, after all fixes)
+
+Re-audit through the tunnel after the date/byline/AI-discovery fixes:
+
+**79/100** — and the two remaining failures are proven tunnel artifacts:
+
+| Check | Result | Note |
+| --- | --- | --- |
+| G-DATES | ✅ pass (2/2) | Visible `<time datetime>` + WebPage schema dates |
+| G-BYLINE | ✅ pass (2/2) | `rel="author"` byline + Person schema |
+| G-INDEX | ❌ (tunnel) | Cloudflare injects `X-Robots-Tag: noindex` on quick tunnels; production (`server: Vercel`) has no such header |
+| G-CANONICAL | ⚠️ (tunnel) | Canonical correctly points at `chessmasterss.in`, which differs from the tunnel host |
+| signals | 3 → 6 | RSS alternate link live |
+| ai_discovery | 1 → 2 | `summary.json` + `service.json` now match the expected schema |
+| negative | −3 → −1 | Remaining point is substring counting of "chess" inside the brand name |
+
+Realistic production score: **~86** (G-INDEX +5 and G-CANONICAL +2 flip to pass
+when the canonical matches the serving host). Verify after deploy.
+
 ## How to re-measure
 
 ```bash

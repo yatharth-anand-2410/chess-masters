@@ -39,7 +39,14 @@ changes live in `frontend/`.
    benchmarks in schema or copy. `aggregateRating` schema stays out until real
    reviews exist at volume.
 2. **Parth reviews every content page** before it publishes. The byline is
-   his real name and credential.
+   his real name and credential. ✅ Verified 11 October 2026 — the seven
+   content pages shipped as reviewed.
 3. **Facts live in one place.** Product facts (pricing, limits, supported
    platforms, section names) live in `frontend/lib/site.ts` and
    `frontend/lib/faqs.ts` — update those before editing pages.
+
+## Verified entity references (schema `sameAs`)
+
+- Product Hunt: https://www.producthunt.com/products/chess-masterss
+- Nicheloom: https://www.nicheloom.com/launches/45694/
+- cAImpare: https://caimpare.ai/tool/78319

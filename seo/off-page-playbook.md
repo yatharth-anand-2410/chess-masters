@@ -17,6 +17,8 @@ your entity to the term.
 **Fix outstanding inconsistencies:**
 - [ ] Nicheloom listing says "Chess Masterss" — request a rename to
       "Chessmasters".
+- [ ] Product Hunt page says "Chess Masterss" with the tagline "Understand why
+      you loose the game" — fix both (see section 4).
 - [ ] Check any other directory that wrote a variant name.
 
 ## 2. Reddit (4–6 expert replies/month)
@@ -53,15 +55,25 @@ Video ideas:
 Requirements: spoken transcript on (auto is fine), title = the query, first
 line of the description = the canonical descriptor.
 
-## 4. Product Hunt launch
+## 4. Product Hunt (page exists — optimize it)
 
-One well-prepared launch produces a durable, cited page. Checklist:
-- [ ] Founder account with history, not a fresh one.
-- [ ] Gallery: 4–5 images (report screenshot, before/after, psychological
-      profile, pricing).
-- [ ] First comment: who it is for, what it is not, pricing honestly.
-- [ ] Launch Tuesday–Thursday; rally the existing user base by email.
-- [ ] Follow-up: reply to every comment for 24h.
+The page already exists: https://www.producthunt.com/products/chess-masterss
+— so this is maintenance, not a launch. Fix in priority order:
+
+- [ ] **Fix the name** — the page says "Chess Masterss" (two s's on
+      "Masters"). Request the rename to "Chessmasters" via Product Hunt
+      support; exact-name consistency is what feeds entity recognition.
+- [ ] **Fix the tagline typo** — "Understand why you loose the game" →
+      "Understand why you lose the game" (or better: the canonical descriptor
+      opener).
+- [ ] Update the gallery: report screenshot, before/after, psychological
+      profile, pricing.
+- [ ] Ensure the site link on the page is `https://www.chessmasterss.in`
+      (not a Vercel preview URL).
+- [ ] Post a maker comment with the canonical descriptor, who it is for, what
+      it is not, and pricing, honestly.
+- [ ] Ask happy users to leave a review — reviews raise the page's weight in
+      citation pools.
 
 ## 5. Listings and directories (one afternoon)
 

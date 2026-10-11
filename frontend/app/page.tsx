@@ -6,8 +6,13 @@ import {
   faqPageSchema,
   schemaGraph,
   SOFTWARE_APPLICATION_SCHEMA,
+  webPageSchema,
 } from "../lib/schema";
-import { SITE_META_DESCRIPTION } from "../lib/site";
+import {
+  CONTENT_PUBLISHED,
+  SITE_META_DESCRIPTION,
+  SITE_NAME,
+} from "../lib/site";
 
 export const metadata: Metadata = {
   alternates: { canonical: "/", types: { "application/rss+xml": "/feed.xml" } },
@@ -22,7 +27,17 @@ export default function HomePage() {
   return (
     <>
       <JsonLd
-        data={schemaGraph([SOFTWARE_APPLICATION_SCHEMA, faqPageSchema(FAQS)])}
+        data={schemaGraph([
+          webPageSchema({
+            name: `${SITE_NAME} · AI Chess Game Analyzer`,
+            path: "/",
+            description: SITE_META_DESCRIPTION,
+            datePublished: CONTENT_PUBLISHED,
+            dateModified: CONTENT_PUBLISHED,
+          }),
+          SOFTWARE_APPLICATION_SCHEMA,
+          faqPageSchema(FAQS),
+        ])}
       />
       <HomeDashboard />
     </>

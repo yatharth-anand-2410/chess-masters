@@ -3,6 +3,16 @@
   "url": "https://www.chessmasterss.in",
   "service": "AI chess game analysis and coaching reports",
   "description": "Submit a finished public Chess.com or Lichess game and receive a streaming, plain-English coaching report enriched with Stockfish blunder detection.",
+  "capabilities": [
+    "Analyze a finished Chess.com or Lichess game from its URL",
+    "Generate a five-section coaching report: Strength, Weakness, Game Overview, Focus Areas, Resources",
+    "Detect blunders and turning points with Stockfish centipawn evaluation",
+    "Illustrate key moments on interactive chess boards",
+    "Link focus areas to matching Lichess training themes and studies",
+    "Build an AI Psychological Profile after three analyzed games",
+    "Batch analysis of up to five games per submission",
+    "Answer follow-up questions about any analyzed game"
+  ],
   "inputs": [
     "Lichess game URL (8-character game ID)",
     "Chess.com username plus game URL (public archive, last 3 months)"

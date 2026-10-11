@@ -64,7 +64,7 @@ export const WEBSITE_SCHEMA = {
 };
 
 export const SOFTWARE_APPLICATION_SCHEMA = {
-  "@type": "SoftwareApplication",
+  "@type": ["SoftwareApplication", "WebApplication"],
   "@id": PRODUCT_ID,
   name: SITE_NAME,
   url: SITE_URL,
@@ -147,6 +147,24 @@ export const articleSchema = (options: {
     sameAs: FOUNDERS[0].sameAs,
   },
   publisher: { "@id": ORGANIZATION_ID },
+});
+
+export const webPageSchema = (options: {
+  name: string;
+  path: string;
+  description?: string;
+  datePublished: string;
+  dateModified: string;
+}) => ({
+  "@type": "WebPage",
+  "@id": `${abs(options.path)}/#webpage`,
+  url: abs(options.path),
+  name: options.name,
+  ...(options.description ? { description: options.description } : {}),
+  datePublished: options.datePublished,
+  dateModified: options.dateModified,
+  isPartOf: { "@id": WEBSITE_ID },
+  inLanguage: "en",
 });
 
 export const schemaGraph = (nodes: Array<Record<string, unknown>>) => ({

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { CONTENT_PUBLISHED_LABEL } from "../lib/site";
+import { CONTENT_PUBLISHED, CONTENT_PUBLISHED_LABEL } from "../lib/site";
 
 /**
  * Editorial byline + freshness stamp for content pages. Every page that uses
@@ -7,9 +7,11 @@ import { CONTENT_PUBLISHED_LABEL } from "../lib/site";
  */
 export default function ArticleMeta({
   updated = CONTENT_PUBLISHED_LABEL,
+  updatedIso = CONTENT_PUBLISHED,
   showReviewedBy = true,
 }: {
   updated?: string;
+  updatedIso?: string;
   showReviewedBy?: boolean;
 }) {
   return (
@@ -17,11 +19,15 @@ export default function ArticleMeta({
       {showReviewedBy && (
         <>
           Reviewed by{" "}
-          <Link href="/about">Parth Kaushik</Link>, FIDE Arena
-          International Master (AIM).{" "}
+          <Link href="/about" rel="author">
+            Parth Kaushik
+          </Link>
+          , FIDE Arena International Master (AIM).{" "}
         </>
       )}
-      <span className="article-meta-updated">Last updated {updated}.</span>
+      <span className="article-meta-updated">
+        Last updated <time dateTime={updatedIso}>{updated}</time>.
+      </span>
     </p>
   );
 }

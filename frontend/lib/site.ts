@@ -19,6 +19,7 @@ export const PRODUCT_ID = `${SITE_URL}/#software-application`;
 
 /** Third-party references that describe the Chessmasters entity. */
 export const ORG_SAME_AS = [
+  "https://www.producthunt.com/products/chess-masterss",
   "https://www.nicheloom.com/launches/45694/",
   "https://caimpare.ai/tool/78319",
 ];

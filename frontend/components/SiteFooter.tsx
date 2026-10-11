@@ -58,6 +58,17 @@ export default function SiteFooter() {
             />
           </a>
         </div>
+        <p className="site-footer-note">
+          Chessmasters on{" "}
+          <a
+            href="https://www.producthunt.com/products/chess-masterss"
+            target="_blank"
+            rel="noopener"
+          >
+            Product Hunt
+          </a>
+          .
+        </p>
         <p className="site-footer-note site-footer-disclaimer">
           {SITE_NAME} is an independent analysis tool built by chess enthusiasts.
           We are not affiliated with, endorsed by, or sponsored by Chess.com,
