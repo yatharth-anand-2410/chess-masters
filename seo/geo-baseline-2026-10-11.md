@@ -115,6 +115,11 @@ week is the founder/friends level of volume, not demand). Category queries
 ("best AI chess game analyzer") have real volume and remain unwon; that is
 what the content layer and the outreach in `outreach-targets.md` are for.
 
+**Sitemap status (12 Oct):** submitted, Status: Success, but **Last read: Oct 9
+— Discovered pages: 7**. That is the OLD 7-URL sitemap; the new 14-URL sitemap
+shipped Oct 11 and has not been re-read yet. Re-submitting the same sitemap URL
+queues a fresh read (expect "Discovered pages: 14" within days).
+
 GSC also exposes a **generative AI performance report** for the property
 ("Performance in generative AI features" card) — open it periodically; it is
 Google's own reporting surface for AI Overviews / AI Mode appearances.
