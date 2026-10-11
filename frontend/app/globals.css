@@ -2355,6 +2355,12 @@ body:has(.analysis-dashboard) .site-footer {
   border-radius: 12px;
 }
 
+/* Product Hunt badge ships at 250x54 — override the tool badge sizing. */
+.site-footer-badges img.site-footer-badge-ph {
+  width: 250px;
+  height: 54px;
+}
+
 .site-footer-disclaimer {
   margin-top: 0.6rem;
   font-size: 0.76rem;

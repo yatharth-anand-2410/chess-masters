@@ -57,18 +57,23 @@ export default function SiteFooter() {
               loading="lazy"
             />
           </a>
-        </div>
-        <p className="site-footer-note">
-          Chessmasters on{" "}
           <a
-            href="https://www.producthunt.com/products/chess-masterss"
+            href="https://www.producthunt.com/products/chess-masterss/reviews/new?utm_source=badge-product_review&utm_medium=badge"
             target="_blank"
             rel="noopener"
+            aria-label="Chessmasters on Product Hunt — leave a review"
           >
-            Product Hunt
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              className="site-footer-badge-ph"
+              src="https://api.producthunt.com/widgets/embed-image/v1/product_review.svg?product_id=1337951&theme=light"
+              alt="Chessmasters on Product Hunt — leave a review"
+              width={250}
+              height={54}
+              loading="lazy"
+            />
           </a>
-          .
-        </p>
+        </div>
         <p className="site-footer-note site-footer-disclaimer">
           {SITE_NAME} is an independent analysis tool built by chess enthusiasts.
           We are not affiliated with, endorsed by, or sponsored by Chess.com,
