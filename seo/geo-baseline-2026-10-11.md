@@ -71,6 +71,31 @@ Re-audit through the tunnel after the date/byline/AI-discovery fixes:
 Realistic production score: **~86** (G-INDEX +5 and G-CANONICAL +2 flip to pass
 when the canonical matches the serving host). Verify after deploy.
 
+## Production result (11 October, deployed)
+
+**89/100 — "excellent" band.** Deployed to https://www.chessmasterss.in via
+`vercel --prod` (commit `d21fbcb`), verified against the live domain.
+
+| Category | Baseline | Production |
+| --- | --- | --- |
+| robots.txt | 11 | **14 / 14** |
+| llms.txt | 0 | **6 / 6** |
+| Schema | 0 | 12 / 16 |
+| Meta | 7 | 11 / 14 |
+| Content | 8 | 12 / 12 |
+| Signals | 3 | **6 / 6** |
+| AI discovery | 0 | 2 / 6 |
+| Brand & entity | 2 | 7 / 10 |
+| Negative (density) | −3 | −1 |
+| Google AI readiness | 15 / 20 | **20 / 20** |
+| **Total** | **43** | **89** |
+
+Remaining recommendations are known and accepted (documented below):
+Wikipedia/Wikidata/Crunchbase `sameAs` (do not fake), "chess" substring
+density inside the brand name, moderated UGC review panel, WebMCP.
+
+IndexNow submission accepted (HTTP 202) for all 10 primary URLs.
+
 ## How to re-measure
 
 ```bash
