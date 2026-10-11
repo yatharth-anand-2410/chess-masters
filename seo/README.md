@@ -11,6 +11,7 @@ changes live in `frontend/`.
 | `geo-baseline-2026-10-11.md` | The measured starting point (GEO score 43/100) and how to re-run the audit. |
 | `prompt-panel.md` | The monthly AI-visibility prompt panel: fixed prompts, fixed engines, recorded results. |
 | `off-page-playbook.md` | Reddit, YouTube, listings, outreach, name normalization — the compounding work. |
+| `outreach-targets.md` | The 40-tool AI-answer analysis and the exact listicles/threads to get into. |
 | `vercel-abuse-report.md` | Draft complaint about the unrelated `chessmasterss.vercel.app` site. |
 
 ## Cadence
