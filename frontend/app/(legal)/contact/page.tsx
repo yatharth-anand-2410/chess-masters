@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
-import { CONTACT_EMAIL, SITE_NAME } from "../../../lib/site";
+import { CONTACT_EMAIL } from "../../../lib/site";
 
 export const metadata: Metadata = {
-  title: `Contact · ${SITE_NAME}`,
+  title: "Contact",
   description: "Contact the Chessmasters team for support, billing, or feedback.",
+  alternates: { canonical: "/contact", types: { "application/rss+xml": "/feed.xml" } },
 };
 
 export default function ContactPage() {

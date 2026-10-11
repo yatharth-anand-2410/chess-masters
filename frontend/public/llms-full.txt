@@ -1,0 +1,83 @@
+# Chessmasters — full text
+
+Source: https://www.chessmasterss.in
+Last updated: 2026-10-11
+
+## What Chessmasters is
+
+Chessmasters is an AI chess game analyzer for Chess.com and Lichess. You paste a finished game — a Lichess game URL, or your Chess.com username plus the game URL — and within seconds you get a plain-English coaching report. The first analysis is free and requires no account.
+
+The report covers five sections: Strength (what you did well), Weakness (the decisive mistakes and the patterns behind them), Game Overview (how the game flowed), Focus Areas (two or three things worth training next), and Resources (drills and study material mapped to those focus areas).
+
+## How the analysis works
+
+1. The game is fetched. For Lichess, the game ID in the URL is used directly. For Chess.com, Chessmasters searches the public game archive for the username (the last three months) and finds the matching game.
+2. Stockfish enriches the game. Every move is evaluated; centipawn swings and blunders are located. Every claim in the report is tied to an engine evaluation.
+3. The coaching report is written. Engine data, the opening played, and the result become a narrative lesson with named tactical motifs, board diagrams of key moments, and training links.
+
+Reports stream in real time and typically complete in about 10 to 15 seconds for a single game.
+
+## Pricing
+
+- Free: 5 analyses in total. The first analysis needs no account; signing in unlocks the remaining four.
+- Pro: ₹399 per month, 100 analyses per billing period, includes batch analysis (up to 5 games per submission) and follow-up Q&A on any report. Subscriptions can be paused, resumed, or cancelled from the subscription page.
+
+## What makes it different
+
+Engine tools report that a move lost centipawns. Chessmasters explains what happened as a lesson: the named tactical motif that was missed (pins, deflection, forks, clearance, hanging pieces, and similar patterns), why the position changed, and what to train next with links to real training material such as Lichess puzzle themes.
+
+After three analyzed games, Chessmasters builds an AI Psychological Profile of the player: Tilt Resistance, Composure, and Playing Style, measured from the blunders the player actually made, not from a quiz.
+
+The coaching logic is designed with FIDE Arena International Master (AIM) Parth Kaushik, a competitive chess instructor with a 2300+ peak Chess.com rating, alongside co-founder and engineer Yatharth Anand.
+
+## Supported games
+
+Chessmasters analyzes finished standard chess games played on Chess.com or Lichess. Games must be finished and publicly visible. Chessmasters is an independent tool and is not affiliated with, endorsed by, or sponsored by Chess.com, Lichess.org, or the Stockfish project.
+
+## Frequently asked questions
+
+Q: What is Chessmasters?
+A: Chessmasters is an AI chess game analyzer for Chess.com and Lichess. You paste a finished game and receive a plain-English coaching report with five sections: Strength, Weakness, Game Overview, Focus Areas, and Resources.
+
+Q: Is Chessmasters free?
+A: The first analysis is free and does not require an account. Signing in unlocks four more free analyses, five in total. After that, the Pro plan is ₹399 per month and includes 100 analyses per billing period.
+
+Q: Does it work with both Chess.com and Lichess?
+A: Yes. For Lichess, paste the game URL and Chessmasters fetches it directly. For Chess.com, enter your username and the game URL and it finds the game in the public archive of the last three months.
+
+Q: How is this different from Chess.com Game Review or raw engine analysis?
+A: Engine tools tell you which move lost centipawns. Chessmasters runs Stockfish first, then explains what happened as a lesson: the named tactical motif you missed, why the position changed, and exactly what to train next, with drills linked to Lichess training material.
+
+Q: What is included in each report?
+A: Every report covers Strength, Weakness, Game Overview, Focus Areas, and Resources. Key moments are shown on interactive boards, and evaluation and accuracy charts visualize how the game turned. Pro users can also ask follow-up questions about their game.
+
+Q: How long does an analysis take?
+A: The report streams in real time and typically finishes in about 10 to 15 seconds for a single game.
+
+Q: Do I need to install anything or connect my account?
+A: No. Chessmasters analyzes public games from Chess.com and Lichess. You never share a password — a game URL is enough, plus your username for Chess.com games.
+
+Q: How many games can I analyze at once?
+A: You can submit a batch of up to five games in one go. Each game uses one analysis credit.
+
+Q: What is the AI Psychological Profile?
+A: After three analyzed games, Chessmasters builds a profile of how you play under pressure, including Tilt Resistance, Composure, and your Playing Style, based on the blunders in your own games.
+
+Q: Who designs the coaching in the reports?
+A: The coaching logic is designed with FIDE Arena International Master (AIM) Parth Kaushik, a competitive instructor with a 2300+ peak Chess.com rating, so the advice reads the way a strong human coach would explain it.
+
+Q: Which games can I analyze?
+A: Finished standard chess games played on Chess.com or Lichess. The game must be publicly visible, which covers virtually every rated or casual game on both platforms.
+
+Q: Can I analyze a game I lost?
+A: Yes — and losses are usually the most instructive. The report focuses on repeating patterns rather than the single result.
+
+Q: How do I cancel, pause, or resume my subscription?
+A: Everything is managed from the subscription page: pause, resume, and cancel are supported directly.
+
+Q: Is Chessmasters affiliated with Chess.com or Lichess?
+A: No. Chessmasters is an independent tool built by chess enthusiasts. It is not affiliated with, endorsed by, or sponsored by Chess.com, Lichess.org, or the Stockfish project.
+
+## Contact
+
+info@chessmasterss.in

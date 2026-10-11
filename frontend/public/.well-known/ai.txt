@@ -1,0 +1,23 @@
+# ai.txt — AI crawler and usage information
+# Site: Chessmasters (https://www.chessmasterss.in)
+# Contact: info@chessmasterss.in
+# Last updated: 2026-10-11
+
+Crawling: Public pages (marketing, guides, FAQ, pricing, legal) may be crawled
+and included in AI answers with attribution to "Chessmasters" linking to
+https://www.chessmasterss.in.
+
+Not permitted: /analysis/, /batch/, /history, and /auth/ contain private user
+data and are also disallowed in robots.txt.
+
+Machine-readable resources:
+- https://www.chessmasterss.in/llms.txt
+- https://www.chessmasterss.in/llms-full.txt
+- https://www.chessmasterss.in/ai/summary.json
+- https://www.chessmasterss.in/ai/faq.json
+- https://www.chessmasterss.in/ai/service.json
+- https://www.chessmasterss.in/sitemap.xml
+- https://www.chessmasterss.in/feed.xml
+
+Canonical descriptor: Chessmasters is an AI chess game analyzer for Chess.com
+and Lichess that turns a finished game into a plain-English coaching report.

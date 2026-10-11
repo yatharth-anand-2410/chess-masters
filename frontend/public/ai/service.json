@@ -1,0 +1,31 @@
+{
+  "name": "Chessmasters",
+  "url": "https://www.chessmasterss.in",
+  "service": "AI chess game analysis and coaching reports",
+  "description": "Submit a finished public Chess.com or Lichess game and receive a streaming, plain-English coaching report enriched with Stockfish blunder detection.",
+  "inputs": [
+    "Lichess game URL (8-character game ID)",
+    "Chess.com username plus game URL (public archive, last 3 months)"
+  ],
+  "outputs": [
+    "Coaching report: Strength, Weakness, Game Overview, Focus Areas, Resources",
+    "Interactive board diagrams of key moments",
+    "Evaluation and accuracy charts",
+    "Focus-area training links (Lichess training themes and studies)",
+    "AI Psychological Profile after three analyzed games"
+  ],
+  "limits": {
+    "gamesPerBatch": 5,
+    "freeAnalyses": 5,
+    "proAnalysesPerPeriod": 100,
+    "analysisTimeSeconds": "10-15 typical"
+  },
+  "requiresAccount": false,
+  "pricing": {
+    "freeTier": true,
+    "proPrice": "INR 399/month",
+    "billing": "Razorpay; pause, resume, or cancel anytime"
+  },
+  "contact": "info@chessmasterss.in",
+  "lastUpdated": "2026-10-11"
+}

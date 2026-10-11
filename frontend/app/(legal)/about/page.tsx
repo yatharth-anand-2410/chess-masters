@@ -1,16 +1,38 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { SITE_NAME } from "../../../lib/site";
+import JsonLd from "../../../components/JsonLd";
+import { schemaGraph } from "../../../lib/schema";
+import { FOUNDERS, ORGANIZATION_ID, SITE_NAME, SITE_URL } from "../../../lib/site";
 
 export const metadata: Metadata = {
-  title: `About · ${SITE_NAME}`,
+  title: "About",
   description:
     "Meet the competitive chess team behind Chessmasters: a FIDE Arena International Master (AIM) with a 2300+ peak rating and the engineer who built the AI analysis engine.",
+  alternates: { canonical: "/about", types: { "application/rss+xml": "/feed.xml" } },
 };
+
+const aboutSchema = schemaGraph([
+  {
+    "@type": "AboutPage",
+    name: `About ${SITE_NAME}`,
+    url: `${SITE_URL}/about`,
+    mainEntity: { "@id": ORGANIZATION_ID },
+  },
+  ...FOUNDERS.map((founder) => ({
+    "@type": "Person",
+    name: founder.name,
+    jobTitle: founder.jobTitle,
+    description: founder.description,
+    url: `${SITE_URL}/about`,
+    worksFor: { "@id": ORGANIZATION_ID },
+    ...(founder.sameAs ? { sameAs: founder.sameAs } : {}),
+  })),
+]);
 
 export default function AboutPage() {
   return (
     <>
+      <JsonLd data={aboutSchema} />
       <h1>About {SITE_NAME}</h1>
       <p className="legal-updated">
         Built by competitive players who wanted post-game feedback to feel like a

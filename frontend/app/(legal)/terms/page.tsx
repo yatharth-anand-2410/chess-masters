@@ -3,8 +3,9 @@ import Link from "next/link";
 import { CONTACT_EMAIL, SITE_NAME } from "../../../lib/site";
 
 export const metadata: Metadata = {
-  title: `Terms & Conditions · ${SITE_NAME}`,
+  title: "Terms & Conditions",
   description: "The terms that govern your use of Chessmasters.",
+  alternates: { canonical: "/terms", types: { "application/rss+xml": "/feed.xml" } },
 };
 
 export default function TermsPage() {

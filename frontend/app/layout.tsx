@@ -4,8 +4,14 @@ import "@lichess-org/chessground/assets/chessground.base.css";
 import "@lichess-org/chessground/assets/chessground.brown.css";
 import "@lichess-org/chessground/assets/chessground.cburnett.css";
 import "./globals.css";
+import JsonLd from "../components/JsonLd";
 import SiteFooter from "../components/SiteFooter";
-import { SITE_NAME, SITE_URL } from "../lib/site";
+import {
+  ORGANIZATION_SCHEMA,
+  schemaGraph,
+  WEBSITE_SCHEMA,
+} from "../lib/schema";
+import { SITE_META_DESCRIPTION, SITE_NAME, SITE_URL } from "../lib/site";
 
 const display = Fraunces({
   subsets: ["latin"],
@@ -21,9 +27,37 @@ const body = DM_Sans({
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
-  title: `${SITE_NAME} · AI Chess Game Analyzer`,
-  description:
-    "The smart AI chess game analyzer for Chess.com and Lichess. Get instant, plain-English coaching reports, uncover hidden tactical blunders, and master your opening repertoire in minutes.",
+  title: {
+    default: `${SITE_NAME} · AI Chess Game Analyzer`,
+    template: `%s · ${SITE_NAME}`,
+  },
+  description: SITE_META_DESCRIPTION,
+  applicationName: SITE_NAME,
+  alternates: {
+    types: { "application/rss+xml": "/feed.xml" },
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-snippet": -1,
+      "max-image-preview": "large",
+    },
+  },
+  openGraph: {
+    siteName: SITE_NAME,
+    type: "website",
+    locale: "en",
+    title: `${SITE_NAME} · AI Chess Game Analyzer`,
+    description: SITE_META_DESCRIPTION,
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: `${SITE_NAME} · AI Chess Game Analyzer`,
+    description: SITE_META_DESCRIPTION,
+  },
 };
 
 export default function RootLayout({
@@ -32,6 +66,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${display.variable} ${body.variable}`}>
+        <JsonLd data={schemaGraph([ORGANIZATION_SCHEMA, WEBSITE_SCHEMA])} />
         {children}
         <SiteFooter />
       </body>

@@ -2,8 +2,9 @@ import type { Metadata } from "next";
 import { CONTACT_EMAIL, SITE_NAME } from "../../../lib/site";
 
 export const metadata: Metadata = {
-  title: `Privacy Policy · ${SITE_NAME}`,
+  title: "Privacy Policy",
   description: "What Chessmasters stores, why, and what we never do with your data.",
+  alternates: { canonical: "/privacy", types: { "application/rss+xml": "/feed.xml" } },
 };
 
 export default function PrivacyPage() {

@@ -1,0 +1,32 @@
+# Chessmasters
+
+> Chessmasters is an AI chess game analyzer for Chess.com and Lichess that turns a finished game into a plain-English coaching report with five sections: Strength, Weakness, Game Overview, Focus Areas, and Resources.
+
+Last updated: 2026-10-11
+
+Chessmasters is an independent web app, not affiliated with Chess.com or Lichess. The first analysis is free and needs no account; five free analyses in total; the Pro plan is ₹399 per month for 100 analyses per billing period. Reports are engine-enriched first (Stockfish centipawn loss and blunder detection) and then written as a coaching narrative by an AI layer whose coaching logic is designed with FIDE Arena International Master (AIM) Parth Kaushik.
+
+## Product
+
+- [AI chess game analyzer](https://www.chessmasterss.in/chess-game-analyzer): what the analyzer does, how a report is built, who it is for, and pricing.
+- [Sample report](https://www.chessmasterss.in/sample-report): the five report sections walked through with the 1858 Opera Game.
+- [Pricing and subscription](https://www.chessmasterss.in/subscription): free plan details (5 analyses) and Pro plan (₹399/month, 100 analyses per billing period).
+
+## Comparisons and guides
+
+- [Chess.com Game Review alternative](https://www.chessmasterss.in/chess-com-game-review-alternative): honest comparison of Chess.com Game Review, Lichess analysis, and Chessmasters.
+- [How to analyze a Lichess game](https://www.chessmasterss.in/lichess-game-analysis): the review routine for Lichess players, eval graph to training.
+- [How to analyze your chess games](https://www.chessmasterss.in/how-to-analyze-your-chess-games): a five-step review routine for any platform.
+- [Chess tactics map](https://www.chessmasterss.in/tactics): fork, pin, skewer, discovered attack, deflection, attraction, clearance, hanging piece, trapped piece, zugzwang — each with a training link.
+
+## Company
+
+- [About](https://www.chessmasterss.in/about): the team and the coaching philosophy.
+- [FAQ](https://www.chessmasterss.in/faq): free plan, supported platforms, report contents, billing.
+- [Contact](https://www.chessmasterss.in/contact): info@chessmasterss.in.
+- [Terms](https://www.chessmasterss.in/terms), [Privacy](https://www.chessmasterss.in/privacy), [Refund policy](https://www.chessmasterss.in/refund).
+
+## Optional
+
+- [RSS feed](https://www.chessmasterss.in/feed.xml): updates to the editorial pages above.
+- [llms-full.txt](https://www.chessmasterss.in/llms-full.txt): the full product and FAQ text in one file.

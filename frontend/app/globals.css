@@ -3944,3 +3944,174 @@ html {
   align-self: center;
   opacity: 0.7;
 }
+
+/* ---------------------------------------------------------------------------
+   Content pages (guides, comparisons, FAQ) and FAQ blocks
+   --------------------------------------------------------------------------- */
+
+.content-dashboard {
+  width: min(860px, 100%);
+}
+
+.content-page {
+  max-width: 720px;
+}
+
+.content-page h3 {
+  margin: 1.6rem 0 0.5rem;
+  font-family: var(--font-display);
+  font-size: 1.08rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+
+.article-meta {
+  margin: 0 0 1.1rem;
+  font-size: 0.88rem;
+  color: var(--text-muted);
+}
+
+.article-meta a {
+  color: var(--gold-bright);
+}
+
+.article-meta-updated {
+  white-space: nowrap;
+}
+
+.content-lede {
+  font-size: 1.06rem;
+  color: var(--text);
+}
+
+.content-cta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin: 2rem 0 0.5rem;
+}
+
+.content-note {
+  font-size: 0.88rem;
+  border-left: 2px solid var(--gold);
+  padding-left: 0.85rem;
+  margin: 1.25rem 0;
+  color: var(--text-muted);
+}
+
+.faq-panel {
+  margin: 3rem 0 1rem;
+}
+
+.faq-list {
+  margin: 0;
+}
+
+.faq-item {
+  border-top: 1px solid var(--line-soft);
+  padding: 1rem 0;
+}
+
+.faq-item dt h3,
+.faq-item h3 {
+  margin: 0 0 0.35rem;
+  font-family: var(--font-body);
+  font-size: 1.02rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  color: var(--text);
+}
+
+.faq-item dd {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+.faq-item dd p {
+  margin: 0;
+}
+
+.faq-more {
+  margin-top: 1.1rem;
+  font-size: 0.92rem;
+  color: var(--text-muted);
+}
+
+.compare-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.25rem 0 1.5rem;
+  font-size: 0.92rem;
+}
+
+.compare-table th,
+.compare-table td {
+  border: 1px solid var(--line);
+  padding: 0.6rem 0.7rem;
+  text-align: left;
+  vertical-align: top;
+  color: var(--text-muted);
+}
+
+.compare-table th {
+  color: var(--text);
+  background: var(--ink-2);
+  font-weight: 600;
+}
+
+.compare-table td strong {
+  color: var(--text);
+}
+
+.report-block {
+  margin: 0 0 1rem;
+  padding: 1.1rem 1.2rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  background: var(--ink-2);
+}
+
+.report-block h3 {
+  margin: 0 0 0.5rem;
+}
+
+.report-block p:last-child {
+  margin-bottom: 0;
+}
+
+.report-block-tag {
+  display: inline-block;
+  margin-bottom: 0.5rem;
+  font-size: 0.74rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+
+.tactics-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  margin: 0.25rem 0 1.5rem;
+}
+
+.tactics-card {
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  background: var(--ink-2);
+}
+
+.tactics-card h3 {
+  margin: 0 0 0.45rem;
+}
+
+.tactics-card p {
+  margin-bottom: 0.6rem;
+}
+
+.tactics-card p:last-child {
+  margin-bottom: 0;
+}

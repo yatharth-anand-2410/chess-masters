@@ -20,6 +20,22 @@ export default function SiteFooter() {
             <Link href="/refund">Refund &amp; Cancellation Policy</Link>
           </nav>
         </div>
+        <nav
+          className="site-footer-links site-footer-explore"
+          aria-label="Guides and resources"
+        >
+          <Link href="/chess-game-analyzer">AI Chess Game Analyzer</Link>
+          <Link href="/chess-com-game-review-alternative">
+            Chess.com Game Review alternative
+          </Link>
+          <Link href="/lichess-game-analysis">Lichess game analysis</Link>
+          <Link href="/how-to-analyze-your-chess-games">
+            How to analyze your games
+          </Link>
+          <Link href="/sample-report">Sample report</Link>
+          <Link href="/tactics">Chess tactics</Link>
+          <Link href="/faq">FAQ</Link>
+        </nav>
         <p className="site-footer-note">
           Questions? Email{" "}
           <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>. ©{" "}

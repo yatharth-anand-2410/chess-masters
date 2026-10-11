@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { CONTACT_EMAIL, SITE_NAME } from "../../../lib/site";
+import { CONTACT_EMAIL } from "../../../lib/site";
 
 export const metadata: Metadata = {
-  title: `Refund & Cancellation Policy · ${SITE_NAME}`,
+  title: "Refund & Cancellation Policy",
   description: "Chessmasters refund and cancellation policy.",
+  alternates: { canonical: "/refund", types: { "application/rss+xml": "/feed.xml" } },
 };
 
 export default function RefundPage() {

@@ -1,0 +1,43 @@
+{
+  "name": "Chessmasters",
+  "url": "https://www.chessmasterss.in",
+  "oneLineDescription": "Chessmasters is an AI chess game analyzer that turns Chess.com and Lichess games into plain-English coaching reports.",
+  "category": "AI chess game analysis and coaching",
+  "platforms": ["Web"],
+  "languages": ["English"],
+  "audience": "Chess players rated roughly 800-1800 Elo on Chess.com or Lichess",
+  "reportSections": [
+    "Strength",
+    "Weakness",
+    "Game Overview",
+    "Focus Areas",
+    "Resources"
+  ],
+  "features": [
+    "Coaching report for any finished public Chess.com or Lichess game",
+    "Stockfish centipawn-loss and blunder detection behind every claim",
+    "Key moments on interactive boards with evaluation and accuracy charts",
+    "Focus areas linked to Lichess training material",
+    "AI Psychological Profile (Tilt Resistance, Composure, Playing Style) after three games",
+    "Batch analysis of up to five games per submission",
+    "Follow-up Q&A on each analysis"
+  ],
+  "pricing": {
+    "free": "5 analyses total; first analysis without an account",
+    "pro": "INR 399 per month for 100 analyses per billing period",
+    "currency": "INR"
+  },
+  "founders": [
+    {
+      "name": "Parth Kaushik",
+      "role": "Co-Founder & Chess Pedagogy (FIDE Arena International Master, AIM)"
+    },
+    {
+      "name": "Yatharth Anand",
+      "role": "Co-Founder & Lead Architect"
+    }
+  ],
+  "contact": "info@chessmasterss.in",
+  "affiliation": "Independent; not affiliated with Chess.com or Lichess",
+  "lastUpdated": "2026-10-11"
+}
