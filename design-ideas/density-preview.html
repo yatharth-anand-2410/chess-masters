@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Report density preview — Chessmasters</title>
+<!--
+  Static preview of the redesigned report sections.
+
+  Loads the REAL app stylesheet (../frontend/app/globals.css) and mirrors the
+  markup the new components emit, so what you see here is what the app renders.
+  Only the <style> block at the bottom is preview chrome; it is not shipped.
+
+  The chessground board is a placeholder because this page runs no JavaScript.
+-->
+<link rel="stylesheet" href="../frontend/app/globals.css">
+<style>
+  /* Preview-only: stands in for the chessground board (no JS here). */
+  .board-placeholder{
+    width:100%;aspect-ratio:1/1;border-radius:6px;overflow:hidden;
+    background-image:
+      linear-gradient(to right, var(--paper-2) 50%, var(--bronze) 50%),
+      linear-gradient(to right, var(--paper-2) 50%, var(--bronze) 50%);
+    background-size:25% 25%;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .board-placeholder span{
+    padding:.3rem .6rem;border-radius:999px;background:rgba(12,18,20,.82);
+    color:var(--text);font-size:.72rem;font-weight:700;letter-spacing:.04em;
+  }
+  .preview-note{
+    max-width:820px;margin:2.5rem auto 0;padding:1rem 1.25rem;
+    border:1px dashed var(--line);border-radius:10px;color:var(--text-muted);
+    font-size:.88rem;line-height:1.55;
+  }
+  .preview-note b{color:var(--gold-bright)}
+  .preview-note code{color:var(--text)}
+</style>
+</head>
+<body>
+<main class="dashboard analysis-dashboard">
+
+  <header class="topbar">
+    <a class="wordmark" href="#"><span class="wordmark-glyph">♜</span>Chessmasters</a>
+    <div class="topbar-actions">
+      <span class="quota-pill">Free Analyses: 2/3</span>
+      <a class="nav-link" href="#">New analysis</a>
+      <a class="nav-link" href="#">History</a>
+    </div>
+  </header>
+
+  <div class="game-header">
+    <span class="chip">Lichess</span>
+    <h1 class="game-title">Sicilian Defense: Najdorf Variation</h1>
+    <p class="game-meta">Played as White, lost, analyzed Oct 10, 2026</p>
+  </div>
+
+  <section class="report">
+
+    <!-- 1 ── Hero rule ---------------------------------------------------- -->
+    <aside class="hero-rule">
+      <span class="hero-rule-mark">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="hero-rule-icon" aria-hidden="true">
+          <circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>
+        </svg>
+      </span>
+      <div class="hero-rule-body">
+        <h2 class="hero-rule-kicker">Next game rule</h2>
+        <p class="hero-rule-text">Hold your king in the centre until you have finished developing.</p>
+        <div class="hero-rule-foot">
+          <span class="hero-rule-source">From this game</span>
+          <a class="hero-rule-cta" href="#drills">Practise this now
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="hero-rule-cta-icon" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+          </a>
+        </div>
+      </div>
+    </aside>
+
+    <!-- 2 ── Focus areas --------------------------------------------------- -->
+    <div class="report-section">
+      <h2>Focus Areas</h2>
+      <section class="focus-board">
+        <article class="focus-row is-primary">
+          <span class="focus-rank">1</span>
+          <div class="focus-pair">
+            <div class="focus-cell focus-dont">
+              <span class="focus-tag focus-tag-dont">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="focus-icon" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                Don&rsquo;t
+              </span>
+              <p class="focus-text">Play ...e5 too early and give up the d5 square.</p>
+            </div>
+            <div class="focus-cell focus-do">
+              <span class="focus-tag focus-tag-do">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="focus-icon" aria-hidden="true"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></svg>
+                Do
+              </span>
+              <p class="focus-text">Fight for the centre with ...d5 and keep your structure intact.</p>
+            </div>
+          </div>
+        </article>
+
+        <article class="focus-row">
+          <span class="focus-rank">2</span>
+          <div class="focus-pair">
+            <div class="focus-cell focus-dont">
+              <span class="focus-tag focus-tag-dont">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="focus-icon" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                Don&rsquo;t
+              </span>
+              <p class="focus-text">Rush the attack with 22.Rh3 before your pieces are ready.</p>
+            </div>
+            <div class="focus-cell focus-do">
+              <span class="focus-tag focus-tag-do">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="focus-icon" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                Do
+              </span>
+              <p class="focus-text">Improve your worst piece before you open a second front.</p>
+            </div>
+          </div>
+        </article>
+
+        <article class="focus-row focus-row-raw">
+          <span class="focus-rank">3</span>
+          <div class="focus-cell">
+            <span class="focus-tag focus-tag-do">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="focus-icon" aria-hidden="true"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.8.8 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/></svg>
+              Work on
+            </span>
+            <p class="focus-text">Keep studying the Najdorf to get more comfortable in sharp positions.</p>
+          </div>
+        </article>
+
+        <details class="report-details">
+          <summary class="report-details-summary">Read the coach&rsquo;s full notes</summary>
+          <div class="report-details-body">
+            <ul>
+              <li>You played ...e5 too early and gave up the d5 square.</li>
+              <li>You rushed the attack with 22.Rh3 before your pieces were ready.</li>
+            </ul>
+          </div>
+        </details>
+      </section>
+    </div>
+
+    <!-- 3 ── Resources / drills -------------------------------------------- -->
+    <div class="report-section">
+      <h2>Resources</h2>
+      <section class="drill-section" id="drills">
+
+        <header class="drill-section-head">
+          <h3 class="drill-section-title">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="drill-section-icon" aria-hidden="true">
+              <polyline points="14.5 17.5 3 6 3 3 6 3 17.5 14.5"/><line x1="13" x2="19" y1="19" y2="13"/><line x1="16" x2="20" y1="16" y2="20"/><line x1="19" x2="21" y1="21" y2="19"/><polyline points="14.5 6.5 18 3 21 3 21 6 17.5 9.5"/><line x1="5" x2="9" y1="14" y2="18"/><line x1="7" x2="4" y1="17" y2="20"/><line x1="3" x2="5" y1="19" y2="21"/>
+            </svg>
+            Replay your mistakes
+          </h3>
+          <p class="drill-section-lede">These are your own positions. Find the move you missed.</p>
+        </header>
+
+        <p class="drill-clock">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="drill-clock-icon" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          Most of your blunders came with <strong>1&ndash;3 min</strong> left on the clock.
+        </p>
+
+        <div class="drill-grid">
+
+          <!-- collapsed card -->
+          <article class="drill-card">
+            <header class="drill-head">
+              <span class="drill-rank">1</span>
+              <div class="drill-tags">
+                <span class="drill-pill drill-pill-theme">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="drill-pill-icon" aria-hidden="true"><path d="M9.94 4.6a.6.6 0 0 1 1.12 0l1.02 2.9a.6.6 0 0 0 .42.42l2.9 1.02a.6.6 0 0 1 0 1.12l-2.9 1.02a.6.6 0 0 0-.42.42l-1.02 2.9a.6.6 0 0 1-1.12 0l-1.02-2.9a.6.6 0 0 0-.42-.42l-2.9-1.02a.6.6 0 0 1 0-1.12l2.9-1.02a.6.6 0 0 0 .42-.42z"/><path d="M18 4v4"/><path d="M16 6h4"/><path d="M18 16v3"/><path d="M16.5 17.5h3"/></svg>
+                  Fork
+                </span>
+                <span class="drill-pill">Middlegame</span>
+                <span class="drill-pill drill-pill-stakes stakes-severe">Cost: the game</span>
+              </div>
+            </header>
+            <p class="drill-lead">You played <strong>31...Qb6</strong> in this position.</p>
+            <p class="drill-prompt">A stronger move was available. Can you find it?</p>
+            <footer class="drill-foot">
+              <button class="drill-btn drill-btn-primary" type="button">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="drill-btn-icon" aria-hidden="true"><polygon points="6 3 20 12 6 21 6 3"/></svg>
+                Attempt move
+              </button>
+              <a class="drill-link" href="#">Practise forks
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="drill-link-icon" aria-hidden="true"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
+              </a>
+            </footer>
+          </article>
+
+          <!-- expanded card -->
+          <article class="drill-card is-open">
+            <header class="drill-head">
+              <span class="drill-rank">2</span>
+              <div class="drill-tags">
+                <span class="drill-pill drill-pill-theme">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="drill-pill-icon" aria-hidden="true"><path d="M9.94 4.6a.6.6 0 0 1 1.12 0l1.02 2.9a.6.6 0 0 0 .42.42l2.9 1.02a.6.6 0 0 1 0 1.12l-2.9 1.02a.6.6 0 0 0-.42.42l-1.02 2.9a.6.6 0 0 1-1.12 0l-1.02-2.9a.6.6 0 0 0-.42-.42l-2.9-1.02a.6.6 0 0 1 0-1.12l2.9-1.02a.6.6 0 0 0 .42-.42z"/><path d="M18 4v4"/><path d="M16 6h4"/><path d="M18 16v3"/><path d="M16.5 17.5h3"/></svg>
+                  Hanging piece
+                </span>
+                <span class="drill-pill">Endgame</span>
+                <span class="drill-pill drill-pill-stakes stakes-moderate">Cost: a pawn</span>
+              </div>
+              <span class="drill-flag">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="drill-flag-icon" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+                Solved
+              </span>
+            </header>
+            <p class="drill-lead">You played <strong>38.Rd7</strong> in this position.</p>
+            <p class="drill-prompt">A stronger move was available. Find it on the board.</p>
+            <div class="drill-board-shell">
+              <div class="drill-board board-placeholder"><span>chessground board (lazy-loaded)</span></div>
+            </div>
+            <p class="drill-result drill-result-solved">That is the move you missed: 38.Rd1.</p>
+            <p class="drill-explain">Trading rooks on d7 loses the pawn on a5; keeping the rook active defends it.</p>
+            <footer class="drill-foot">
+              <button class="drill-btn drill-btn-ghost" type="button">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="drill-btn-icon" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                Try again
+              </button>
+              <a class="drill-link" href="#">Practise hanging pieces
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="drill-link-icon" aria-hidden="true"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
+              </a>
+              <button class="drill-collapse" type="button" aria-label="Collapse this drill">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="drill-collapse-icon" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+              </button>
+            </footer>
+          </article>
+
+        </div>
+
+        <div class="drill-extras">
+          <h4 class="drill-extras-title">Also worth studying</h4>
+          <ul class="drill-extras-list">
+            <li>
+              <a class="drill-extras-link" href="#">
+                <span class="drill-extras-label">Study the Sicilian Defense: Najdorf Variation</span>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="drill-extras-icon" aria-hidden="true"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
+              </a>
+            </li>
+            <li>
+              <a class="drill-extras-link" href="#">
+                <span class="drill-extras-label">Analyze this critical opening position</span>
+                <span class="drill-extras-move">6. Be3</span>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="drill-extras-icon" aria-hidden="true"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
+              </a>
+            </li>
+          </ul>
+        </div>
+
+      </section>
+    </div>
+
+  </section>
+
+  <div class="preview-note">
+    <b>Preview only.</b> This page loads the real
+    <code>frontend/app/globals.css</code> and mirrors the markup from
+    <code>HeroRule.tsx</code>, <code>FocusAreasBoard.tsx</code>,
+    <code>DrillSection.tsx</code> and <code>DrillCard.tsx</code>, so it shows
+    exactly what the report renders. The board is a placeholder because this
+    page runs no JavaScript; in the app it is a real interactive chessground
+    board, code-split so its 24&nbsp;KB engine loads only when a drill is opened.
+    <br><br>
+    Contrast note: every text colour here was measured against WCAG. Gold holds
+    <b>7.3:1</b> on the dark hero card but only <b>2.2:1</b> on the cream report,
+    so on paper the design uses teal (5.3:1) and dark red (4.6:1) instead.
+  </div>
+
+</main>
+</body>
+</html>

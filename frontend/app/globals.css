@@ -3126,3 +3126,796 @@ body:has(.analysis-dashboard) .site-footer {
 .about-cta .btn {
   color: #181c16;
 }
+
+/* ---------------------------------------------------------------------------
+   Report micro-components: hero rule, focus areas, tactical drills
+
+   Self-contained block. Every text colour below was picked against a measured
+   WCAG ratio, because the report renders on the light --paper surface where the
+   bright brand tokens do not hold up:
+
+     on --paper   #f3ecdc   ink-text 12.95 AAA | --do 5.25 AA | --dont 4.59 AA
+                            gold 2.20 FAIL    | green 2.46 FAIL | amber 1.97 FAIL
+     on --paper-2 #e9e1cd   ink-text 11.69 AAA | --do 4.74 AA | --dont-deep 4.78 AA
+                            ink-muted 4.33 FAIL
+
+   So: gold/green/amber are fill-only on paper. Gold is only used as text on the
+   dark --ink surface, where it measures 7.29 AAA.
+   --------------------------------------------------------------------------- */
+
+:root {
+  --do: #2f6b62;
+  --dont: #a94f42;
+  --dont-deep: #9c4739;
+  --bronze-deep: #7d5a1c;
+  --ink-muted-2: #57615a;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* --- 1. Hero rule ---------------------------------------------------------- */
+
+/* Inverted ink panel on the cream report: 15.17:1 for body text and 7.29:1 for
+   the gold kicker, which makes this the highest-contrast object on the page. */
+.hero-rule {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.95rem;
+  margin: 0 0 1.5rem;
+  padding: 1.15rem 1.35rem;
+  background: var(--ink);
+  border-radius: var(--radius-card);
+  box-shadow: 0 22px 40px -32px rgba(0, 0, 0, 0.85);
+  animation: rise 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+.hero-rule-mark {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  color: var(--gold-bright);
+  background: rgba(201, 153, 63, 0.14);
+  border: 1px solid rgba(201, 153, 63, 0.35);
+  border-radius: 999px;
+}
+
+.hero-rule-icon {
+  width: 21px;
+  height: 21px;
+}
+
+.hero-rule-body {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Beats `.report h2` on specificity, so every property it sets is reset here. */
+.hero-rule .hero-rule-kicker {
+  display: block;
+  margin: 0 0 0.3rem;
+  padding: 0;
+  border: 0;
+  color: var(--gold);
+  font-family: var(--font-body);
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.11em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.hero-rule .hero-rule-text {
+  max-width: none;
+  margin: 0;
+  color: var(--text);
+  font-family: var(--font-display);
+  font-size: clamp(1.15rem, 2.1vw, 1.45rem);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.25;
+  text-wrap: balance;
+  animation: rise 0.35s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+.hero-rule-foot {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  flex-wrap: wrap;
+  margin-top: 0.6rem;
+}
+
+.hero-rule-source {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.hero-rule .hero-rule-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-left: auto;
+  color: var(--gold-bright);
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: border-color 0.15s ease;
+}
+
+.hero-rule .hero-rule-cta:hover {
+  border-bottom-color: rgba(226, 182, 95, 0.6);
+}
+
+.hero-rule-cta-icon {
+  width: 15px;
+  height: 15px;
+}
+
+.hero-rule-loading {
+  align-items: flex-start;
+}
+
+.hero-rule-ghost {
+  display: block;
+  height: 1.1rem;
+  margin-top: 0.45rem;
+  border-radius: 999px;
+  background: rgba(236, 230, 216, 0.16);
+  animation: pulse 1.8s ease-in-out infinite;
+}
+
+.hero-rule-ghost-wide {
+  width: 78%;
+  height: 1.5rem;
+}
+
+.hero-rule-ghost-narrow {
+  width: 46%;
+}
+
+@media (max-width: 560px) {
+  .hero-rule {
+    flex-direction: column;
+    gap: 0.7rem;
+    padding: 1rem 1.1rem;
+  }
+}
+
+/* --- 2. Focus areas: Do vs Don't ------------------------------------------ */
+
+.focus-board {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  margin: 0.85rem 0;
+}
+
+.focus-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.7rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--paper-line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.42);
+}
+
+.focus-row.is-primary {
+  border-color: rgba(138, 100, 32, 0.42);
+  background: rgba(255, 255, 255, 0.62);
+}
+
+.focus-rank {
+  flex-shrink: 0;
+  min-width: 1.45rem;
+  padding-top: 0.15rem;
+  color: var(--bronze);
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 600;
+  text-align: center;
+}
+
+.focus-pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.6rem 1.15rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.focus-cell {
+  min-width: 0;
+}
+
+/* A bullet that could not be split spans the full row. */
+.focus-row-raw .focus-cell {
+  flex: 1;
+  min-width: 0;
+  padding-left: 0.7rem;
+  border-left: 3px solid var(--paper-line);
+}
+
+/* Labelled card: the concept is the scannable line, the tip is support. */
+.focus-cell-labelled {
+  border-left-color: var(--bronze) !important;
+}
+
+.focus-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-bottom: 0.2rem;
+  color: var(--ink-text);
+  font-size: 0.95rem;
+  font-weight: 800;
+  letter-spacing: -0.005em;
+}
+
+.focus-label-icon {
+  width: 15px;
+  height: 15px;
+  color: var(--bronze);
+}
+
+.focus-cell.focus-dont {
+  padding-left: 0.7rem;
+  border-left: 3px solid var(--dont);
+}
+
+.focus-cell.focus-do {
+  padding-left: 0.7rem;
+  border-left: 3px solid var(--do);
+}
+
+.focus-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-bottom: 0.28rem;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.focus-tag-dont {
+  color: var(--dont);
+}
+
+.focus-tag-do {
+  color: var(--do);
+}
+
+.focus-icon {
+  width: 13px;
+  height: 13px;
+}
+
+.focus-cell .focus-text {
+  max-width: none;
+  margin: 0;
+  color: var(--ink-text);
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
+@media (max-width: 720px) {
+  .focus-pair {
+    grid-template-columns: 1fr;
+    gap: 0.7rem;
+  }
+}
+
+/* Shared disclosure used to keep the raw coach prose reachable. */
+.report-details {
+  margin-top: 0.9rem;
+  border-top: 1px solid var(--paper-line);
+  padding-top: 0.7rem;
+}
+
+.report-details-summary {
+  color: var(--bronze);
+  font-size: 0.84rem;
+  font-weight: 700;
+  cursor: pointer;
+  list-style: none;
+}
+
+.report-details-summary::-webkit-details-marker {
+  display: none;
+}
+
+.report-details-summary::before {
+  content: "▸ ";
+  display: inline-block;
+  transition: transform 0.15s ease;
+}
+
+.report-details[open] .report-details-summary::before {
+  transform: rotate(90deg);
+}
+
+.report-details-summary:hover {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.report-details .report-details-body {
+  margin-top: 0.6rem;
+  color: var(--ink-muted);
+  font-size: 0.9rem;
+}
+
+/* --- 3. Tactical drills --------------------------------------------------- */
+
+.drill-section {
+  margin: 0.85rem 0;
+  scroll-margin-top: 1.5rem;
+}
+
+.drill-section-head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.7rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.35rem;
+}
+
+.drill-section .drill-section-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0;
+  padding: 0;
+  font-family: var(--font-display);
+  font-size: 1.12rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.drill-section-icon {
+  width: 18px;
+  height: 18px;
+  color: var(--bronze);
+}
+
+.drill-section-lede {
+  max-width: none;
+  margin: 0;
+  color: var(--ink-muted);
+  font-size: 0.88rem;
+}
+
+.drill-clock {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0.5rem 0 0;
+  padding: 0.4rem 0.75rem;
+  background: rgba(138, 100, 32, 0.1);
+  border: 1px solid rgba(138, 100, 32, 0.28);
+  border-radius: 999px;
+  color: var(--bronze-deep);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.drill-clock-icon {
+  width: 14px;
+  height: 14px;
+}
+
+.drill-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 0.9rem;
+  margin-top: 0.9rem;
+}
+
+.drill-card {
+  display: flex;
+  flex-direction: column;
+  padding: 0.95rem 1rem;
+  background: var(--paper-2);
+  border: 1px solid var(--paper-line);
+  border-left: 3px solid var(--ink-muted-2);
+  border-radius: 8px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.drill-card.is-open {
+  border-left-color: var(--do);
+  box-shadow: 0 14px 28px -24px rgba(12, 18, 20, 0.9);
+}
+
+.drill-card.status-solved {
+  border-left-color: var(--do);
+}
+
+.drill-card.status-idle {
+  border-left-color: var(--ink-muted-2);
+}
+
+.drill-card.status-revealed {
+  border-left-color: var(--bronze);
+}
+
+.drill-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.55rem;
+}
+
+.drill-rank {
+  color: var(--bronze-deep);
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.drill-tags {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.drill-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.12rem 0.5rem;
+  border: 1px solid var(--paper-line);
+  border-radius: 999px;
+  color: var(--ink-muted-2);
+  font-size: 0.7rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.drill-pill-theme {
+  color: var(--do);
+  border-color: rgba(47, 107, 98, 0.4);
+  background: rgba(47, 107, 98, 0.08);
+}
+
+.drill-pill-icon {
+  width: 12px;
+  height: 12px;
+}
+
+.drill-pill-stakes.stakes-severe {
+  color: var(--dont-deep);
+  border-color: rgba(156, 71, 57, 0.45);
+  background: rgba(201, 106, 90, 0.14);
+}
+
+.drill-pill-stakes.stakes-high {
+  color: var(--dont-deep);
+  border-color: rgba(156, 71, 57, 0.35);
+  background: rgba(201, 106, 90, 0.09);
+}
+
+.drill-pill-stakes.stakes-moderate {
+  color: var(--bronze-deep);
+  border-color: rgba(125, 90, 28, 0.35);
+  background: rgba(211, 162, 74, 0.14);
+}
+
+.drill-pill-stakes.stakes-low {
+  color: var(--ink-muted-2);
+  border-color: var(--paper-line);
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.drill-flag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-left: auto;
+  color: var(--do);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.drill-flag-icon {
+  width: 13px;
+  height: 13px;
+}
+
+.drill-card .drill-lead {
+  max-width: none;
+  margin: 0 0 0.25rem;
+  color: var(--ink-text);
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+
+.drill-card .drill-lead strong {
+  font-family: var(--font-display);
+  font-weight: 600;
+}
+
+.drill-card .drill-prompt {
+  max-width: none;
+  margin: 0;
+  color: var(--ink-muted-2);
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
+
+.drill-hint {
+  margin: 0.45rem 0 0;
+  color: var(--bronze-deep);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.drill-board-shell {
+  margin: 0.75rem 0 0.25rem;
+}
+
+.drill-board-loading {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  margin: 0.75rem 0 0.25rem;
+  background: var(--paper);
+  border: 1px solid var(--paper-line);
+  border-radius: 8px;
+  animation: pulse 1.8s ease-in-out infinite;
+}
+
+.drill-board {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  border: 1px solid var(--paper-line);
+  border-radius: 8px;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.drill-board .cg-wrap {
+  width: 100%;
+  height: 100%;
+}
+
+.drill-board .cg-custom-highlight {
+  background: rgba(201, 153, 63, 0.5) !important;
+}
+
+/* The solution arrow uses the AA-safe teal rather than brand gold, which is
+   too weak against the light board squares to read reliably. */
+.drill-board .cg-shapes .green {
+  color: var(--do);
+  opacity: 0.92;
+}
+
+.drill-result {
+  margin: 0.7rem 0 0;
+  padding: 0.5rem 0.7rem;
+  border-radius: 6px;
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.drill-result-solved {
+  color: var(--do);
+  background: rgba(47, 107, 98, 0.1);
+  border: 1px solid rgba(47, 107, 98, 0.3);
+}
+
+.drill-result-revealed {
+  color: var(--bronze-deep);
+  background: rgba(211, 162, 74, 0.14);
+  border: 1px solid rgba(125, 90, 28, 0.3);
+}
+
+.drill-explain {
+  max-width: none;
+  margin: 0.55rem 0 0;
+  color: var(--ink-muted-2);
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.drill-foot {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  margin-top: auto;
+  padding-top: 0.85rem;
+}
+
+.drill-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.42rem 0.85rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.drill-btn-primary {
+  background: var(--ink);
+  color: var(--text);
+}
+
+.drill-btn-primary:hover {
+  background: var(--ink-3);
+}
+
+.drill-btn-ghost {
+  background: transparent;
+  border-color: rgba(138, 100, 32, 0.45);
+  color: var(--bronze-deep);
+}
+
+.drill-btn-ghost:hover {
+  border-color: var(--bronze);
+  background: rgba(138, 100, 32, 0.08);
+}
+
+.drill-btn-icon {
+  width: 14px;
+  height: 14px;
+}
+
+.drill-attempts {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  color: var(--dont-deep);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.drill-attempts-icon {
+  width: 12px;
+  height: 12px;
+}
+
+.drill-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  color: var(--do);
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.drill-link:hover {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.drill-link-icon {
+  width: 12px;
+  height: 12px;
+}
+
+.drill-collapse {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  margin-left: auto;
+  background: transparent;
+  border: 1px solid var(--paper-line);
+  border-radius: 999px;
+  color: var(--ink-muted-2);
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.drill-collapse:hover {
+  border-color: var(--bronze);
+  color: var(--bronze-deep);
+}
+
+.drill-collapse-icon {
+  width: 15px;
+  height: 15px;
+  transform: rotate(180deg);
+}
+
+.drill-skeleton {
+  min-height: 168px;
+  background: var(--paper-2);
+  border: 1px solid var(--paper-line);
+  border-left: 3px solid var(--paper-line);
+  border-radius: 8px;
+  animation: pulse 1.8s ease-in-out infinite;
+}
+
+.drill-extras {
+  margin-top: 1.1rem;
+  padding-top: 0.9rem;
+  border-top: 1px solid var(--paper-line);
+}
+
+.drill-extras-title {
+  margin: 0 0 0.5rem;
+  color: var(--ink-muted);
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.report .drill-extras-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.drill-extras-link {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  padding: 0.5rem 0.8rem;
+  border: 1px solid var(--paper-line);
+  border-radius: 8px;
+  color: var(--bronze-deep);
+  font-size: 0.88rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.drill-extras-link:hover {
+  background: rgba(138, 100, 32, 0.07);
+  border-color: var(--bronze);
+}
+
+.drill-extras-label {
+  flex: 1;
+}
+
+.drill-extras-move {
+  color: var(--ink-muted-2);
+  font-size: 0.78rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.drill-extras-icon {
+  width: 13px;
+  height: 13px;
+  align-self: center;
+  opacity: 0.7;
+}

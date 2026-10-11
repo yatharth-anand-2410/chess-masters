@@ -3,15 +3,24 @@ import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
 import AccuracyChart from "./AccuracyChart";
+import DrillSection from "./DrillSection";
+import FocusAreasBoard from "./FocusAreasBoard";
+import HeroRule from "./HeroRule";
 import LockedPsychologyPreview from "./LockedPsychologyPreview";
 import PsychologyPanel from "./PsychologyPanel";
-import ResourceLinks from "./ResourceLinks";
 import SectionInsightBoards from "./SectionInsightBoards";
 import {
   isPsychologyProfile,
   type InsightsData,
   type PsychologyProfile,
 } from "./insights";
+import {
+  headingMatches,
+  isDrillable,
+  parseFocusPairs,
+  resolveNextGameRule,
+  splitSections,
+} from "./reportParsing";
 
 type CoachingReportProps = {
   content: string;
@@ -63,28 +72,6 @@ function hideIncompleteChartTag(content: string): string {
   return content;
 }
 
-type Section = { heading: string; body: string };
-
-function splitSections(content: string): Section[] {
-  const sections: Section[] = [];
-  let current: Section = { heading: "", body: "" };
-  for (const line of content.split("\n")) {
-    const match = line.match(/^## (.+)$/);
-    if (match) {
-      if (current.heading) {
-        sections.push(current);
-      }
-      current = { heading: match[1].trim(), body: "" };
-    } else {
-      current.body += `${line}\n`;
-    }
-  }
-  if (current.heading) {
-    sections.push(current);
-  }
-  return sections;
-}
-
 const components = {
   evalchart: ({ node: _node, ...props }: { node?: unknown; data?: string }) => (
     <AccuracyChart {...props} />
@@ -123,6 +110,16 @@ function SectionBoardsSkeleton() {
   );
 }
 
+function DrillSectionSkeleton() {
+  return (
+    <div className="drill-grid" aria-hidden="true">
+      <div className="drill-skeleton" />
+      <div className="drill-skeleton" />
+      <div className="drill-skeleton" />
+    </div>
+  );
+}
+
 function PsychologySlot({
   profile,
   locked,
@@ -157,6 +154,7 @@ export default function CoachingReport({
         className="report report-pending"
         aria-label="Generating coaching report"
       >
+        <HeroRule rule={null} pending />
         <div className="report-skeleton" aria-hidden="true">
           {Array.from({ length: 7 }).map((_, index) => (
             <span key={index} className="report-skeleton-line" />
@@ -178,9 +176,21 @@ export default function CoachingReport({
     section.heading.toLowerCase().includes("psychology")
   );
 
+  const nextRule = resolveNextGameRule(sections, insights);
+  const hasDrills = (insights?.weakness_moments ?? []).some(isDrillable);
+  // The hero card already presents the rule, so drop it from the body to avoid
+  // showing the same sentence twice.
+  const ruleSectionIndex =
+    nextRule?.source === "rule-section"
+      ? sections.findIndex((section) =>
+          headingMatches(section, "next game rule", "next-game rule")
+        )
+      : -1;
+
   if (sections.length === 0) {
     return (
       <section className={sectionClassName}>
+        <HeroRule rule={nextRule} pending={pending} drillAnchor={hasDrills ? "drills" : null} />
         <MemoizedMarkdown markdown={normalized} />
         {(psychologyProfile || showLockedPsychology) && (
           <div className="report-section">
@@ -197,8 +207,52 @@ export default function CoachingReport({
 
   return (
     <section className={sectionClassName}>
+      <HeroRule rule={nextRule} pending={pending} drillAnchor={hasDrills ? "drills" : null} />
+
       {sections.map((section, index) => {
+        if (index === ruleSectionIndex) {
+          return null;
+        }
         const heading = section.heading.toLowerCase();
+        const isFocusAreas = heading.includes("focus areas") || heading.includes("focus");
+        const isResources = heading.includes("resources");
+        const focusPairs = isFocusAreas ? parseFocusPairs(section.body) : [];
+
+        // Focus Areas and Resources are rebuilt as visual components. The
+        // original Markdown stays reachable inside a disclosure so a failed
+        // parse can never hide what the coach actually wrote.
+        if (isFocusAreas && focusPairs.length > 0) {
+          return (
+            <div key={`${index}-${section.heading}`} className="report-section">
+              <MemoizedMarkdown markdown={`## ${section.heading}`} />
+              <FocusAreasBoard
+                pairs={focusPairs}
+                fallback={<MemoizedMarkdown markdown={section.body} />}
+              />
+            </div>
+          );
+        }
+
+        if (isResources) {
+          return (
+            <div key={`${index}-${section.heading}`} className="report-section">
+              <MemoizedMarkdown markdown={`## ${section.heading}`} />
+              {insights ? (
+                <DrillSection
+                  moments={insights.weakness_moments ?? []}
+                  insights={insights}
+                  psychology={psychologyProfile}
+                  fallback={<MemoizedMarkdown markdown={section.body} />}
+                />
+              ) : pending ? (
+                <DrillSectionSkeleton />
+              ) : (
+                <MemoizedMarkdown markdown={section.body} />
+              )}
+            </div>
+          );
+        }
+
         return (
           <div key={`${index}-${section.heading}`} className="report-section">
             <MemoizedMarkdown
@@ -223,12 +277,10 @@ export default function CoachingReport({
                 gamesAnalyzed={gamesAnalyzed}
               />
             )}
-            {heading.includes("resources") && (
-              <ResourceLinks resources={insights?.resources} />
-            )}
           </div>
         );
       })}
+
       {(psychologyProfile || showLockedPsychology) && !hasPsychologySection && (
         <div className="report-section">
           <PsychologySlot

@@ -61,6 +61,7 @@ export type InsightMoment = {
   best_move_san?: string | null;
   motif?: string | null;
   motif_details?: string | null;
+  resource_theme?: string | null;
   note?: string | null;
   better_move_idea?: string | null;
   highlight_squares?: string[];
