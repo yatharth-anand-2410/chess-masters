@@ -12,12 +12,18 @@ const PRIVATE_PATHS = [
 ];
 
 /**
- * AI crawlers we explicitly welcome:
+ * Crawlers we explicitly welcome, so no CDN or future edge rule can silently
+ * drop them:
  * - Retrieval bots feed live answers (ChatGPT search, Claude search, Perplexity).
  * - Training bots are allowed too; this is a public marketing site whose goal
  *   is to be known and cited by AI systems.
+ * - Googlebot and Applebot are the classic search crawlers behind Google AI
+ *   features and Apple's assistant surfaces.
  */
-const AI_AGENTS = [
+const WELCOME_CRAWLERS = [
+  "Googlebot",
+  "Applebot",
+  "Bingbot",
   "GPTBot",
   "OAI-SearchBot",
   "ChatGPT-User",
@@ -28,7 +34,6 @@ const AI_AGENTS = [
   "Perplexity-User",
   "Google-Extended",
   "Applebot-Extended",
-  "Bingbot",
 ];
 
 export default function robots(): MetadataRoute.Robots {
@@ -39,7 +44,7 @@ export default function robots(): MetadataRoute.Robots {
         allow: "/",
         disallow: PRIVATE_PATHS,
       },
-      ...AI_AGENTS.map((userAgent) => ({
+      ...WELCOME_CRAWLERS.map((userAgent) => ({
         userAgent,
         allow: "/",
         disallow: PRIVATE_PATHS,
