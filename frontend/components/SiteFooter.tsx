@@ -25,6 +25,23 @@ export default function SiteFooter() {
           <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>. ©{" "}
           {new Date().getFullYear()} {SITE_NAME}.
         </p>
+        <div className="site-footer-badges">
+          <a
+            href="https://tools.cafe"
+            target="_blank"
+            rel="noopener"
+            aria-label="Featured on tools.cafe"
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="https://tools.cafe/b/light.svg"
+              alt="Featured on tools.cafe"
+              width={256}
+              height={80}
+              loading="lazy"
+            />
+          </a>
+        </div>
         <p className="site-footer-note site-footer-disclaimer">
           {SITE_NAME} is an independent analysis tool built by chess enthusiasts.
           We are not affiliated with, endorsed by, or sponsored by Chess.com,
