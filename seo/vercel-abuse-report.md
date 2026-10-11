@@ -45,6 +45,10 @@ page, not a trademark claim.
 - Deployment: https://chessmasterss.vercel.app (title: "Play Chess Online Free
   in India | Chess Masters"; claims include "real money", prizes, tournaments).
 - Our production domain: https://www.chessmasterss.in.
+- **Search confusion is measurable:** on 11 October 2026, a brand-name search
+  ("chessmasterss") surfaced the unrelated vercel.app deployment (and its
+  third-party traffic statistics page) while our own domain did not appear —
+  evidence that the name proximity causes active user-facing confusion.
 - Our product listing (name, description, pricing for comparison):
   https://caimpare.ai/tool/78319 and https://www.nicheloom.com/launches/45694/.
 
