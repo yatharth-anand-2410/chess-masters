@@ -32,6 +32,29 @@ Ask each prompt fresh (new chat) in each engine. Record: **Mentioned?**
 | 11 | best way to review chess games | Methodology |
 | 12 | AI tools that explain chess blunders | Differentiator |
 
+## Pre-run check — 2026-10-12 (one day after deploy)
+
+Tested from the dev environment the day after the production deploy:
+
+| Test | Result |
+| --- | --- |
+| Googlebot UA → new pages | ✅ 200, content server-rendered, no noindex |
+| GSC verification file | ✅ live |
+| non-www → www | ✅ consolidates to www, canonical matches |
+| Search backend: brand query | ❌ domain not surfacing yet (listings + squatter do) |
+| Search backend: category queries | ❌ absent (competitors: Chessvia, playsquareone, chessdock) |
+| `site:` query | ❌ nothing yet |
+| Google AI grounded queries | ⚠️ untestable — API key has no Search-grounding quota (production model itself healthy) |
+| ChatGPT / Claude / Perplexity | ⚠️ untestable from dev env (no API keys) |
+
+**Interpretation:** no technical blocker. One day after deploy, absence from
+search and AI answers is expected — indexing takes days–weeks and citations
+follow authority, which is zero until the off-page work happens. Re-test
+brand terms in ~2 weeks; category terms are a 3–6 month horizon.
+
+Manual checks the owner can run any time: `site:chessmasterss.in` in Google,
+and the 12 prompts in the panel above asked directly in ChatGPT and Claude.
+
 ## Monthly record
 
 Copy this block per month.
