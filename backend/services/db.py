@@ -134,7 +134,7 @@ def get_analysis(user_id: str, analysis_id: str) -> Optional[Dict[str, Any]]:
     response = requests.get(
         f"{url}/rest/v1/analyses",
         params={
-            "select": "*",
+            "select": "*,student:students(display_name)",
             "id": f"eq.{analysis_id}",
             "user_id": f"eq.{user_id}",
         },
@@ -147,11 +147,11 @@ def get_analysis(user_id: str, analysis_id: str) -> Optional[Dict[str, Any]]:
 
 
 def list_analyses(
-    user_id: str, limit: int = 50, standalone: bool = False
+    user_id: str, limit: int = 50, standalone: bool = False, mine: bool = False
 ) -> List[Dict[str, Any]]:
     url, _key = _config()
     params = {
-        "select": "*",
+        "select": "*,student:students(display_name)",
         "user_id": f"eq.{user_id}",
         "status": "neq.failed",
         "order": "created_at.desc",
@@ -159,6 +159,9 @@ def list_analyses(
     }
     if standalone:
         params["batch_id"] = "is.null"
+    if mine:
+        # The coach's own games: analyses that are not tagged to a student.
+        params["student_id"] = "is.null"
     response = requests.get(
         f"{url}/rest/v1/analyses",
         params=params,
@@ -737,3 +740,395 @@ def refund_analysis_credits(user_id: str, count: int = 1) -> Dict[str, Any]:
         )
     response.raise_for_status()
     return response.json()
+
+
+# ---------------------------------------------------------------------------
+# Coach mode: profiles, student rosters, and share links (0012_coach_mode.sql).
+# ---------------------------------------------------------------------------
+
+def _coach_check(response: requests.Response) -> None:
+    """Shared response check for coach-mode tables.
+
+    PostgREST answers 404 (missing table) or 400 with code 42703 (missing
+    column) while the coach-mode migrations have not been run yet; surfacing
+    the hint here means the failure reads as a setup step instead of a mystery
+    500 in the logs.
+    """
+    if response.status_code == 404 or (
+        response.status_code == 400 and "42703" in response.text
+    ):
+        raise AuthError(
+            "Coach mode is not deployed. Run migrations 0012_coach_mode.sql "
+            "and 0013_batch_student.sql in the Supabase SQL Editor."
+        )
+    response.raise_for_status()
+
+
+def get_user_profile(user_id: str) -> Optional[Dict[str, Any]]:
+    url, _key = _config()
+    response = requests.get(
+        f"{url}/rest/v1/user_profiles",
+        params={"select": "*", "user_id": f"eq.{user_id}", "limit": "1"},
+        headers=_service_headers(),
+        timeout=TIMEOUT,
+    )
+    _coach_check(response)
+    rows = response.json()
+    return rows[0] if rows else None
+
+
+def upsert_user_profile(user_id: str, role: str) -> Dict[str, Any]:
+    url, _key = _config()
+    response = requests.post(
+        f"{url}/rest/v1/user_profiles",
+        params={"on_conflict": "user_id"},
+        json={
+            "user_id": user_id,
+            "role": role,
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        },
+        headers={
+            **_service_headers(),
+            "Prefer": "resolution=merge-duplicates,return=representation",
+        },
+        timeout=TIMEOUT,
+    )
+    _coach_check(response)
+    rows = response.json()
+    return rows[0] if rows else {}
+
+
+def create_student(coach_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
+    url, _key = _config()
+    response = requests.post(
+        f"{url}/rest/v1/students",
+        json={"coach_id": coach_id, **data},
+        headers={**_service_headers(), "Prefer": "return=representation"},
+        timeout=TIMEOUT,
+    )
+    _coach_check(response)
+    rows = response.json()
+    return rows[0] if rows else {}
+
+
+def list_students(coach_id: str, include_archived: bool = False) -> List[Dict[str, Any]]:
+    url, _key = _config()
+    params = {
+        "select": "*",
+        "coach_id": f"eq.{coach_id}",
+        "order": "created_at.desc",
+    }
+    if not include_archived:
+        params["archived_at"] = "is.null"
+    response = requests.get(
+        f"{url}/rest/v1/students",
+        params=params,
+        headers=_service_headers(),
+        timeout=TIMEOUT,
+    )
+    _coach_check(response)
+    return response.json()
+
+
+def get_student(coach_id: str, student_id: str) -> Optional[Dict[str, Any]]:
+    url, _key = _config()
+    response = requests.get(
+        f"{url}/rest/v1/students",
+        params={
+            "select": "*",
+            "id": f"eq.{student_id}",
+            "coach_id": f"eq.{coach_id}",
+            "limit": "1",
+        },
+        headers=_service_headers(),
+        timeout=TIMEOUT,
+    )
+    _coach_check(response)
+    rows = response.json()
+    return rows[0] if rows else None
+
+
+def update_student(coach_id: str, student_id: str, updates: Dict[str, Any]) -> None:
+    url, _key = _config()
+    payload = {**updates, "updated_at": datetime.now(timezone.utc).isoformat()}
+    response = requests.patch(
+        f"{url}/rest/v1/students",
+        params={"id": f"eq.{student_id}", "coach_id": f"eq.{coach_id}"},
+        json=payload,
+        headers=_service_headers(),
+        timeout=TIMEOUT,
+    )
+    _coach_check(response)
+
+
+def list_analyses_by_student(
+    user_id: str, student_id: str, limit: int = 100
+) -> List[Dict[str, Any]]:
+    """Analyses the coach ran for one student, newest first.
+
+    Failed runs are hidden, matching the main history list: the credits were
+    refunded and there is nothing to read.
+    """
+    url, _key = _config()
+    response = requests.get(
+        f"{url}/rest/v1/analyses",
+        params={
+            "select": (
+                "id,platform,game_id,game_url,player_color,player_name,"
+                "opening_name,eco,result,status,error_message,created_at,batch_id"
+            ),
+            "user_id": f"eq.{user_id}",
+            "student_id": f"eq.{student_id}",
+            "status": "neq.failed",
+            "order": "created_at.desc",
+            "limit": str(limit),
+        },
+        headers=_service_headers(),
+        timeout=TIMEOUT,
+    )
+    _coach_check(response)
+    return response.json()
+
+
+def list_batches_by_student(
+    user_id: str, student_id: str, limit: int = 100
+) -> List[Dict[str, Any]]:
+    """Multi-game reports the coach ran for one student, newest first."""
+    url, _key = _config()
+    response = requests.get(
+        f"{url}/rest/v1/analysis_batches",
+        params={
+            "select": (
+                "id,platform,username,game_count,status,error_message,"
+                "created_at,completed_at"
+            ),
+            "user_id": f"eq.{user_id}",
+            "student_id": f"eq.{student_id}",
+            "status": "neq.failed",
+            "order": "created_at.desc",
+            "limit": str(limit),
+        },
+        headers=_service_headers(),
+        timeout=TIMEOUT,
+    )
+    _coach_check(response)
+    return response.json()
+
+
+def list_public_batches(student_id: str, limit: int = 100) -> List[Dict[str, Any]]:
+    """Completed multi-game reports for a share page listing."""
+    url, _key = _config()
+    response = requests.get(
+        f"{url}/rest/v1/analysis_batches",
+        params={
+            "select": "id,platform,game_count,created_at",
+            "student_id": f"eq.{student_id}",
+            "status": "eq.completed",
+            "report_markdown": "not.is.null",
+            "order": "created_at.desc",
+            "limit": str(limit),
+        },
+        headers=_service_headers(),
+        timeout=TIMEOUT,
+    )
+    _coach_check(response)
+    return response.json()
+
+
+def get_batch_for_student(
+    student_id: str, batch_id: str
+) -> Optional[Dict[str, Any]]:
+    """Service-side batch lookup for the public share endpoints.
+
+    Mirrors :func:`get_analysis_for_student`: the caller must already hold a
+    valid share token that resolves to ``student_id``.
+    """
+    url, _key = _config()
+    response = requests.get(
+        f"{url}/rest/v1/analysis_batches",
+        params={
+            "select": "*",
+            "id": f"eq.{batch_id}",
+            "student_id": f"eq.{student_id}",
+            "limit": "1",
+        },
+        headers=_service_headers(),
+        timeout=TIMEOUT,
+    )
+    _coach_check(response)
+    rows = response.json()
+    return rows[0] if rows else None
+
+
+def list_student_activity(coach_id: str, student_ids: List[str]) -> List[Dict[str, Any]]:
+    """Per-student analysis activity for the roster: counts and last game.
+
+    One query for the whole roster, then aggregated in Python. Returns the raw
+    rows (student_id, created_at, result) so the shape stays cheap to extend.
+    """
+    if not student_ids:
+        return []
+    url, _key = _config()
+    ids = ",".join(student_ids)
+    response = requests.get(
+        f"{url}/rest/v1/analyses",
+        params={
+            "select": "student_id,created_at,result",
+            "user_id": f"eq.{coach_id}",
+            "student_id": f"in.({ids})",
+            "order": "created_at.desc",
+        },
+        headers=_service_headers(),
+        timeout=TIMEOUT,
+    )
+    _coach_check(response)
+    return response.json()
+
+
+def get_analysis_for_student(
+    student_id: str, analysis_id: str
+) -> Optional[Dict[str, Any]]:
+    """Service-side lookup used by public share endpoints.
+
+    The caller must already hold a valid share token that resolves to
+    ``student_id``; filtering by both columns means a token can never reveal an
+    analysis from another student.
+    """
+    url, _key = _config()
+    response = requests.get(
+        f"{url}/rest/v1/analyses",
+        params={
+            "select": "*",
+            "id": f"eq.{analysis_id}",
+            "student_id": f"eq.{student_id}",
+            "limit": "1",
+        },
+        headers=_service_headers(),
+        timeout=TIMEOUT,
+    )
+    _coach_check(response)
+    rows = response.json()
+    return rows[0] if rows else None
+
+
+def get_student_by_id(student_id: str) -> Optional[Dict[str, Any]]:
+    """Service-side student lookup (public endpoints hold no coach id)."""
+    url, _key = _config()
+    response = requests.get(
+        f"{url}/rest/v1/students",
+        params={"select": "*", "id": f"eq.{student_id}", "limit": "1"},
+        headers=_service_headers(),
+        timeout=TIMEOUT,
+    )
+    _coach_check(response)
+    rows = response.json()
+    return rows[0] if rows else None
+
+
+def list_public_analyses(student_id: str, limit: int = 100) -> List[Dict[str, Any]]:
+    """Completed analyses with a written report, for the share page listing.
+
+    Batch games carry completed analyses but no individual report, so they are
+    filtered out here — every row on the shared page is readable.
+    """
+    url, _key = _config()
+    response = requests.get(
+        f"{url}/rest/v1/analyses",
+        params={
+            "select": (
+                "id,platform,game_id,game_url,player_color,opening_name,eco,"
+                "result,created_at"
+            ),
+            "student_id": f"eq.{student_id}",
+            "status": "eq.completed",
+            "report_markdown": "not.is.null",
+            "order": "created_at.desc",
+            "limit": str(limit),
+        },
+        headers=_service_headers(),
+        timeout=TIMEOUT,
+    )
+    _coach_check(response)
+    return response.json()
+
+
+def create_share_link(coach_id: str, student_id: str) -> Dict[str, Any]:
+    url, _key = _config()
+    response = requests.post(
+        f"{url}/rest/v1/share_links",
+        json={"coach_id": coach_id, "student_id": student_id},
+        headers={**_service_headers(), "Prefer": "return=representation"},
+        timeout=TIMEOUT,
+    )
+    _coach_check(response)
+    rows = response.json()
+    return rows[0] if rows else {}
+
+
+def get_active_share_link(coach_id: str, student_id: str) -> Optional[Dict[str, Any]]:
+    url, _key = _config()
+    response = requests.get(
+        f"{url}/rest/v1/share_links",
+        params={
+            "select": "*",
+            "coach_id": f"eq.{coach_id}",
+            "student_id": f"eq.{student_id}",
+            "revoked_at": "is.null",
+            "order": "created_at.desc",
+            "limit": "1",
+        },
+        headers=_service_headers(),
+        timeout=TIMEOUT,
+    )
+    _coach_check(response)
+    rows = response.json()
+    return rows[0] if rows else None
+
+
+def revoke_share_links(coach_id: str, student_id: str) -> None:
+    url, _key = _config()
+    response = requests.patch(
+        f"{url}/rest/v1/share_links",
+        params={
+            "coach_id": f"eq.{coach_id}",
+            "student_id": f"eq.{student_id}",
+            "revoked_at": "is.null",
+        },
+        json={"revoked_at": datetime.now(timezone.utc).isoformat()},
+        headers=_service_headers(),
+        timeout=TIMEOUT,
+    )
+    _coach_check(response)
+
+
+def get_share_link(token: str) -> Optional[Dict[str, Any]]:
+    """Service-side lookup for public share endpoints."""
+    url, _key = _config()
+    response = requests.get(
+        f"{url}/rest/v1/share_links",
+        params={"select": "*", "token": f"eq.{token}", "limit": "1"},
+        headers=_service_headers(),
+        timeout=TIMEOUT,
+    )
+    _coach_check(response)
+    rows = response.json()
+    return rows[0] if rows else None
+
+
+def touch_share_link(token: str) -> None:
+    """Best-effort view counter for the coach's "viewed N times" hint."""
+    url, _key = _config()
+    existing = get_share_link(token)
+    if not existing:
+        return
+    response = requests.patch(
+        f"{url}/rest/v1/share_links",
+        params={"token": f"eq.{token}"},
+        json={
+            "view_count": int(existing.get("view_count", 0) or 0) + 1,
+            "last_viewed_at": datetime.now(timezone.utc).isoformat(),
+        },
+        headers=_service_headers(),
+        timeout=TIMEOUT,
+    )
+    _coach_check(response)

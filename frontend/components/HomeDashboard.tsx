@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 import AnalyzerForm, {
@@ -31,10 +32,13 @@ import {
   API_BASE,
   apiGet,
   apiPost,
+  apiPut,
   mergeHistoryEntries,
   type AnalysisSummary,
   type BatchSummary,
   type Usage,
+  type UserProfile,
+  type UserRole,
 } from "../lib/api";
 import { streamPost } from "../lib/stream";
 import { createClient } from "../lib/supabase-client";
@@ -42,8 +46,10 @@ import { createClient } from "../lib/supabase-client";
 const GUEST_TRIAL_KEY = "cm_guest_trial";
 
 export default function HomePage() {
+  const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState("");
+  const [profile, setProfile] = useState<UserProfile | null>(null);
   const [usage, setUsage] = useState<Usage | null>(null);
   const [status, setStatus] = useState("");
   const [markdown, setMarkdown] = useState("");
@@ -161,6 +167,51 @@ export default function HomePage() {
     }
   }, []);
 
+  /**
+   * The role decides the default experience. A first-time account has no role
+   * yet, so it is routed to the one-tap onboarding choice. Failures are
+   * swallowed: being offline must not lock a player out of the analyzer.
+   */
+  const loadProfile = useCallback(
+    async (sessionToken: string) => {
+      try {
+        const data = await apiGet<UserProfile>(
+          "/api/account/profile",
+          sessionToken
+        );
+        setProfile(data);
+        if (data.role === null) {
+          router.replace("/onboarding");
+        }
+      } catch (err) {
+        console.error("Failed to load profile:", err);
+      }
+    },
+    [router]
+  );
+
+  const toggleRole = useCallback(async () => {
+    const supabase = createClient();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (!session) {
+      return;
+    }
+    const nextRole: UserRole = profile?.role === "coach" ? "player" : "coach";
+    try {
+      await apiPut<UserProfile>("/api/account/profile", session.access_token, {
+        role: nextRole,
+      });
+      setProfile({ role: nextRole });
+      if (nextRole === "coach") {
+        router.push("/coach");
+      }
+    } catch (err) {
+      console.error("Failed to switch role:", err);
+    }
+  }, [profile, router]);
+
   const claimGuestTrial = useCallback(async (sessionToken: string) => {
     let pending = false;
     try {
@@ -202,7 +253,7 @@ export default function HomePage() {
     try {
       const [list, batchList] = await Promise.all([
         apiGet<AnalysisSummary[]>(
-          "/api/analyses?standalone=true",
+          "/api/analyses?standalone=true&mine=true",
           sessionToken
         ),
         apiGet<BatchSummary[]>("/api/batches", sessionToken),
@@ -234,6 +285,7 @@ export default function HomePage() {
       if (session) {
         refreshHistory(session.access_token);
         refreshUsage(session.access_token);
+        loadProfile(session.access_token);
         claimGuestTrial(session.access_token);
       }
     });
@@ -243,6 +295,7 @@ export default function HomePage() {
       if (session) {
         refreshHistory(session.access_token);
         refreshUsage(session.access_token);
+        loadProfile(session.access_token);
         claimGuestTrial(session.access_token);
       } else {
         setAnalyses([]);
@@ -250,13 +303,14 @@ export default function HomePage() {
         setMarkdown("");
         setInsights(null);
         setUsage(null);
+        setProfile(null);
         setBatchGames([]);
         setBatchId(null);
         setAnalysisId(null);
       }
     });
     return () => subscription.subscription.unsubscribe();
-  }, [claimGuestTrial, refreshHistory, refreshUsage]);
+  }, [claimGuestTrial, loadProfile, refreshHistory, refreshUsage]);
 
   const resetAnalysisState = useCallback(() => {
     if (flushHandle.current !== null) {
@@ -313,6 +367,7 @@ export default function HomePage() {
           game_url: request.gameUrl,
           username: request.username,
           player_color: request.playerColor,
+          student_id: request.studentId,
         },
         {
           onEvent: (eventName, data) => {
@@ -473,6 +528,7 @@ export default function HomePage() {
             game_url: game.gameUrl,
             player_color: game.playerColor,
           })),
+          student_id: request.studentId,
         },
         {
           onEvent: (eventName, data) => {
@@ -669,6 +725,11 @@ export default function HomePage() {
                   {usage.free_analysis_limit}
                 </span>
               )}
+              {profile?.role === "coach" && (
+                <Link href="/coach" className="nav-link">
+                  Coach
+                </Link>
+              )}
               <Link href="/history" className="nav-link">
                 History
               </Link>
@@ -677,7 +738,12 @@ export default function HomePage() {
               </Link>
             </>
           )}
-          <AuthButton user={user} onAuthChange={clearSessionState} />
+          <AuthButton
+            user={user}
+            onAuthChange={clearSessionState}
+            role={profile?.role ?? null}
+            onToggleRole={profile ? toggleRole : undefined}
+          />
         </div>
       </header>
 

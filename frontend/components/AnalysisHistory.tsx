@@ -88,6 +88,11 @@ export default function AnalysisHistory({
             >
               <div className="history-item-main">
                 <span className="history-platform">{platformLabel}</span>
+                {entry.student?.display_name && (
+                  <span className="history-student">
+                    {entry.student.display_name}
+                  </span>
+                )}
                 <span className="history-meta">
                   {entry.opening_name ?? entry.game_id}
                 </span>

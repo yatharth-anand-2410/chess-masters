@@ -6,6 +6,7 @@ import json
 import logging
 import os
 import time
+import uuid
 from collections import deque
 from datetime import datetime, timezone
 from typing import AsyncIterator, Deque, Dict, Optional
@@ -13,7 +14,7 @@ from typing import AsyncIterator, Deque, Dict, Optional
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from google import genai
 from google.genai import errors as genai_errors
 from pydantic import BaseModel
@@ -22,6 +23,7 @@ from services import (
     analyzer,
     batch_insights,
     billing,
+    coach,
     db,
     engine,
     extractor,
@@ -58,6 +60,18 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.exception_handler(db.AuthError)
+async def _auth_error_handler(_request: Request, exc: db.AuthError) -> JSONResponse:
+    """Turn deployment gaps into readable setup errors.
+
+    A missing migration or Supabase configuration is an operator problem, not
+    an anonymous 500: the message (e.g. "run migration 0012...") is safe to
+    show and tells whoever deployed exactly what to do.
+    """
+    logger.error("Database access failed: %s", exc)
+    return JSONResponse(status_code=503, content={"detail": str(exc)})
 
 _client: Optional[genai.Client] = None
 
@@ -168,6 +182,30 @@ def _enforce_attempt_rate_limit(user_id: str) -> None:
         raise HTTPException(
             status_code=429,
             detail="Too many move checks in a row. Please pause a moment and try again.",
+        )
+    bucket.append(now)
+
+
+# Public share pages are unauthenticated, so they are throttled per IP. The
+# window is generous (a parent reading reports makes a handful of calls) and
+# exists to stop a token from being hammered.
+SHARED_RATE_LIMIT_CALLS = 120
+SHARED_RATE_LIMIT_WINDOW_SECONDS = 60.0
+
+_shared_call_times: Dict[str, Deque[float]] = {}
+
+
+def _enforce_shared_rate_limit(ip: str) -> None:
+    key = ip or "unknown"
+    now = time.monotonic()
+    cutoff = now - SHARED_RATE_LIMIT_WINDOW_SECONDS
+    bucket = _shared_call_times.setdefault(key, deque())
+    while bucket and bucket[0] < cutoff:
+        bucket.popleft()
+    if len(bucket) >= SHARED_RATE_LIMIT_CALLS:
+        raise HTTPException(
+            status_code=429,
+            detail="Too many requests. Please try again in a minute.",
         )
     bucket.append(now)
 
@@ -321,6 +359,38 @@ async def _refund_analysis_credits(user_id: str, count: int) -> None:
         logger.exception("Failed to refund %s analysis credit(s)", count)
 
 
+async def _require_student(user_id: str, student_id: str) -> Dict[str, object]:
+    """Validate that the signed-in coach owns an active student profile.
+
+    Runs *before* any credit is consumed, so a bad or borrowed id can never
+    spend the caller's analyses.
+    """
+    student = await asyncio.to_thread(db.get_student, user_id, student_id)
+    if not student or student.get("archived_at"):
+        raise HTTPException(status_code=404, detail="Student not found.")
+    return student
+
+
+def _coach_error(exc: coach.CoachError) -> HTTPException:
+    return HTTPException(status_code=400, detail=str(exc))
+
+
+def _parse_share_token(token: str) -> str:
+    """A share token is always a UUID; anything else is a dead link."""
+    try:
+        return str(uuid.UUID(token))
+    except (AttributeError, TypeError, ValueError):
+        raise HTTPException(status_code=404, detail="This share link is not active.")
+
+
+async def _resolve_share_link(token: str) -> Dict[str, object]:
+    parsed = _parse_share_token(token)
+    row = await asyncio.to_thread(db.get_share_link, parsed)
+    if not coach.is_share_usable(row):
+        raise HTTPException(status_code=404, detail="This share link is not active.")
+    return row
+
+
 @app.get("/api/health")
 async def health() -> dict[str, str]:
     return {"status": "ok"}
@@ -331,6 +401,8 @@ class AnalysisRequest(BaseModel):
     game_url: str
     username: Optional[str] = None
     player_color: Optional[str] = None
+    # Coach mode: run the analysis on behalf of one of the coach's students.
+    student_id: Optional[str] = None
 
 
 @app.post("/api/stream-analysis")
@@ -340,6 +412,14 @@ async def stream_analysis(
     user: Optional[Dict[str, object]] = Depends(get_optional_user),
 ) -> StreamingResponse:
     user_id = str(user["id"]) if user else None
+    student_id = (payload.student_id or "").strip() or None
+    if student_id:
+        if user_id is None:
+            raise HTTPException(
+                status_code=401,
+                detail="Sign in to analyze games for a student.",
+            )
+        await _require_student(user_id, student_id)
     usage: Optional[dict] = None
     if user_id:
         usage = await asyncio.to_thread(db.consume_analysis_credit, user_id)
@@ -398,6 +478,7 @@ async def stream_analysis(
                             "username": payload.username,
                             "player_color": game.player_color,
                             "player_name": game.player_name,
+                            "student_id": student_id,
                             "status": "processing",
                         },
                     )
@@ -548,6 +629,8 @@ class BatchAnalysisRequest(BaseModel):
     platform: str
     games: list[BatchGameInput]
     username: Optional[str] = None
+    # Coach mode: run the whole batch on behalf of one of the coach's students.
+    student_id: Optional[str] = None
 
 
 @app.post("/api/stream-batch-analysis")
@@ -570,6 +653,9 @@ async def stream_batch_analysis(
         )
 
     user_id = str(user["id"])
+    student_id = (payload.student_id or "").strip() or None
+    if student_id:
+        await _require_student(user_id, student_id)
     usage = await asyncio.to_thread(db.consume_analysis_credits, user_id, len(games))
     if not usage.get("allowed", False):
         raise HTTPException(
@@ -592,6 +678,7 @@ async def stream_batch_analysis(
                     "platform": payload.platform,
                     "username": payload.username,
                     "game_count": len(games),
+                    "student_id": student_id,
                     "status": "processing",
                 },
             )
@@ -643,6 +730,7 @@ async def stream_batch_analysis(
                             "player_color": game.player_color,
                             "player_name": game.player_name,
                             "batch_id": batch_id,
+                            "student_id": student_id,
                             "status": "processing",
                         },
                     )
@@ -882,10 +970,11 @@ async def stream_batch_analysis(
 @app.get("/api/analyses")
 async def list_analyses(
     standalone: bool = False,
+    mine: bool = False,
     user: Dict[str, object] = Depends(get_current_user),
 ) -> list[dict]:
     return await asyncio.to_thread(
-        db.list_analyses, str(user["id"]), 50, standalone
+        db.list_analyses, str(user["id"]), 50, standalone, mine
     )
 
 
@@ -1090,6 +1179,265 @@ async def claim_guest_trial(
     await asyncio.to_thread(db.claim_guest_trial, str(user["id"]))
     usage = await asyncio.to_thread(db.get_usage, str(user["id"]))
     return await _usage_payload_with_count(usage, str(user["id"]))
+
+
+# ---------------------------------------------------------------------------
+# Coach mode: role choice, student rosters, and share links.
+# ---------------------------------------------------------------------------
+
+
+class ProfileRequest(BaseModel):
+    role: str
+
+
+@app.get("/api/account/profile")
+async def get_account_profile(
+    user: Dict[str, object] = Depends(get_current_user),
+) -> dict:
+    row = await asyncio.to_thread(db.get_user_profile, str(user["id"]))
+    return {"role": (row or {}).get("role")}
+
+
+@app.put("/api/account/profile")
+async def set_account_profile(
+    payload: ProfileRequest,
+    user: Dict[str, object] = Depends(get_current_user),
+) -> dict:
+    try:
+        role = coach.validate_role(payload.role)
+    except coach.CoachError as exc:
+        raise _coach_error(exc) from exc
+    row = await asyncio.to_thread(db.upsert_user_profile, str(user["id"]), role)
+    return {"role": row.get("role", role)}
+
+
+class StudentCreateRequest(BaseModel):
+    display_name: str
+    lichess_username: Optional[str] = None
+    chesscom_username: Optional[str] = None
+    notes: Optional[str] = None
+
+
+class StudentUpdateRequest(BaseModel):
+    display_name: Optional[str] = None
+    lichess_username: Optional[str] = None
+    chesscom_username: Optional[str] = None
+    notes: Optional[str] = None
+
+
+@app.get("/api/coach/students")
+async def list_coach_students(
+    user: Dict[str, object] = Depends(get_current_user),
+) -> list[dict]:
+    user_id = str(user["id"])
+    students = await asyncio.to_thread(db.list_students, user_id)
+    student_ids = [str(row["id"]) for row in students if row.get("id")]
+    activity = await asyncio.to_thread(db.list_student_activity, user_id, student_ids)
+    return coach.roster_payload(students, activity)
+
+
+@app.post("/api/coach/students")
+async def create_coach_student(
+    payload: StudentCreateRequest,
+    user: Dict[str, object] = Depends(get_current_user),
+) -> dict:
+    try:
+        data = {
+            "display_name": coach.clean_display_name(payload.display_name),
+            "lichess_username": coach.clean_username(payload.lichess_username),
+            "chesscom_username": coach.clean_username(payload.chesscom_username),
+            "notes": coach.clean_notes(payload.notes),
+        }
+    except coach.CoachError as exc:
+        raise _coach_error(exc) from exc
+    row = await asyncio.to_thread(db.create_student, str(user["id"]), data)
+    return coach.student_payload(row)
+
+
+@app.get("/api/coach/students/{student_id}")
+async def get_coach_student(
+    student_id: str,
+    user: Dict[str, object] = Depends(get_current_user),
+) -> dict:
+    user_id = str(user["id"])
+    student = await asyncio.to_thread(db.get_student, user_id, student_id)
+    if not student:
+        raise HTTPException(status_code=404, detail="Student not found.")
+    analyses, batches, share_row = await asyncio.gather(
+        asyncio.to_thread(db.list_analyses_by_student, user_id, student_id),
+        asyncio.to_thread(db.list_batches_by_student, user_id, student_id),
+        asyncio.to_thread(db.get_active_share_link, user_id, student_id),
+    )
+    return {
+        "student": coach.student_payload(student),
+        "analyses": analyses,
+        "batches": batches,
+        "share": coach.share_status(share_row),
+    }
+
+
+@app.patch("/api/coach/students/{student_id}")
+async def update_coach_student(
+    student_id: str,
+    payload: StudentUpdateRequest,
+    user: Dict[str, object] = Depends(get_current_user),
+) -> dict:
+    user_id = str(user["id"])
+    student = await asyncio.to_thread(db.get_student, user_id, student_id)
+    if not student:
+        raise HTTPException(status_code=404, detail="Student not found.")
+    provided = payload.model_dump(exclude_unset=True)
+    updates: Dict[str, object] = {}
+    try:
+        if "display_name" in provided:
+            updates["display_name"] = coach.clean_display_name(provided["display_name"])
+        if "lichess_username" in provided:
+            updates["lichess_username"] = coach.clean_username(
+                provided["lichess_username"]
+            )
+        if "chesscom_username" in provided:
+            updates["chesscom_username"] = coach.clean_username(
+                provided["chesscom_username"]
+            )
+        if "notes" in provided:
+            updates["notes"] = coach.clean_notes(provided["notes"])
+    except coach.CoachError as exc:
+        raise _coach_error(exc) from exc
+    if updates:
+        await asyncio.to_thread(db.update_student, user_id, student_id, updates)
+    return coach.student_payload({**student, **updates})
+
+
+@app.delete("/api/coach/students/{student_id}")
+async def archive_coach_student(
+    student_id: str,
+    user: Dict[str, object] = Depends(get_current_user),
+) -> dict:
+    """Archive (soft delete): analyses and share links survive.
+
+    The roster hides archived students, but their history is never lost.
+    """
+    user_id = str(user["id"])
+    student = await asyncio.to_thread(db.get_student, user_id, student_id)
+    if not student:
+        raise HTTPException(status_code=404, detail="Student not found.")
+    await asyncio.to_thread(
+        db.update_student, user_id, student_id, {"archived_at": _now_value()}
+    )
+    return {"archived": True}
+
+
+@app.post("/api/coach/students/{student_id}/share")
+async def create_student_share(
+    student_id: str,
+    user: Dict[str, object] = Depends(get_current_user),
+) -> dict:
+    """Return the active share link, creating one if none exists.
+
+    Revoking is the rotation mechanism: stop sharing, share again, and the new
+    link carries a fresh token.
+    """
+    user_id = str(user["id"])
+    student = await asyncio.to_thread(db.get_student, user_id, student_id)
+    if not student:
+        raise HTTPException(status_code=404, detail="Student not found.")
+    existing = await asyncio.to_thread(db.get_active_share_link, user_id, student_id)
+    if existing:
+        return coach.share_status(existing)
+    row = await asyncio.to_thread(db.create_share_link, user_id, student_id)
+    return coach.share_status(row)
+
+
+@app.delete("/api/coach/students/{student_id}/share")
+async def revoke_student_share(
+    student_id: str,
+    user: Dict[str, object] = Depends(get_current_user),
+) -> dict:
+    user_id = str(user["id"])
+    student = await asyncio.to_thread(db.get_student, user_id, student_id)
+    if not student:
+        raise HTTPException(status_code=404, detail="Student not found.")
+    await asyncio.to_thread(db.revoke_share_links, user_id, student_id)
+    return {"active": False}
+
+
+# ---------------------------------------------------------------------------
+# Public share pages: no auth, unguessable token, read-only, rate limited.
+# ---------------------------------------------------------------------------
+
+
+@app.get("/api/shared/{token}")
+async def shared_student(
+    token: str,
+    request: Request,
+) -> dict:
+    _enforce_shared_rate_limit(_client_ip(request))
+    link = await _resolve_share_link(token)
+    student_id = str(link["student_id"])
+    student, analyses, batches = await asyncio.gather(
+        asyncio.to_thread(db.get_student_by_id, student_id),
+        asyncio.to_thread(db.list_public_analyses, student_id),
+        asyncio.to_thread(db.list_public_batches, student_id),
+    )
+    if not student:
+        raise HTTPException(status_code=404, detail="This share link is not active.")
+    try:
+        await asyncio.to_thread(db.touch_share_link, str(link["token"]))
+    except Exception:
+        logger.exception("Failed to record share link view")
+    return {
+        "student": coach.student_public_payload(student),
+        "analyses": [coach.analysis_summary(row) for row in analyses],
+        "batches": [coach.batch_summary(row) for row in batches],
+    }
+
+
+@app.get("/api/shared/{token}/analyses/{analysis_id}")
+async def shared_report(
+    token: str,
+    analysis_id: str,
+    request: Request,
+) -> dict:
+    _enforce_shared_rate_limit(_client_ip(request))
+    link = await _resolve_share_link(token)
+    student_id = str(link["student_id"])
+    analysis = await asyncio.to_thread(
+        db.get_analysis_for_student, student_id, analysis_id
+    )
+    if (
+        not analysis
+        or analysis.get("status") != "completed"
+        or not analysis.get("report_markdown")
+    ):
+        raise HTTPException(status_code=404, detail="Report not found.")
+    student = await asyncio.to_thread(db.get_student_by_id, student_id)
+    return {
+        "student": coach.student_public_payload(student or {}),
+        "analysis": coach.analysis_public_payload(analysis),
+    }
+
+
+@app.get("/api/shared/{token}/batches/{batch_id}")
+async def shared_batch_report(
+    token: str,
+    batch_id: str,
+    request: Request,
+) -> dict:
+    _enforce_shared_rate_limit(_client_ip(request))
+    link = await _resolve_share_link(token)
+    student_id = str(link["student_id"])
+    batch = await asyncio.to_thread(db.get_batch_for_student, student_id, batch_id)
+    if (
+        not batch
+        or batch.get("status") != "completed"
+        or not batch.get("report_markdown")
+    ):
+        raise HTTPException(status_code=404, detail="Report not found.")
+    student = await asyncio.to_thread(db.get_student_by_id, student_id)
+    return {
+        "student": coach.student_public_payload(student or {}),
+        "batch": coach.batch_public_payload(batch),
+    }
 
 
 class BillingVerifyRequest(BaseModel):

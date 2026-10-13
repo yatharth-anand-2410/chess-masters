@@ -34,6 +34,7 @@ type AnalysisDetail = {
     batch_id?: string | null;
     created_at: string;
     error_message?: string | null;
+    student?: { display_name?: string | null } | null;
   };
   messages: ThreadMessage[];
 };
@@ -151,6 +152,11 @@ export default function AnalysisDetailPage() {
 
       <div className="game-header">
         <span className="chip">{platformLabel}</span>
+        {analysis.student?.display_name && (
+          <span className="history-student">
+            For {analysis.student.display_name}
+          </span>
+        )}
         <h1 className="game-title">{analysis.opening_name ?? analysis.game_id}</h1>
         <p className="game-meta">
           Played as {colorLabel}

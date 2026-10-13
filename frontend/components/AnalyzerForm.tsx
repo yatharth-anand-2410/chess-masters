@@ -12,6 +12,8 @@ export type AnalysisRequest = {
   gameUrl: string;
   username?: string;
   playerColor?: PlayerColor;
+  /** Coach mode: run this analysis for one of the coach's students. */
+  studentId?: string;
 };
 
 export type BatchGameInput = {
@@ -23,11 +25,17 @@ export type BatchAnalysisRequest = {
   platform: Platform;
   username?: string;
   games: BatchGameInput[];
+  /** Coach mode: run this batch for one of the coach's students. */
+  studentId?: string;
 };
 
 type AnalyzerFormProps = {
   disabled?: boolean;
   maxGames?: number;
+  /** Prefilled Chess.com username (e.g. the selected student's handle). */
+  defaultUsername?: string;
+  /** Coach mode: analyses submitted here are tagged to this student. */
+  studentId?: string;
   onSubmit: (request: AnalysisRequest) => void;
   onSubmitBatch?: (request: BatchAnalysisRequest) => void;
 };
@@ -52,6 +60,8 @@ function detectColorFromUrl(url: string): PlayerColor | null {
 export default function AnalyzerForm({
   disabled,
   maxGames,
+  defaultUsername,
+  studentId,
   onSubmit,
   onSubmitBatch,
 }: AnalyzerFormProps) {
@@ -60,12 +70,20 @@ export default function AnalyzerForm({
     Math.min(maxGames ?? MAX_BATCH_GAMES, MAX_BATCH_GAMES)
   );
   const [platform, setPlatform] = useState<Platform>("lichess");
-  const [username, setUsername] = useState("");
+  const [username, setUsername] = useState(defaultUsername ?? "");
   const nextRowId = useRef(2);
   const inputRefs = useRef(new Map<number, HTMLInputElement>());
   const [rows, setRows] = useState<BatchRow[]>([
     { id: 1, url: "", color: null },
   ]);
+
+  // The student profile loads asynchronously on the coach's pages, so the
+  // prefilled username can arrive after the form mounted.
+  useEffect(() => {
+    if (defaultUsername !== undefined) {
+      setUsername(defaultUsername);
+    }
+  }, [defaultUsername]);
 
   useEffect(() => {
     setRows((current) =>
@@ -161,6 +179,7 @@ export default function AnalyzerForm({
         gameUrl: games[0].gameUrl,
         username: platform === "chess.com" ? username.trim() : undefined,
         playerColor: games[0].playerColor,
+        studentId,
       });
       return;
     }
@@ -171,6 +190,7 @@ export default function AnalyzerForm({
       platform,
       username: platform === "chess.com" ? username.trim() : undefined,
       games,
+      studentId,
     });
   };
 
