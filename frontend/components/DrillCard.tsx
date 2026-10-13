@@ -15,6 +15,7 @@ import {
 } from "./ReportIcons";
 import type { InsightsData, InsightMoment, Resource } from "./insights";
 import { findResourceForMoment, moveLabel, phaseLabel, stakesFor } from "./reportParsing";
+import { trackEvent } from "../lib/analytics";
 
 /**
  * The board pulls in a chess library, so it is code-split and only fetched
@@ -32,6 +33,8 @@ type DrillCardProps = {
   moment: InsightMoment;
   insights?: InsightsData | null;
   index: number;
+  /** Analysis the moment belongs to; enables engine-backed validation. */
+  analysisId?: string | null;
 };
 
 /**
@@ -40,7 +43,7 @@ type DrillCardProps = {
  * Collapsing keeps the section scannable, and it also defers the board (and the
  * chess engine behind it) until someone chooses to play.
  */
-export default function DrillCard({ moment, insights, index }: DrillCardProps) {
+export default function DrillCard({ moment, insights, index, analysisId }: DrillCardProps) {
   const [open, setOpen] = useState(false);
   const [status, setStatus] = useState<DrillStatus>("idle");
   const [attempts, setAttempts] = useState(0);
@@ -71,7 +74,12 @@ export default function DrillCard({ moment, insights, index }: DrillCardProps) {
     } else {
       setLive("Not the best move. Try again.");
     }
-  }, []);
+    trackEvent("drill_outcome", {
+      index,
+      outcome: correct ? "solved" : "wrong",
+      attempts: attempts + 1,
+    });
+  }, [attempts, index]);
 
   const reveal = useCallback(() => {
     setStatus("revealed");
@@ -80,7 +88,12 @@ export default function DrillCard({ moment, insights, index }: DrillCardProps) {
         ? `The engine move was ${moment.best_move_san}.`
         : "Showing the engine move."
     );
-  }, [moment.best_move_san]);
+    trackEvent("drill_outcome", {
+      index,
+      outcome: "revealed",
+      attempts: attempts + 1,
+    });
+  }, [attempts, index, moment.best_move_san]);
 
   const reset = useCallback(() => {
     setStatus("idle");
@@ -96,6 +109,15 @@ export default function DrillCard({ moment, insights, index }: DrillCardProps) {
 
   const showHint = status === "idle" && attempts >= HINT_AFTER_ATTEMPTS;
   const hintText = themeLabel ? `Hint: it is a ${themeLabel.toLowerCase()} idea.` : null;
+
+  const openDrill = useCallback(() => {
+    setOpen(true);
+    trackEvent("drill_opened", {
+      index,
+      phase: moment.phase,
+      motif: themeLabel ?? null,
+    });
+  }, [index, moment.phase, themeLabel]);
 
   return (
     <article
@@ -141,14 +163,16 @@ export default function DrillCard({ moment, insights, index }: DrillCardProps) {
           moment={moment}
           status={status}
           onAttempt={onAttempt}
+          analysisId={analysisId}
           liveMessage={live}
         />
       )}
 
       {status === "solved" && (
         <p className="drill-result drill-result-solved">
-          That is the move you missed
-          {moment.best_move_san ? `: ${moment.best_move_san}` : ""}.
+          {moment.best_move_san
+            ? `Solved. The engine's pick here was ${moment.best_move_san}.`
+            : "Solved — that move keeps your position."}
         </p>
       )}
 
@@ -174,7 +198,7 @@ export default function DrillCard({ moment, insights, index }: DrillCardProps) {
           <button
             type="button"
             className="drill-btn drill-btn-primary"
-            onClick={() => setOpen(true)}
+            onClick={openDrill}
           >
             <PlayIcon className="drill-btn-icon" />
             Attempt move
@@ -207,6 +231,12 @@ export default function DrillCard({ moment, insights, index }: DrillCardProps) {
           href={resource?.url ?? MIXED_TACTICS_URL}
           target="_blank"
           rel="noreferrer"
+          onClick={() =>
+            trackEvent("training_link_click", {
+              index,
+              kind: resource?.url ? "theme" : "mixed",
+            })
+          }
         >
           {practiceLabel}
           <ExternalLinkIcon className="drill-link-icon" />

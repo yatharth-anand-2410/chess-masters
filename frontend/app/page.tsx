@@ -11,15 +11,29 @@ import {
 import {
   CONTENT_PUBLISHED,
   SITE_META_DESCRIPTION,
-  SITE_NAME,
 } from "../lib/site";
 
+/**
+ * Homepage title. Leads with the category so the non-branded head term
+ * "AI Game Analyzer" carries the match weight in the first ~30 characters of
+ * the SERP snippet; the brand is kept at the end so brand queries still match.
+ * `absolute` deliberately opts this one page out of the root layout's
+ * `%s · Chessmasters` template, so every other route's title is untouched.
+ */
+const HOME_TITLE = "AI Game Analyzer for Chess.com & Lichess | Chessmasters";
+
 export const metadata: Metadata = {
+  title: { absolute: HOME_TITLE },
   alternates: { canonical: "/", types: { "application/rss+xml": "/feed.xml" } },
   openGraph: {
-    title: "Chessmasters · AI Chess Game Analyzer",
+    title: HOME_TITLE,
     description: SITE_META_DESCRIPTION,
     url: "/",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: HOME_TITLE,
+    description: SITE_META_DESCRIPTION,
   },
 };
 
@@ -29,7 +43,7 @@ export default function HomePage() {
       <JsonLd
         data={schemaGraph([
           webPageSchema({
-            name: `${SITE_NAME} · AI Chess Game Analyzer`,
+            name: HOME_TITLE,
             path: "/",
             description: SITE_META_DESCRIPTION,
             datePublished: CONTENT_PUBLISHED,

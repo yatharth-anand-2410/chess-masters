@@ -188,6 +188,141 @@ def test_trim_moment_keeps_better_idea():
     assert trimmed["better_move_idea"] == "Bg5 keeps the tension."
 
 
+def test_moment_evidence_includes_clock_when_present():
+    moment = {
+        "move_number": 6,
+        "san": "Ne4",
+        "color": "white",
+        "seconds_spent": 2.0,
+        "clock_remaining": 120.0,
+        "next_move": {"san": "Nf3", "seconds_spent": 1.0},
+        "post_error_rush": True,
+    }
+    evidence = analyzer._moment_evidence("weakness-0", "weakness", moment)
+    assert evidence["player_seconds_spent"] == 2.0
+    assert evidence["player_clock_remaining"] == 120.0
+    assert evidence["next_move"] == {"san": "Nf3", "seconds_spent": 1.0}
+    assert evidence["post_error_rush"] is True
+
+
+def test_moment_evidence_omits_missing_clock():
+    moment = {"move_number": 6, "san": "Ne4", "color": "white"}
+    evidence = analyzer._moment_evidence("weakness-0", "weakness", moment)
+    assert "player_seconds_spent" not in evidence
+    assert "player_clock_remaining" not in evidence
+    assert "next_move" not in evidence
+    assert "post_error_rush" not in evidence
+
+
+def test_weakness_schema_requires_three_part_note():
+    items = analyzer.MOMENT_DESCRIPTION_SCHEMA["properties"]["moments"]["items"]
+    for field in ("observed", "mechanism", "rule"):
+        assert field in items["properties"]
+        assert field in items["required"]
+    assert "description" in items["required"]
+    assert "better_idea" in items["required"]
+
+
+def test_merge_weakness_note_is_one_line_description():
+    """The card face is ONE sentence: the per-moment description.
+
+    The old contract concatenated ``observed + mechanism + rule`` into a
+    multi-line note; that wall of text is gone, but every field must still be
+    stored so the disclosure panel and future consumers keep working.
+    """
+    engine_data = _engine_data()
+    analyzer.merge_moment_descriptions(
+        engine_data,
+        {
+            "weakness-0": {
+                "description": "Ne4 lets Black trade your active knight.",
+                "better_idea": "Bg5 keeps the initiative.",
+                "observed": "You answered in 1 second.",
+                "mechanism": "You rushed to fix the mistake.",
+                "rule": "Take your hand off the mouse and count to three.",
+            }
+        },
+    )
+    moment = engine_data["weakness_moments"][0]
+    assert moment["note"] == "Ne4 lets Black trade your active knight."
+    assert moment["observed"] == "You answered in 1 second."
+    assert moment["mechanism"] == "You rushed to fix the mistake."
+    assert moment["rule"] == "Take your hand off the mouse and count to three."
+    assert moment["better_move_idea"] == "Bg5 keeps the initiative."
+
+
+def test_merge_weakness_note_falls_back_to_observed():
+    """An empty description must never leave a card blank: observed stands in."""
+    engine_data = _engine_data()
+    analyzer.merge_moment_descriptions(
+        engine_data,
+        {
+            "weakness-0": {
+                "description": "",
+                "observed": "You answered in 1 second.",
+                "mechanism": "You rushed to fix the mistake.",
+                "rule": "Take your hand off the mouse and count to three.",
+            }
+        },
+    )
+    moment = engine_data["weakness_moments"][0]
+    assert moment["note"] == "You answered in 1 second."
+
+
+def test_attach_clock_context_projects_next_move():
+    from services.engine import (
+        QUALITY_BLUNDER,
+        QUALITY_GOOD,
+        AnalysisResult,
+        MoveInfo,
+    )
+
+    def move(number: int, color: str, quality: str, seconds: float, clock: float) -> MoveInfo:
+        return MoveInfo(
+            move_number=number,
+            san=f"M{number}",
+            color=color,
+            phase="middlegame",
+            fen_before="8/8/8/8/8/8/8/8 w - - 0 1",
+            played_move="e2e4",
+            best_move=None,
+            best_move_san=None,
+            pv=[],
+            pv_san=[],
+            eval_before_cp=20,
+            eval_after_cp=20,
+            centipawn_loss=0,
+            quality=quality,
+            seconds_spent=seconds,
+            clock_remaining=clock,
+        )
+
+    analysis = AnalysisResult(
+        player_color="white",
+        player_name=None,
+        result="1-0",
+        opening_name=None,
+        eco=None,
+        eval_curve_pawns=[0.0],
+        moves=[
+            move(1, "white", QUALITY_BLUNDER, 2, 580),
+            move(1, "black", QUALITY_GOOD, 3, 577),
+            move(2, "white", QUALITY_GOOD, 1, 576),
+        ],
+        statistics={},
+        phase_accuracies={},
+    )
+    engine_data = {
+        "weakness_moments": [{"move_number": 1, "san": "M1", "color": "white"}]
+    }
+    recommendations._attach_clock_context(engine_data, analysis)
+    moment = engine_data["weakness_moments"][0]
+    assert moment["seconds_spent"] == 2
+    assert moment["clock_remaining"] == 580
+    assert moment["next_move"] == {"san": "M2", "seconds_spent": 1}
+    assert moment["post_error_rush"] is True
+
+
 def main() -> None:
     tests = [
         name

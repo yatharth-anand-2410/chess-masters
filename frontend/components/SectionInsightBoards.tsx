@@ -1,6 +1,9 @@
 "use client";
 
+import { useId, useState } from "react";
+
 import CriticalPositionBoard from "./CriticalPositionBoard";
+import { ChevronDownIcon } from "./ReportIcons";
 import type { InsightMoment } from "./insights";
 
 function qualityLabel(quality: string): string {
@@ -35,7 +38,80 @@ function moveLabel(moment: InsightMoment): string {
   return `${moment.move_number}${moment.color === "black" ? "..." : "."} ${moment.san}`;
 }
 
+/**
+ * Numbers arriving from JSON are untrusted: anything that is not a finite
+ * number is treated as missing so it renders as nothing instead of `NaN`.
+ */
+function finite(value: number | null | undefined): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+const SUB_TEN_SECOND_LIMIT = 10;
+
+/** Move duration: `1.4s` below ten seconds, whole seconds above (`12s`). */
+function formatDuration(value: number | null | undefined): string | null {
+  const seconds = finite(value);
+  if (seconds === null || seconds < 0) {
+    return null;
+  }
+  if (seconds < SUB_TEN_SECOND_LIMIT) {
+    return `${seconds.toFixed(1)}s`;
+  }
+  return `${Math.round(seconds)}s`;
+}
+
+/** Clock reading: `2:07`, widening to `1:02:07` only for long time controls. */
+function formatClock(value: number | null | undefined): string | null {
+  const seconds = finite(value);
+  if (seconds === null) {
+    return null;
+  }
+  const total = Math.max(0, Math.floor(seconds));
+  const hours = Math.floor(total / 3600);
+  const minutes = Math.floor((total % 3600) / 60);
+  const remainder = total % 60;
+  const padded = String(remainder).padStart(2, "0");
+  if (hours > 0) {
+    return `${hours}:${String(minutes).padStart(2, "0")}:${padded}`;
+  }
+  return `${minutes}:${padded}`;
+}
+
+/**
+ * Clock evidence for one moment: how long the move took, what was left on the
+ * clock, and whether the player rushed the reply.
+ *
+ * Every part is optional and independently emitted, because clock data only
+ * exists for games whose source carried it. A moment with nothing to say
+ * renders no element at all — no em dash, no zero.
+ */
+function MoveEvidence({ moment }: { moment: InsightMoment }) {
+  const spent = formatDuration(moment.player_seconds_spent ?? moment.seconds_spent);
+  const clock = formatClock(moment.player_clock_remaining ?? moment.clock_remaining);
+  const rushed = moment.post_error_rush === true;
+  const replySeconds = formatDuration(moment.next_move?.seconds_spent);
+
+  if (!spent && !clock && !rushed) {
+    return null;
+  }
+
+  return (
+    <div className="insight-evidence">
+      {spent && <span className="insight-stat">Took {spent}</span>}
+      {clock && <span className="insight-stat">{clock} left</span>}
+      {rushed && (
+        <span className="insight-rush">
+          answered in {replySeconds ?? "an instant"} — rushed
+        </span>
+      )}
+    </div>
+  );
+}
+
 function InsightBoardCard({ moment }: { moment: InsightMoment }) {
+  const [open, setOpen] = useState(false);
+  const panelId = useId();
+
   const hasBoard =
     moment.fen_before && (moment.player_color === "white" || moment.player_color === "black");
   const isStrength = moment.quality === "strong";
@@ -54,6 +130,12 @@ function InsightBoardCard({ moment }: { moment: InsightMoment }) {
   ]
     .filter(Boolean)
     .join(" ");
+
+  const strongerIdea = !isStrength && moment.best_move_san ? moment.best_move_san : null;
+  const hasDeeper = Boolean(
+    moment.motif || moment.blindspot || strongerIdea || moment.mechanism
+  );
+  const evidence = <MoveEvidence moment={moment} />;
 
   return (
     <div className={`insight-card quality-${moment.quality}`}>
@@ -90,33 +172,62 @@ function InsightBoardCard({ moment }: { moment: InsightMoment }) {
                 {isStrength ? "Why it worked" : "What happened"}
               </span>
               <p>{moment.note}</p>
+              {evidence}
             </div>
           )}
 
-          {moment.motif && (
-            <div className="insight-block">
-              <span className="insight-label">Detected motif</span>
-              <p>
-                <strong>{moment.motif}</strong>
-                {moment.motif_details ? ` — ${moment.motif_details}` : ""}
-              </p>
-            </div>
-          )}
+          {!moment.note && evidence}
 
-          {moment.blindspot && (
-            <div className="insight-block">
-              <span className="insight-label">Calculation blind spot</span>
-              <p>{moment.blindspot.explanation}</p>
-            </div>
-          )}
+          {hasDeeper && (
+            <div className={`insight-more${open ? " is-open" : ""}`}>
+              <button
+                type="button"
+                className="insight-more-toggle"
+                onClick={() => setOpen((value) => !value)}
+                aria-expanded={open}
+                aria-controls={panelId}
+              >
+                {open ? "Hide deeper analysis" : "Deeper analysis"}
+                <ChevronDownIcon className="insight-more-icon" />
+              </button>
 
-          {!isStrength && moment.best_move_san && (
-            <div className="insight-block">
-              <span className="insight-label">Stronger idea</span>
-              <p>
-                <strong>{moment.best_move_san}</strong>
-                {moment.better_move_idea ? ` — ${moment.better_move_idea}` : ""}
-              </p>
+              {open && (
+                <div className="insight-more-panel" id={panelId}>
+                  {moment.mechanism && (
+                    <div className="insight-block">
+                      <span className="insight-label">Why this happens</span>
+                      <p>{moment.mechanism}</p>
+                    </div>
+                  )}
+
+                  {moment.motif && (
+                    <div className="insight-block">
+                      <span className="insight-label">Detected motif</span>
+                      <p>
+                        <strong>{moment.motif}</strong>
+                        {moment.motif_details ? ` — ${moment.motif_details}` : ""}
+                      </p>
+                    </div>
+                  )}
+
+                  {moment.blindspot && (
+                    <div className="insight-block">
+                      <span className="insight-label">Calculation blind spot</span>
+                      <p>{moment.blindspot.explanation}</p>
+                    </div>
+                  )}
+
+                  {strongerIdea && (
+                    <div className="insight-block">
+                      <span className="insight-label">Stronger idea</span>
+                      <p>
+                        <strong>{strongerIdea}</strong>
+                        {moment.better_move_idea ? ` — ${moment.better_move_idea}` : ""}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </div>

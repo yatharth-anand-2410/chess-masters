@@ -20,6 +20,7 @@ import {
   parseFocusPairs,
   resolveNextGameRule,
   splitSections,
+  type Section,
 } from "./reportParsing";
 
 type CoachingReportProps = {
@@ -28,6 +29,8 @@ type CoachingReportProps = {
   pending?: boolean;
   psychologyLocked?: boolean;
   gamesAnalyzed?: number;
+  /** Analysis id, forwarded to the drills so moves can be engine-validated. */
+  analysisId?: string | null;
 };
 
 const EVALCHART_PATTERN =
@@ -80,6 +83,29 @@ const components = {
     <AccuracyChart {...props} />
   ),
 } as unknown as Components;
+
+/**
+ * Sections that are held back until the end of the report.
+ *
+ * Strength and Weakness are the evidence behind the coaching, not the headline:
+ * a reader wants to know what happened and what to do about it first. The rest
+ * of the report keeps the order the coach wrote it in.
+ */
+const TRAILING_SECTIONS = ["strength", "weakness"];
+
+function orderSections(sections: Section[]): Section[] {
+  const lead: Section[] = [];
+  const trailing: Section[] = [];
+  for (const section of sections) {
+    const heading = section.heading.toLowerCase();
+    if (TRAILING_SECTIONS.some((needle) => heading.includes(needle))) {
+      trailing.push(section);
+    } else {
+      lead.push(section);
+    }
+  }
+  return trailing.length > 0 ? [...lead, ...trailing] : sections;
+}
 
 function renderMarkdown(markdown: string) {
   return (
@@ -144,6 +170,7 @@ export default function CoachingReport({
   pending = false,
   psychologyLocked = false,
   gamesAnalyzed = 0,
+  analysisId,
 }: CoachingReportProps) {
   if (!content.trim()) {
     if (!pending) {
@@ -165,7 +192,7 @@ export default function CoachingReport({
   }
 
   const normalized = normalizeCharts(hideIncompleteChartTag(content));
-  const sections = splitSections(normalized);
+  const sections = orderSections(splitSections(normalized));
   const sectionClassName = pending ? "report report-pending" : "report";
   const rawPsychology = insights?.psychology ?? null;
   const psychologyProfile = isPsychologyProfile(rawPsychology)
@@ -242,6 +269,7 @@ export default function CoachingReport({
                   moments={insights.weakness_moments ?? []}
                   insights={insights}
                   psychology={psychologyProfile}
+                  analysisId={analysisId}
                   fallback={<MemoizedMarkdown markdown={section.body} />}
                 />
               ) : pending ? (

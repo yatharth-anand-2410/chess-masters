@@ -10,6 +10,7 @@ import AnalyzerForm, {
 } from "./AnalyzerForm";
 import AnalysisStatus from "./AnalysisStatus";
 import AnalysisHistory from "./AnalysisHistory";
+import AnalyzerGuide from "./AnalyzerGuide";
 import AuthButton from "./AuthButton";
 import BatchProgress, {
   type BatchGameProgress,
@@ -24,6 +25,8 @@ import LimitReachedPrompt from "./LimitReachedPrompt";
 import ReviewSection from "./ReviewSection";
 import UpgradePrompt from "./UpgradePrompt";
 import type { InsightsData } from "./insights";
+import { initAnalytics, trackEvent } from "../lib/analytics";
+import { warmBackend } from "../lib/backend-wake";
 import {
   API_BASE,
   apiGet,
@@ -52,6 +55,7 @@ export default function HomePage() {
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [batchGames, setBatchGames] = useState<BatchGameProgress[]>([]);
   const [batchId, setBatchId] = useState<string | null>(null);
+  const [analysisId, setAnalysisId] = useState<string | null>(null);
   const [guestUsed, setGuestUsed] = useState(false);
   const [guestLimitHit, setGuestLimitHit] = useState(false);
   const pendingChunks = useRef("");
@@ -85,6 +89,11 @@ export default function HomePage() {
         window.cancelAnimationFrame(flushHandle.current);
       }
     };
+  }, []);
+
+  // Repeat visits: fire the session-start event once per tab (idempotent).
+  useEffect(() => {
+    initAnalytics();
   }, []);
 
   const visualInnerRef = useRef<HTMLDivElement | null>(null);
@@ -207,6 +216,15 @@ export default function HomePage() {
     }
   }, []);
 
+  /**
+   * Wake the deployed backend as early as possible: on the free tier it takes
+   * ~20s to boot after idling, and starting that now means it is almost always
+   * up before the player finishes pasting a link.
+   */
+  useEffect(() => {
+    warmBackend();
+  }, []);
+
   useEffect(() => {
     const supabase = createClient();
     supabase.auth.getSession().then(({ data }) => {
@@ -234,6 +252,7 @@ export default function HomePage() {
         setUsage(null);
         setBatchGames([]);
         setBatchId(null);
+        setAnalysisId(null);
       }
     });
     return () => subscription.subscription.unsubscribe();
@@ -250,6 +269,7 @@ export default function HomePage() {
     setInsights(null);
     setBatchGames([]);
     setBatchId(null);
+    setAnalysisId(null);
   }, []);
 
   const startAnalysis = useCallback(
@@ -267,6 +287,23 @@ export default function HomePage() {
       resetAnalysisState();
       setStatus("Connecting...");
       setIsAnalyzing(true);
+
+      const startedAt = Date.now();
+      let completionTracked = false;
+      const trackCompletion = (success: boolean) => {
+        if (completionTracked) {
+          return;
+        }
+        completionTracked = true;
+        trackEvent("analysis_complete", {
+          platform: request.platform,
+          isBatch: false,
+          gameCount: 1,
+          success,
+          durationMs: Date.now() - startedAt,
+          signedIn: Boolean(accessToken),
+        });
+      };
 
       await streamPost(
         `${API_BASE}/api/stream-analysis`,
@@ -297,6 +334,10 @@ export default function HomePage() {
               flushStreamContent();
               setStatus("Analysis complete");
               setIsAnalyzing(false);
+              trackCompletion(true);
+              if (payload.analysis_id) {
+                setAnalysisId(payload.analysis_id);
+              }
               if (payload.usage) {
                 setUsage(payload.usage);
               }
@@ -314,11 +355,17 @@ export default function HomePage() {
             } else if (eventName === "error") {
               flushStreamContent();
               if (payload.code === "guest_limit") {
+                trackEvent("analysis_blocked", {
+                  code: "guest_limit",
+                  isBatch: false,
+                  signedIn: Boolean(accessToken),
+                });
                 setGuestLimitHit(true);
                 setStatus("");
                 setIsAnalyzing(false);
                 return;
               }
+              trackCompletion(false);
               setError(payload.message ?? "Analysis failed.");
               setStatus("");
               setIsAnalyzing(false);
@@ -329,12 +376,22 @@ export default function HomePage() {
           },
           onError: (message, code, _feature) => {
             if (code === "guest_limit") {
+              trackEvent("analysis_blocked", {
+                code: "guest_limit",
+                isBatch: false,
+                signedIn: Boolean(accessToken),
+              });
               setGuestLimitHit(true);
               setStatus("");
               setIsAnalyzing(false);
               return;
             }
             if (code === "upgrade_required") {
+              trackEvent("analysis_blocked", {
+                code: "upgrade_required",
+                isBatch: false,
+                signedIn: Boolean(accessToken),
+              });
               if (accessToken) {
                 refreshUsage(accessToken);
               }
@@ -343,6 +400,11 @@ export default function HomePage() {
               return;
             }
             if (code === "limit_reached" || code === "insufficient_credits") {
+              trackEvent("analysis_blocked", {
+                code,
+                isBatch: false,
+                signedIn: Boolean(accessToken),
+              });
               setError(message);
               if (accessToken) {
                 refreshUsage(accessToken);
@@ -351,6 +413,7 @@ export default function HomePage() {
               setIsAnalyzing(false);
               return;
             }
+            trackCompletion(false);
             setError(message);
             setStatus("");
             setIsAnalyzing(false);
@@ -383,6 +446,23 @@ export default function HomePage() {
       setStatus("Connecting...");
       setIsAnalyzing(true);
 
+      const startedAt = Date.now();
+      let completionTracked = false;
+      const trackCompletion = (success: boolean) => {
+        if (completionTracked) {
+          return;
+        }
+        completionTracked = true;
+        trackEvent("analysis_complete", {
+          platform: request.platform,
+          isBatch: true,
+          gameCount: request.games.length,
+          success,
+          durationMs: Date.now() - startedAt,
+          signedIn: Boolean(token),
+        });
+      };
+
       await streamPost(
         `${API_BASE}/api/stream-batch-analysis`,
         token,
@@ -407,7 +487,10 @@ export default function HomePage() {
               opening_name?: string | null;
               result?: string | null;
             };
-            if (eventName === "batch_started") {
+            if (eventName === "status_update" && payload.message) {
+              // The transport emits this while a sleeping free-tier backend boots.
+              setStatus(payload.message);
+            } else if (eventName === "batch_started") {
               if (payload.games) {
                 setBatchGames(
                   payload.games.map((game) => ({
@@ -483,6 +566,7 @@ export default function HomePage() {
               flushStreamContent();
               setStatus("Analysis complete");
               setIsAnalyzing(false);
+              trackCompletion(true);
               if (payload.batch_id) {
                 setBatchId(payload.batch_id);
               }
@@ -493,6 +577,7 @@ export default function HomePage() {
               refreshHistory(token);
             } else if (eventName === "error") {
               flushStreamContent();
+              trackCompletion(false);
               setError(payload.message ?? "Analysis failed.");
               setStatus("");
               setIsAnalyzing(false);
@@ -501,18 +586,29 @@ export default function HomePage() {
           },
           onError: (message, code, _feature) => {
             if (code === "upgrade_required") {
+              trackEvent("analysis_blocked", {
+                code: "upgrade_required",
+                isBatch: true,
+                signedIn: Boolean(token),
+              });
               refreshUsage(token);
               setStatus("");
               setIsAnalyzing(false);
               return;
             }
             if (code === "limit_reached" || code === "insufficient_credits") {
+              trackEvent("analysis_blocked", {
+                code,
+                isBatch: true,
+                signedIn: Boolean(token),
+              });
               setError(message);
               refreshUsage(token);
               setStatus("");
               setIsAnalyzing(false);
               return;
             }
+            trackCompletion(false);
             setError(message);
             setStatus("");
             setIsAnalyzing(false);
@@ -538,6 +634,7 @@ export default function HomePage() {
     setInsights(null);
     setBatchGames([]);
     setBatchId(null);
+    setAnalysisId(null);
   }, []);
 
   const recentEntries = useMemo(
@@ -586,11 +683,14 @@ export default function HomePage() {
 
       <section className="hero">
         <div className="hero-copy">
-          <h1 className="hero-title">Turn a finished game into your next lesson.</h1>
+          <h1 className="hero-title">Your AI chess game analyzer</h1>
+          <p className="hero-subtitle">
+            Turn a finished game into your next lesson.
+          </p>
           <p className="hero-lede">
-            The smart AI chess game analyzer for Chess.com and Lichess. Get
-            instant, plain-English coaching reports, uncover hidden tactical
-            blunders, and master your opening repertoire in minutes.
+            Paste a Lichess or Chess.com game and get a plain-English coaching
+            report: what you did well, the moves that cost you, and the one rule
+            to carry into your next game.
           </p>
 
           {user && quotaExhausted ? (
@@ -656,6 +756,20 @@ export default function HomePage() {
         </aside>
       </section>
 
+      {/* The report is the product: it renders immediately below the form, so a
+          submitted game is visible without scrolling past the marketing bands.
+          The guide and the unlock band follow it instead of blocking it. */}
+      {(isAnalyzing || markdown) && (
+        <CoachingReport
+          content={markdown}
+          insights={insights}
+          pending={isAnalyzing}
+          analysisId={analysisId}
+        />
+      )}
+
+      <AnalyzerGuide />
+
       <section className="mindset-callout" aria-labelledby="mindset-title">
         <div className="mindset-copy">
           <p className="mindset-kicker">Progressive unlock</p>
@@ -688,14 +802,6 @@ export default function HomePage() {
           </span>
         </div>
       </section>
-
-      {(isAnalyzing || markdown) && (
-        <CoachingReport
-          content={markdown}
-          insights={insights}
-          pending={isAnalyzing}
-        />
-      )}
 
       {markdown && !user && <GuestQnaPrompt moveLabel={guestBlunderLabel} />}
 

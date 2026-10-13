@@ -18,6 +18,8 @@ type DrillSectionProps = {
   psychology?: PsychologyProfile | null;
   anchorId?: string;
   fallback?: ReactNode;
+  /** Analysis the moments belong to; enables engine-backed validation. */
+  analysisId?: string | null;
 };
 
 /** Name the clock level where the player blunders most often. */
@@ -44,6 +46,7 @@ export default function DrillSection({
   psychology,
   anchorId = "drills",
   fallback,
+  analysisId,
 }: DrillSectionProps) {
   const drills = [...moments]
     .filter(isDrillable)
@@ -96,6 +99,7 @@ export default function DrillSection({
                 moment={moment}
                 insights={insights}
                 index={index}
+                analysisId={analysisId}
               />
             ))}
           </div>

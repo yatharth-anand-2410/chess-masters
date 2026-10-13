@@ -6,9 +6,14 @@ export const CONTACT_EMAIL = "info@chessmasterss.in";
 export const SITE_DESCRIPTION =
   "Chessmasters is an AI chess game analyzer that turns your Chess.com and Lichess games into plain-English coaching reports covering Strengths, Weaknesses, Game Overview, Focus Areas, and Resources.";
 
-/** Short marketing description used for meta tags. */
+/**
+ * Short marketing description used for meta tags, OpenGraph, and schema.
+ * Kept under ~155 characters so Google does not truncate the snippet; leads
+ * with the category head term and carries the real differentiator (coaching
+ * logic designed with a FIDE Arena International Master).
+ */
 export const SITE_META_DESCRIPTION =
-  "The smart AI chess game analyzer for Chess.com and Lichess. Get instant, plain-English coaching reports, uncover hidden tactical blunders, and master your opening repertoire in minutes.";
+  "AI chess game analyzer for Chess.com and Lichess. Plain-English coaching reports designed with a FIDE Arena International Master (2300+ peak rating).";
 
 export const SITE_TAGLINE = "AI Chess Game Analyzer";
 

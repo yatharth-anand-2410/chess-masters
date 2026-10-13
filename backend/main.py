@@ -5,8 +5,10 @@ import hashlib
 import json
 import logging
 import os
+import time
+from collections import deque
 from datetime import datetime, timezone
-from typing import AsyncIterator, Dict, Optional
+from typing import AsyncIterator, Deque, Dict, Optional
 
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, HTTPException, Request
@@ -140,6 +142,34 @@ def _limit_reached_detail(
 
 
 MAX_BATCH_GAMES = 5
+
+# Attempt-a-move validation runs Stockfish for every legal attempt, so signed-in
+# players are throttled per account. The window is deliberately generous: a
+# person drilling a position makes a handful of tries a minute, not hundreds.
+ATTEMPT_RATE_LIMIT_CALLS = 30
+ATTEMPT_RATE_LIMIT_WINDOW_SECONDS = 60.0
+
+_attempt_call_times: Dict[str, Deque[float]] = {}
+
+
+def _enforce_attempt_rate_limit(user_id: str) -> None:
+    """Sliding-window throttle for drill validation, keyed per account.
+
+    State lives in-process, so with multiple workers the effective limit is per
+    worker; that is sufficient to stop a single client from hammering the board
+    while keeping the implementation dependency-free.
+    """
+    now = time.monotonic()
+    cutoff = now - ATTEMPT_RATE_LIMIT_WINDOW_SECONDS
+    bucket = _attempt_call_times.setdefault(user_id, deque())
+    while bucket and bucket[0] < cutoff:
+        bucket.popleft()
+    if len(bucket) >= ATTEMPT_RATE_LIMIT_CALLS:
+        raise HTTPException(
+            status_code=429,
+            detail="Too many move checks in a row. Please pause a moment and try again.",
+        )
+    bucket.append(now)
 
 
 def _batch_limit_detail(usage: dict, required: int) -> dict:
@@ -551,6 +581,7 @@ async def stream_batch_analysis(
         batch_id: Optional[str] = None
         completed: list[dict[str, object]] = []
         credits_refunded = 0
+        game_error_messages: list[str] = []
         pool: Optional[engine.EnginePool] = None
         extract_tasks: list[asyncio.Task] = []
         try:
@@ -689,6 +720,7 @@ async def stream_batch_analysis(
                         )
                     await _refund_analysis_credits(user_id, 1)
                     credits_refunded += 1
+                    game_error_messages.append(str(exc))
                     yield sse_event(
                         "game_error", {"index": index, "message": str(exc)}
                     )
@@ -705,11 +737,13 @@ async def stream_batch_analysis(
                         )
                     await _refund_analysis_credits(user_id, 1)
                     credits_refunded += 1
+                    generic_message = "This game could not be analyzed."
+                    game_error_messages.append(generic_message)
                     yield sse_event(
                         "game_error",
                         {
                             "index": index,
-                            "message": "This game could not be analyzed.",
+                            "message": generic_message,
                         },
                     )
 
@@ -718,6 +752,11 @@ async def stream_batch_analysis(
                     "None of the games could be analyzed. "
                     "Check the links and try again."
                 )
+                if game_error_messages:
+                    message = (
+                        f"None of the games could be analyzed. "
+                        f"{game_error_messages[0]}"
+                    )
                 await asyncio.to_thread(
                     db.update_batch,
                     user_id,
@@ -897,6 +936,45 @@ async def get_analysis(
         except ValueError:
             analysis["insights"] = {}
     return {"analysis": analysis, "messages": messages}
+
+
+class AttemptRequest(BaseModel):
+    fen: str
+    played: str
+    eval_before_pawns: Optional[float] = None
+
+
+@app.post("/api/analyses/{analysis_id}/attempt")
+async def evaluate_analysis_attempt(
+    analysis_id: str,
+    payload: AttemptRequest,
+    user: Dict[str, object] = Depends(get_current_user),
+) -> dict:
+    """Grade a replay-your-mistake attempt with a real engine evaluation.
+
+    Requires auth and ownership of the analysis: the drills live behind sign-in
+    and this call spends CPU on Stockfish, so an anonymous or borrowed id must
+    not reach it. The analysis row is only used to authorise the request; the
+    position itself comes from the moment the client is already showing.
+    """
+    analysis = await asyncio.to_thread(db.get_analysis, str(user["id"]), analysis_id)
+    if not analysis:
+        raise HTTPException(status_code=404, detail="Analysis not found.")
+
+    fen = payload.fen.strip()
+    played = payload.played.strip()
+    if not fen or not played:
+        raise HTTPException(
+            status_code=400, detail="Both fen and played are required."
+        )
+
+    _enforce_attempt_rate_limit(str(user["id"]))
+    return await asyncio.to_thread(
+        engine.evaluate_attempt,
+        fen,
+        played,
+        eval_before_pawns=payload.eval_before_pawns,
+    )
 
 
 REVIEW_COMMENT_MAX_LENGTH = 500

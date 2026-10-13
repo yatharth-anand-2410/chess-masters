@@ -195,6 +195,19 @@ body {
   letter-spacing: -0.02em;
 }
 
+/* Subheading tier: display face at weight 500 sits below the 600-weight H1 and
+   stays a full step above the muted 1.08rem lede at every viewport. */
+.hero-subtitle {
+  max-width: 46ch;
+  margin: 0 0 1.15rem;
+  color: var(--text);
+  font-family: var(--font-display);
+  font-size: clamp(1.18rem, 1.9vw, 1.3rem);
+  font-weight: 500;
+  line-height: 1.35;
+  letter-spacing: -0.01em;
+}
+
 .hero-lede {
   max-width: 46ch;
   margin: 0 0 1.9rem;
@@ -1531,6 +1544,158 @@ body {
 
 .critical-board .cg-custom-highlight {
   background: rgba(201, 153, 63, 0.5) !important;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Insight board cards (components/SectionInsightBoards.tsx)                   */
+/*                                                                            */
+/* Layout decision: these cards always render inside .section-boards, whose    */
+/* auto-fill minmax(320px, 1fr) tracks land between ~320px and ~490px at every */
+/* breakpoint the app ships. Splitting that width into a board plus a text     */
+/* column would leave the coaching copy under ~25ch, so the body is an         */
+/* explicit SINGLE-COLUMN grid: board stacked above text. No container query   */
+/* is used because no card is ever wide enough to earn a second track. Grid    */
+/* items do not collapse margins, so the vertical rhythm here is owned by the  */
+/* grid gap, which keeps the stacked, .no-board and .board-only variants       */
+/* evenly spaced.                                                             */
+/* -------------------------------------------------------------------------- */
+
+.insight-card-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.75rem;
+}
+
+/* Board column: a diagram-sized board, left-aligned like the rest of the
+   report, so it reads as evidence for the note rather than as the card. */
+.insight-board {
+  max-width: 260px;
+  min-width: 0;
+}
+
+/* Board above text: the text column carries .insight-block margins that would
+   otherwise stack on top of the grid gap, doubling the space after the board. */
+.insight-board + .insight-card-text .insight-block:first-child {
+  margin-top: 0;
+}
+
+/* Text column: a comfortable reading measure that the 320px cards never reach,
+   and that keeps wide cards from running to an over-long line. */
+.insight-card-text {
+  min-width: 0;
+  max-width: 58ch;
+}
+
+/* No board: the body holds a single track, so no board spacing is left behind.
+   Zeroing the gap states that explicitly instead of relying on there being no
+   second track to space. */
+.insight-card-body.no-board {
+  gap: 0;
+}
+
+/* Board with nothing to say: the text column is still emitted, and as a grid
+   item it would claim a full row plus gap of blank space at the card foot. */
+.insight-card-body.board-only .insight-card-text {
+  display: none;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Clock evidence + deeper-analysis disclosure (SectionInsightBoards.tsx)      */
+/*                                                                            */
+/* Clock data only exists for games whose source carried clocks, so every rule */
+/* below styles an element the component emits only when it holds a real       */
+/* reading. Nothing here is reserved for a value that is absent.               */
+/* -------------------------------------------------------------------------- */
+
+/* Evidence sits inside the note's own block, on the note's measure, so it
+   reads as supporting detail rather than as card chrome. */
+.insight-evidence {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.3rem 0.75rem;
+  margin-top: 0.4rem;
+}
+
+/* Tabular figures keep the duration and the clock from shifting the line. */
+.insight-stat {
+  color: var(--ink-muted);
+  font-family: var(--font-display);
+  font-size: 0.86rem;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The rushed reply is the most actionable fact on the card, so it is the one
+   piece of evidence given the paper accent. `--gold` is shell-only and is never
+   text on parchment. */
+.insight-rush {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  color: var(--teal);
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+.insight-rush::before {
+  content: "";
+  align-self: center;
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+/* Disclosure. Mirrors the DrillCard pattern: a controlled `open` state driving
+   an `is-open` class, with only the chevron rotating. */
+.insight-more {
+  margin-top: 0.5rem;
+}
+
+.insight-more-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.15rem 0;
+  background: transparent;
+  border: 0;
+  color: var(--bronze);
+  font-family: var(--font-body);
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.insight-more-toggle:hover {
+  color: var(--teal);
+}
+
+.insight-more-toggle:focus-visible {
+  outline: 2px solid var(--teal);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.insight-more-icon {
+  width: 15px;
+  height: 15px;
+  transition: transform 0.18s ease;
+}
+
+.insight-more.is-open .insight-more-icon {
+  transform: rotate(180deg);
+}
+
+/* The open panel hangs off a hairline so the extra depth reads as a sub-level
+   of the note instead of as a second card. */
+.insight-more-panel {
+  margin-top: 0.15rem;
+  padding-left: 0.75rem;
+  border-left: 1px solid var(--paper-line);
+}
+
+.insight-more-panel > .insight-block:first-child {
+  margin-top: 0.5rem;
 }
 
 .resource-links {
@@ -3771,6 +3936,94 @@ html {
   color: var(--ink-muted-2);
   font-size: 0.85rem;
   line-height: 1.5;
+}
+
+/* Engine-graded attempt feedback, shown directly under the board so a failed
+   try explains itself instead of only reverting the piece. */
+.drill-attempt-note {
+  max-width: none;
+  margin: 0.55rem 0 0;
+  padding: 0.45rem 0.65rem;
+  border-radius: 6px;
+  font-size: 0.84rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.drill-attempt-success {
+  color: var(--do);
+  background: rgba(47, 107, 98, 0.1);
+  border: 1px solid rgba(47, 107, 98, 0.3);
+}
+
+.drill-attempt-error {
+  color: var(--dont-deep);
+  background: rgba(169, 79, 66, 0.1);
+  border: 1px solid rgba(156, 71, 57, 0.28);
+}
+
+.drill-attempt-info {
+  color: var(--ink-muted-2);
+  background: rgba(125, 90, 28, 0.1);
+  border: 1px solid rgba(125, 90, 28, 0.25);
+}
+
+/* Promotion picker: chessground leaves the pawn on the last rank, so the
+   player chooses the piece before the move is graded. */
+.drill-promotion {
+  margin: 0.55rem 0 0;
+  padding: 0.55rem 0.7rem;
+  border-radius: 6px;
+  background: var(--paper);
+  border: 1px solid var(--paper-line);
+}
+
+.drill-promotion-label {
+  display: block;
+  margin-bottom: 0.4rem;
+  color: var(--ink-muted-2);
+  font-size: 0.76rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.drill-promotion-options {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.drill-promotion-btn {
+  width: 2.35rem;
+  height: 2.35rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.4rem;
+  line-height: 1;
+  color: var(--ink);
+  background: var(--paper-2);
+  border: 1px solid var(--paper-line);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.drill-promotion-btn:hover {
+  border-color: var(--bronze-deep);
+}
+
+.drill-promotion-cancel {
+  margin-left: auto;
+  padding: 0.35rem 0.6rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--ink-muted-2);
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-decoration: underline;
 }
 
 .drill-foot {

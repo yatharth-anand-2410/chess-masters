@@ -75,6 +75,40 @@ def test_eval_reuse_needs_no_engine():
     assert result.statistics == {"blunder": 0, "mistake": 0, "inaccuracy": 0}
 
 
+def test_analyze_game_rejects_non_pgn_body():
+    """An HTML body must surface as EngineError, never as an IndexError."""
+    analyzer = engine.StockfishAnalyzer(
+        depth=1, engine_path="definitely-not-a-real-binary"
+    )
+    html = '<!DOCTYPE html><html lang="en-GB"><body>Not found</body></html>'
+    try:
+        analyzer.analyze_game(html, player_color="white")
+        raise AssertionError("expected EngineError for a non-PGN body")
+    except engine.EngineError as exc:
+        assert "PGN" in str(exc)
+
+
+def test_analyze_game_wraps_parser_index_error():
+    """python-chess raises IndexError on some HTML bodies; wrap it, never leak."""
+    analyzer = engine.StockfishAnalyzer(
+        depth=1, engine_path="definitely-not-a-real-binary"
+    )
+
+    def broken_read_game(*args, **kwargs):
+        raise IndexError("list index out of range")
+
+    original = engine.chess.pgn.read_game
+    try:
+        engine.chess.pgn.read_game = broken_read_game
+        try:
+            analyzer.analyze_game("1. e4 e5 *", player_color="white")
+            raise AssertionError("expected EngineError for a parser IndexError")
+        except engine.EngineError as exc:
+            assert str(exc) == "Could not parse the game PGN."
+    finally:
+        engine.chess.pgn.read_game = original
+
+
 def test_partial_evals_fall_back_to_engine():
     if not os.environ.get("STOCKFISH_PATH") and not shutil.which("stockfish"):
         print("SKIP (no stockfish binary)")

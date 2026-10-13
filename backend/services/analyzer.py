@@ -9,7 +9,7 @@ from typing import AsyncIterator, Dict, List
 from google import genai
 from google.genai import errors, types
 
-from services import extractor
+from services import extractor, principles, psychology
 
 logger = logging.getLogger("uvicorn.error")
 
@@ -285,14 +285,23 @@ async def stream_coaching_report(
 MOMENT_COACH_SYSTEM_INSTRUCTION = """You are an experienced chess coach writing the short note that appears next to a key position board in a student's game report (Elo 800-1800).
 
 For every moment you receive, write:
-- description: 1-3 sentences explaining what is happening in this position and why the student's played move worked (kind "strength") or what went wrong with it (kind "weakness"). Name the concrete pieces, squares, files, and threats involved.
-- better_idea: for kind "weakness" only, 1-2 sentences explaining what the stronger move accomplishes, the follow-up idea, or the threat it prevents.
+- description: exactly ONE sentence, roughly 90-140 characters, naming the concrete move, the piece, and the square involved. For kind "strength" it says what the played move accomplished; for kind "weakness" it says what went wrong with it. It must NOT restate the rule and must NOT explain brain psychology — that is what the mechanism field is for. This is the only sentence shown on the card face, so make it land on its own. Required for every moment so older notes keep rendering.
+- better_idea: for kind "weakness" only, 1-2 sentences explaining what the stronger move accomplishes, the follow-up idea, or the threat it prevents. Use an empty string for kind "strength".
+- observed: for kind "weakness" only, the one concrete fact you can point to in this position, quoting the exact number from the supplied clock evidence when there is any (for example "you played your very next move in 1 second"). For kind "strength" use an empty string.
+- mechanism: for kind "weakness" only, AT MOST TWO sentences in plain language explaining why a human brain does this in the moment (for example the urge to fix a mistake instantly). Always reword it for this exact position and this exact student rather than copying a supplied principle, and never reuse the same sentence wording across two different moments in the same response: each moment's wording must be specific to that position. For kind "strength" use an empty string.
+- rule: for kind "weakness" only, ONE physical action the student performs at the board before their next move. It must be something the hands can do, not advice (write "take your hand off the mouse and count to three", never "be more careful"). For kind "strength" use an empty string.
 
 Rules:
+- For kind "weakness" the observed, mechanism, and rule fields are mandatory and must be written: they are the lesson, not decoration.
+- Never reuse the same sentence wording across two different moments in the same response. Two moments that share a root cause must still be described with wording that is specific to that position and that student.
 - Write in plain, human chess language addressed to the student ("you/your").
-- Ground every sentence in the supplied evidence: the position, the played move, the stronger move, the continuation, detected motifs, blind spots, opening knowledge, and tablebase verdicts.
+- Ground every sentence in the supplied evidence: the position, the played move, the stronger move, the continuation, detected motifs, blind spots, opening knowledge, tablebase verdicts, and the clock evidence (player_seconds_spent, player_clock_remaining, next_move, post_error_rush).
 - Never mention the engine, evaluations, centipawns, or "the best move". Never justify a move by saying the engine prefers it; explain the chess idea behind it.
 - Never use filler like "this was a strong move" or "you matched the engine". Explain the chess reason.
+- Never state a number that is not present in the evidence. When there is no clock evidence, observed must describe the concrete features of the position instead of a figure.
+- post_error_rush marks the move that came straight after the student's own error and was played very fast: when it is true, tie observed, mechanism, and rule to that rush.
+- A moment may carry a principles list: curated, human-reviewed coaching principles (id, title, mechanism, rule and, for weakness moments, an observed sentence built from that moment's own evidence). When principles are supplied they are the preferred source for mechanism and rule — keep the principle's idea but reword it for this exact position and this student. Never copy their wording verbatim, and never quote a principle id or title.
+- A principle's observed sentence already uses numbers taken from the evidence; you may reuse it, but never introduce a figure it does not contain.
 - If the evidence is thin, describe the concrete features of the position: material, king safety, development, pawn structure, open lines, hanging pieces, and both sides' plans.
 - Return exactly one entry per moment id you were given, using the same id."""
 
@@ -307,8 +316,18 @@ MOMENT_DESCRIPTION_SCHEMA = {
                     "id": {"type": "string"},
                     "description": {"type": "string"},
                     "better_idea": {"type": "string"},
+                    "observed": {"type": "string"},
+                    "mechanism": {"type": "string"},
+                    "rule": {"type": "string"},
                 },
-                "required": ["id", "description"],
+                "required": [
+                    "id",
+                    "description",
+                    "better_idea",
+                    "observed",
+                    "mechanism",
+                    "rule",
+                ],
             },
         }
     },
@@ -339,6 +358,21 @@ def _moment_evidence(
         "eval_before_pawns": moment.get("eval_before_pawns"),
         "eval_after_pawns": moment.get("eval_after_pawns"),
     }
+    player_seconds = moment.get("seconds_spent")
+    if player_seconds is not None:
+        evidence["player_seconds_spent"] = player_seconds
+    player_clock = moment.get("clock_remaining")
+    if player_clock is not None:
+        evidence["player_clock_remaining"] = player_clock
+    next_move = moment.get("next_move")
+    if isinstance(next_move, dict) and next_move.get("san"):
+        following: Dict[str, object] = {"san": next_move.get("san")}
+        next_seconds = next_move.get("seconds_spent")
+        if next_seconds is not None:
+            following["seconds_spent"] = next_seconds
+        evidence["next_move"] = following
+    if moment.get("post_error_rush"):
+        evidence["post_error_rush"] = True
     motif = moment.get("motif")
     if motif:
         evidence["motif"] = motif
@@ -362,6 +396,81 @@ def _moment_evidence(
     return evidence
 
 
+def _moment_signals(evidence: Dict[str, object]) -> List[str]:
+    """Derive the psychology signal names present in one moment's evidence.
+
+    Only names that :mod:`services.psychology` already computes are used, and a
+    signal is only reported when the evidence really carries it, so a missing
+    clock never turns into a rushed move.
+    """
+    signals: List[str] = []
+    if evidence.get("post_error_rush"):
+        signals.append("post_error_rush")
+
+    seconds = evidence.get("player_seconds_spent")
+    if isinstance(seconds, (int, float)) and not isinstance(seconds, bool):
+        if float(seconds) <= psychology.RUSHED_MOVE_SECONDS:
+            signals.append("rushed_blunders")
+
+    clock = evidence.get("player_clock_remaining")
+    if isinstance(clock, (int, float)) and not isinstance(clock, bool):
+        if float(clock) <= psychology.TIME_TROUBLE_FLOOR_SECONDS:
+            signals.append("time_pressure")
+
+    if evidence.get("kind") == "strength":
+        before = evidence.get("eval_before_pawns")
+        if isinstance(before, (int, float)) and not isinstance(before, bool):
+            if float(before) >= psychology.WINNING_EVAL_PAWNS:
+                signals.append("reached_winning_position")
+    return signals
+
+
+# Only these fields are sent to the model. The rest of a library entry is
+# authoring metadata (id, signals, motifs, phases, concept_source, review
+# fields). `observed_template` must NEVER be sent: it holds raw
+# "{placeholder}" text, and a model shown it alongside the filled sentence can
+# echo an unfilled slot into a paid user's report.
+PRINCIPLE_PROMPT_FIELDS = ("title", "mechanism", "rule", "observed")
+
+
+def _attach_principles(evidence: Dict[str, object]) -> None:
+    """Attach curated coaching principles to one moment's evidence.
+
+    The library is optional: when it is empty or nothing matches, no key is
+    added, so the payload stays exactly what it was without the library. Only
+    :data:`PRINCIPLE_PROMPT_FIELDS` are copied, keeping authoring metadata out
+    of the prompt. The rendered ``observed`` is only produced for weakness
+    moments, matching the per-kind empty-string rules in
+    ``MOMENT_COACH_SYSTEM_INSTRUCTION``.
+    """
+    motif = evidence.get("motif")
+    phase = evidence.get("phase")
+    selected = principles.principles_for(
+        signals=_moment_signals(evidence),
+        motif=motif if isinstance(motif, str) else None,
+        phase=phase if isinstance(phase, str) else None,
+    )
+    if not selected:
+        return
+
+    weakness = evidence.get("kind") == "weakness"
+    attached: List[Dict[str, object]] = []
+    for entry in selected:
+        item: Dict[str, object] = {
+            field: entry[field]
+            for field in PRINCIPLE_PROMPT_FIELDS
+            if isinstance(entry.get(field), str) and entry[field]
+        }
+        if weakness:
+            observed = principles.render_observed(entry, evidence)
+            if observed:
+                item["observed"] = observed
+        if item:
+            attached.append(item)
+    if attached:
+        evidence["principles"] = attached
+
+
 def _build_moment_payload(engine_data: Dict[str, object]) -> Dict[str, object]:
     moments: List[Dict[str, object]] = []
     for kind, key in (("strength", "strength_moments"), ("weakness", "weakness_moments")):
@@ -370,7 +479,9 @@ def _build_moment_payload(engine_data: Dict[str, object]) -> Dict[str, object]:
             continue
         for index, moment in enumerate(entries):
             if isinstance(moment, dict):
-                moments.append(_moment_evidence(f"{kind}-{index}", kind, moment))
+                evidence = _moment_evidence(f"{kind}-{index}", kind, moment)
+                _attach_principles(evidence)
+                moments.append(evidence)
     return {
         "player_color": engine_data.get("player_color"),
         "moments": moments,
@@ -430,6 +541,9 @@ async def describe_moments(
         descriptions[moment_id] = {
             "description": str(entry.get("description") or "").strip(),
             "better_idea": str(entry.get("better_idea") or "").strip(),
+            "observed": str(entry.get("observed") or "").strip(),
+            "mechanism": str(entry.get("mechanism") or "").strip(),
+            "rule": str(entry.get("rule") or "").strip(),
         }
     return descriptions
 
@@ -452,10 +566,27 @@ def merge_moment_descriptions(
             if not entry:
                 continue
             description = entry.get("description")
-            if description:
-                moment["note"] = description
             better_idea = entry.get("better_idea")
-            if kind == "weakness" and better_idea:
+            observed = entry.get("observed")
+            mechanism = entry.get("mechanism")
+            rule = entry.get("rule")
+            # The card face is ONE sentence for both kinds: the model's
+            # per-moment ``description``. The old weakness note concatenated
+            # ``observed + mechanism + rule`` into a 12-line wall, and two
+            # moments that retrieved the same principle rendered identical
+            # text. ``observed`` is only the fallback so a card is never blank.
+            note = description or observed
+            if note:
+                moment["note"] = note
+            # Keep the richer fields stored: the disclosure panel renders
+            # ``mechanism`` and future UI can still consume the rest.
+            if observed:
+                moment["observed"] = observed
+            if mechanism:
+                moment["mechanism"] = mechanism
+            if rule:
+                moment["rule"] = rule
+            if better_idea:
                 moment["better_move_idea"] = better_idea
 
 

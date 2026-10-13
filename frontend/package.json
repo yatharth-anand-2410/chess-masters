@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "check:drill-board": "node scripts/drill-board-turn-check.mjs",
+    "check:backend-wake": "node scripts/backend-wake-check.mjs"
   },
   "dependencies": {
     "@lichess-org/chessground": "^10.4.0",

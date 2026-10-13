@@ -48,6 +48,17 @@ export type TablebaseInsight = {
   } | null;
 };
 
+/**
+ * The move the player made immediately after one of their own errors.
+ *
+ * Only present when the source carried clocks, and it is the reply that
+ * `post_error_rush` describes.
+ */
+export type FollowingMove = {
+  san: string;
+  seconds_spent?: number;
+};
+
 export type InsightMoment = {
   move_number: number;
   san: string;
@@ -58,11 +69,43 @@ export type InsightMoment = {
   fen_before: string;
   played_move?: string;
   player_color?: "white" | "black";
+  /**
+   * Clock evidence for this move. The key names mirror
+   * `backend/services/analyzer.py::_moment_evidence` verbatim.
+   *
+   * Each key is omitted entirely when the game carried no clock (most Chess.com
+   * games, some Lichess games), so an absent field means "no data" and must
+   * render as nothing rather than as a zero or a placeholder.
+   */
+  player_seconds_spent?: number | null;
+  /** The player's remaining clock after this move, in seconds. */
+  player_clock_remaining?: number | null;
+  next_move?: FollowingMove | null;
+  /** True when the reply above was played at or below the rushed-move threshold. */
+  post_error_rush?: boolean;
+  /**
+   * Interchange aliases for the two readings above. `_attach_clock_context` in
+   * `backend/services/recommendations.py` projects the same per-move facts onto
+   * the stored moments under these names, so both payload shapes are accepted
+   * and render identically. The `player_*` keys win when both are present.
+   */
+  seconds_spent?: number | null;
+  clock_remaining?: number | null;
+  /** White-perspective evaluation (in pawns) before the mistake. */
+  eval_before_pawns?: number | null;
   best_move_san?: string | null;
   motif?: string | null;
   motif_details?: string | null;
   resource_theme?: string | null;
   note?: string | null;
+  /**
+   * The weakness-only lesson fields. They are no longer concatenated into
+   * `note` (the card face is a single sentence), but they are still stored and
+   * `mechanism` is rendered inside the "Deeper analysis" disclosure.
+   */
+  mechanism?: string | null;
+  observed?: string | null;
+  rule?: string | null;
   better_move_idea?: string | null;
   highlight_squares?: string[];
   arrows?: BoardArrow[];

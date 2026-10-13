@@ -32,13 +32,35 @@ def test_lichess_plain_url_no_color():
     assert needs_resolve is False
 
 
-def test_lichess_mangled_url():
+def test_lichess_share_url_truncates_to_first_eight():
+    """Lichess itself parses the first eight characters, so URLs like the
+    user's https://lichess.org/dVix3Oe8o7Oo must resolve to game dVix3Oe8."""
     game_id, color, needs_resolve = extractor.extract_lichess_game_meta(
         "https://lichess.org/dVix3Oe8o7Oo"
     )
     assert game_id == "dVix3Oe8"
     assert color is None
+    # The trailing characters mean the colour must be looked up by redirect.
     assert needs_resolve is True
+
+
+def test_lichess_twelve_char_id_resolves_to_prefix():
+    game_id, color, needs_resolve = extractor.extract_lichess_game_meta(
+        "https://lichess.org/BqiwV3t9TXqV"
+    )
+    assert game_id == "BqiwV3t9"
+    assert color is None
+    assert needs_resolve is True
+
+
+def test_lichess_eight_char_id_still_works():
+    game_id, color, needs_resolve = extractor.extract_lichess_game_meta(
+        "https://lichess.org/zR8HRccT"
+    )
+    assert game_id == "zR8HRccT"
+    assert len(game_id) == 8
+    assert color is None
+    assert needs_resolve is False
 
 
 def test_lichess_invalid_url():
@@ -47,6 +69,15 @@ def test_lichess_invalid_url():
         raise AssertionError("expected InvalidGameUrlError")
     except extractor.InvalidGameUrlError:
         pass
+
+
+def test_lichess_malformed_id_rejected():
+    """A path with no eight-character run is still rejected."""
+    try:
+        extractor.extract_lichess_game_meta("https://lichess.org/abc12")
+        raise AssertionError("expected InvalidGameUrlError")
+    except extractor.InvalidGameUrlError as exc:
+        assert "8-character" in str(exc)
 
 
 def test_lichess_url_with_query():
@@ -84,6 +115,236 @@ def test_lichess_reserved_path():
         pass
 
 
+class _FakeResponse:
+    def __init__(self, status_code, text="", headers=None, payload=None):
+        self.status_code = status_code
+        self.text = text
+        self.headers = headers or {}
+        self._payload = payload
+
+    def json(self):
+        if self._payload is None:
+            raise ValueError("this fake response carries no JSON payload")
+        return self._payload
+
+
+def test_lichess_html_response_is_not_a_pgn():
+    """Lichess serves its HTML error page with a 200, so status is not enough."""
+    original_get = extractor._get
+
+    try:
+        extractor._get = lambda url, params=None, allow_redirects=True: _FakeResponse(
+            200, '<!DOCTYPE html><html lang="en-GB"><body>Not found</body></html>'
+        )
+        try:
+            extractor.fetch_lichess_pgn("dVix3Oe8")
+            raise AssertionError("expected ExtractionError for an HTML body")
+        except extractor.ExtractionError as exc:
+            assert "could not be found on Lichess" in str(exc)
+    finally:
+        extractor._get = original_get
+
+
+def test_lichess_signup_redirect_names_the_real_cause():
+    """A 303 to /signup is Lichess refusing an unrated/anonymous game, not a
+    missing game; the message must say so."""
+    original_get = extractor._get
+
+    try:
+        extractor._get = lambda url, params=None, allow_redirects=True: _FakeResponse(
+            303, headers={"Location": "/signup"}
+        )
+        try:
+            extractor.fetch_lichess_pgn("dVix3Oe8")
+            raise AssertionError("expected GameNotSharedError for a /signup redirect")
+        except extractor.GameNotSharedError as exc:
+            assert "would not share that game" in str(exc)
+            assert "Casual and unrated" in str(exc)
+    finally:
+        extractor._get = original_get
+
+
+def test_lichess_casual_recovery_uses_player_game_list():
+    """A refused casual game is recovered from a player's public game list.
+
+    Step 1 (``/api/game/{id}``) names the non-anonymous player; step 2
+    (``/api/games/user/{name}``) returns their games, and the matching
+    ``[Site ...]`` block is returned with its ``%clk`` comments intact.
+    """
+    original_get = extractor._get
+    original_cache = extractor._USER_GAMES_CACHE
+    try:
+        extractor._USER_GAMES_CACHE = {}
+        user_pgn = (
+            '[Event "Rated blitz game"]\n[Site "https://lichess.org/OTHERGAM"]\n'
+            '[White "someone"]\n[Black "mentalcarlsen"]\n\n1. e4 e5 *\n\n'
+            '[Event "Casual blitz game"]\n[Site "https://lichess.org/dVix3Oe8"]\n'
+            '[White "Anonymous"]\n[Black "mentalcarlsen"]\n[TimeControl "180+0"]\n\n'
+            '1. e4 { [%clk 0:03:00] } e5 { [%clk 0:02:58] } *'
+        )
+
+        def fake_get(url, params=None, allow_redirects=True):
+            if "/api/game/" in url:
+                return _FakeResponse(
+                    200,
+                    payload={
+                        "players": {
+                            "white": {"userId": None},
+                            "black": {"userId": "mentalcarlsen"},
+                        }
+                    },
+                )
+            if "/api/games/user/" in url:
+                assert params["clocks"] == "true"
+                assert params["evals"] == "true"
+                return _FakeResponse(200, text=user_pgn)
+            return _FakeResponse(303, headers={"Location": "/signup"})
+
+        extractor._get = fake_get
+        pgn = extractor.fetch_lichess_pgn("dVix3Oe8")
+        assert '[Site "https://lichess.org/dVix3Oe8"]' in pgn
+        assert "OTHERGAM" not in pgn
+        assert "%clk" in pgn
+        times = extractor.parse_player_move_times(pgn, "black")
+        assert times, "recovered PGN has no clock-bearing player moves"
+    finally:
+        extractor._get = original_get
+        extractor._USER_GAMES_CACHE = original_cache
+
+
+def test_lichess_casual_recovery_memoizes_user_game_list():
+    """The large per-user game list is fetched once per process, not per game."""
+    original_get = extractor._get
+    original_cache = extractor._USER_GAMES_CACHE
+    user_fetches = []
+    try:
+        extractor._USER_GAMES_CACHE = {}
+        user_pgn = (
+            '[Event "Casual game"]\n[Site "https://lichess.org/dVix3Oe8"]\n'
+            '[White "Anonymous"]\n[Black "mentalcarlsen"]\n\n'
+            '1. e4 { [%clk 0:03:00] } *'
+        )
+
+        def fake_get(url, params=None, allow_redirects=True):
+            if "/api/game/" in url:
+                return _FakeResponse(
+                    200,
+                    payload={
+                        "players": {
+                            "white": {"userId": None},
+                            "black": {"userId": "mentalcarlsen"},
+                        }
+                    },
+                )
+            if "/api/games/user/" in url:
+                user_fetches.append(url)
+                return _FakeResponse(200, text=user_pgn)
+            return _FakeResponse(303, headers={"Location": "/signup"})
+
+        extractor._get = fake_get
+        extractor.fetch_lichess_pgn("dVix3Oe8")
+        extractor.fetch_lichess_pgn("dVix3Oe8")
+        assert len(user_fetches) == 1
+    finally:
+        extractor._get = original_get
+        extractor._USER_GAMES_CACHE = original_cache
+
+
+def test_lichess_both_players_anonymous_raises_game_not_shared():
+    """No fallback is possible when neither player has an account, so the
+    honest 'would not share that game' message must still be raised."""
+    original_get = extractor._get
+    try:
+
+        def fake_get(url, params=None, allow_redirects=True):
+            if "/api/game/" in url:
+                return _FakeResponse(
+                    200,
+                    payload={
+                        "players": {
+                            "white": {"userId": None},
+                            "black": {"userId": None},
+                        }
+                    },
+                )
+            return _FakeResponse(303, headers={"Location": "/signup"})
+
+        extractor._get = fake_get
+        try:
+            extractor.fetch_lichess_pgn("dVix3Oe8")
+            raise AssertionError("expected GameNotSharedError when no player is named")
+        except extractor.GameNotSharedError as exc:
+            assert "would not share that game" in str(exc)
+            assert "Casual and unrated" in str(exc)
+    finally:
+        extractor._get = original_get
+
+
+LIVE_CASUAL_GAME_ID = "dVix3Oe8"
+LIVE_RATED_GAME_ID = "zR8HRccT"
+
+
+def _lichess_reachable() -> bool:
+    """True when the live Lichess API answers; network tests skip otherwise."""
+    try:
+        extractor._get(f"https://lichess.org/api/game/{LIVE_RATED_GAME_ID}")
+        return True
+    except extractor.ExtractionError:
+        return False
+
+
+def test_lichess_casual_game_recovered_live():
+    """Live: a real casual game refused by the export endpoint is recovered."""
+    if not _lichess_reachable():
+        print("SKIP (Lichess unreachable)")
+        return
+    pgn = extractor.fetch_lichess_pgn(LIVE_CASUAL_GAME_ID)
+    assert pgn.startswith("[Event")
+    assert f'[Site "https://lichess.org/{LIVE_CASUAL_GAME_ID}"' in pgn
+    assert "%clk" in pgn
+    times = extractor.parse_player_move_times(pgn, "black")
+    assert times, "recovered live PGN has no clock-bearing player moves"
+
+
+def test_lichess_rated_game_still_uses_export_live():
+    """Live: a rated game still takes the fast export path unchanged."""
+    if not _lichess_reachable():
+        print("SKIP (Lichess unreachable)")
+        return
+    pgn = extractor.fetch_lichess_pgn(LIVE_RATED_GAME_ID)
+    assert pgn.startswith("[Event")
+    assert "%clk" in pgn
+
+
+def test_lichess_other_redirect_raises_cleanly():
+    original_get = extractor._get
+
+    try:
+        extractor._get = lambda url, params=None, allow_redirects=True: _FakeResponse(
+            302, headers={"Location": "/somewhere-else"}
+        )
+        try:
+            extractor.fetch_lichess_pgn("dVix3Oe8")
+            raise AssertionError("expected GameNotFoundError for a stray redirect")
+        except extractor.ExtractionError:
+            pass
+    finally:
+        extractor._get = original_get
+
+
+def test_lichess_valid_pgn_response_accepted():
+    original_get = extractor._get
+
+    try:
+        extractor._get = lambda url, params=None, allow_redirects=True: _FakeResponse(
+            200, '[Event "Test"]\n[White "A"]\n[Black "B"]\n\n1. e4 e5 *'
+        )
+        pgn = extractor.fetch_lichess_pgn("zR8HRccT")
+        assert pgn.startswith("[Event")
+    finally:
+        extractor._get = original_get
+
+
 def test_chesscom_id_extraction():
     game_id = extractor.extract_chesscom_game_id(
         "https://www.chess.com/game/live/123456789"
@@ -110,6 +371,14 @@ def test_chesscom_analysis_url():
         "https://www.chess.com/analysis/game/live/123456789?tab=analysis"
     )
     assert game_id == "123456789"
+
+
+def test_chesscom_game_url_matches_exact_segment():
+    stored = "https://www.chess.com/game/live/172596743794"
+    assert extractor._chesscom_game_url_matches(stored, "172596743794") is True
+    assert extractor._chesscom_game_url_matches(stored + "/", "172596743794") is True
+    # A shorter id that merely suffixes the real one must not match a game.
+    assert extractor._chesscom_game_url_matches(stored, "596743794") is False
 
 
 def test_player_color_for_game():

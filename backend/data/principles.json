@@ -1,0 +1,54 @@
+[
+  {
+    "id": "post_error_rush",
+    "title": "The post-error rush",
+    "signals": ["post_error_rush"],
+    "phases": ["opening", "middlegame", "endgame"],
+    "motifs": [],
+    "observed_template": "You played {move} and then answered {next_move.san} after only {next_move.seconds_spent} second(s).",
+    "mechanism": "An error lands as a small jolt of embarrassment, and the quickest way to silence that feeling is to move again at once, because moving feels like regaining control. The board has not been re-read yet, so the very next decision is made on the leftovers of the mistake rather than on the position in front of you.",
+    "rule": "Right after you notice your own mistake, take your hand off the mouse, put both palms flat on the desk, and count three slow breaths before you touch a piece again.",
+    "concept_source": "krogius:psychology-in-chess",
+    "reviewed_by": "Parth Kaushik",
+    "reviewed_on": "2026-10-12"
+  },
+  {
+    "id": "time_pressure_snap_decision",
+    "title": "Deciding on an empty tank",
+    "signals": ["time_pressure", "rushed_blunders"],
+    "phases": ["opening", "middlegame", "endgame"],
+    "motifs": [],
+    "observed_template": "You chose {move} with only {player_clock_remaining} second(s) left on your clock.",
+    "mechanism": "With almost no clock left, the mind trades deliberate searching for the first playable move it can find, because choosing anything feels safer than being flagged. That shortcut survives simple positions and breaks the moment the board still has a check, a capture, or a loose piece in it.",
+    "rule": "Once your clock is under thirty seconds, tap the desk three times before each move — one tap for checks, one for captures, one for threats — and only then play.",
+    "concept_source": "krogius:psychology-in-chess",
+    "reviewed_by": "Parth Kaushik",
+    "reviewed_on": "2026-10-12"
+  },
+  {
+    "id": "missed_loose_piece",
+    "title": "The loose piece you walked past",
+    "signals": [],
+    "phases": ["opening", "middlegame", "endgame"],
+    "motifs": ["hangingPiece"],
+    "observed_template": "{motif_details}",
+    "mechanism": "Attention follows the plan a player is already telling themselves: the eye keeps returning to the squares of that plan and stops sweeping the rest of the board. A piece the opponent has left undefended can stay invisible for exactly that reason — it is not part of the story you are busy finishing.",
+    "rule": "Before every move, take your eyes off the piece you intend to move and sweep the opponent's half of the board once, square by square, looking only for anything standing undefended.",
+    "concept_source": "krogius:psychology-in-chess",
+    "reviewed_by": "Parth Kaushik",
+    "reviewed_on": "2026-10-12"
+  },
+  {
+    "id": "convert_without_haste",
+    "title": "Winning quietly instead of quickly",
+    "signals": ["reached_winning_position"],
+    "phases": ["middlegame", "endgame"],
+    "motifs": [],
+    "observed_template": "You chose {move} with a clearly winning position already on the board.",
+    "mechanism": "A comfortable position feels like a promise that the rest will play itself, so care relaxes precisely when every remaining decision still has to be correct. Most thrown-away wins are not one disaster but a run of faster, looser moves played from a position the player believed was already decided.",
+    "rule": "When you are clearly better, take your hand off the mouse, name the piece and square you intend to play out loud, and only then make that move.",
+    "concept_source": "krogius:psychology-in-chess",
+    "reviewed_by": "Parth Kaushik",
+    "reviewed_on": "2026-10-12"
+  }
+]

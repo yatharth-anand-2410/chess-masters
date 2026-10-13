@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 
+import { warmBackend } from "../lib/backend-wake";
+
 export type Platform = "lichess" | "chess.com";
 export type PlayerColor = "white" | "black";
 
@@ -84,6 +86,10 @@ export default function AnalyzerForm({
   };
 
   const updateRowUrl = (id: number, value: string) => {
+    // Typing or pasting a link is the clearest signal that an analysis is
+    // coming, and the free-tier backend needs ~20s to boot. `warmBackend` is
+    // throttled and deduplicated, so calling it per keystroke is fine.
+    warmBackend();
     const detected = platform === "lichess" ? detectColorFromUrl(value) : null;
     setRows((current) =>
       current.map((row) =>
@@ -121,6 +127,8 @@ export default function AnalyzerForm({
   };
 
   const pasteFromClipboard = async (id: number) => {
+    // The player is one click away from analyzing: start the boot now.
+    warmBackend();
     try {
       const text = await navigator.clipboard.readText();
       if (text.trim()) {
@@ -239,6 +247,8 @@ export default function AnalyzerForm({
                   }}
                   value={row.url}
                   onChange={(event) => updateRowUrl(row.id, event.target.value)}
+                  onFocus={() => warmBackend()}
+                  onPaste={() => warmBackend()}
                   placeholder={
                     platform === "lichess"
                       ? "https://lichess.org/abc12345"

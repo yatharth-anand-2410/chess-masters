@@ -10,8 +10,8 @@ Two layers:
   parsed move clocks) and returns compact, JSON-serializable facts.
 * :func:`build_batch_profile` merges those facts across games into a profile
   (dimensions with rubric tags, ranked leaks with fix protocols, form timeline,
-  clock-pressure buckets and a player-type leaning) with human-readable
-  evidence.
+  clock-pressure buckets, structured contextual pattern counts and a player-type
+  leaning) with human-readable evidence.
 """
 
 from __future__ import annotations
@@ -34,6 +34,24 @@ TIME_TROUBLE_CAP_SECONDS = 120.0
 STRONG_SCORE = 70
 DEVELOP_SCORE = 40
 MAX_LEAKS = 3
+
+# A pattern needs a denominator big enough to read as a frequency rather than a
+# coincidence. Binary situations (a winning position, a lost position, a clocked
+# game) need at least this many opportunities before they are reported, and a
+# clock bucket needs at least MIN_CLOCK_BUCKET_MOVES moves before its blunder
+# rate is meaningful. Below either bar the pattern is omitted, never emitted
+# with a zero denominator or a made-up rate.
+MIN_PATTERN_OPPORTUNITIES = 2
+MIN_CLOCK_BUCKET_MOVES = 10
+
+# How far a game's post-blunder accuracy must fall below that same game's own
+# overall accuracy before the drop is treated as material. The composure
+# dimension already draws its line between "slips somewhat" and "noticeably
+# less accurate" at an 8-point dip, so the same boundary is reused here rather
+# than inventing a second, competing definition of a material drop. Comparing a
+# game against itself keeps a naturally accurate game from being measured
+# against a sloppy one.
+TILT_DROP_ACCURACY_POINTS = 8.0
 
 DIMENSION_ORDER: Tuple[str, ...] = (
     "consistency",
@@ -133,6 +151,15 @@ CLOCK_BUCKETS: Tuple[Tuple[str, float, float], ...] = (
     ("2-5m", 120.0, 300.0),
     (">5m", 300.0, float("inf")),
 )
+
+# Stable, frontend-friendly keys for the per-bucket clock-pressure patterns.
+CLOCK_BUCKET_PATTERN_KEYS = {
+    "<30s": "blunders_under_30_seconds",
+    "30-60s": "blunders_30_to_60_seconds",
+    "1-2m": "blunders_1_to_2_minutes",
+    "2-5m": "blunders_2_to_5_minutes",
+    ">5m": "blunders_over_5_minutes",
+}
 
 
 def _clamp(value: float, low: float = 0.0, high: float = 100.0) -> float:
@@ -335,6 +362,43 @@ def build_game_primitives(analysis: engine.AnalysisResult) -> Dict[str, object]:
         "started_at": analysis.started_at,
         "time_control": analysis.time_control,
     }
+
+
+def post_error_rush_signals(
+    analysis: engine.AnalysisResult,
+) -> Dict[Tuple[str, int], Dict[str, object]]:
+    """Project clock facts onto the move that answers each of the player's errors.
+
+    Keyed by the ``(color, move_number)`` of each player blunder or mistake, so a
+    caller can attach the block to that moment. Every value describes the player's
+    very next move::
+
+        {
+            "next_move_san": "Nf3",
+            "next_move_seconds_spent": 1.0,
+            "post_error_rush": True,
+        }
+
+    ``post_error_rush`` is true when that reply used at or below
+    :data:`RUSHED_MOVE_SECONDS` — the same threshold behind the profile's
+    ``rushed_blunders``. Errors whose reply carries no clock data are left out, so
+    a caller never mistakes a missing clock for a rushed move.
+    """
+    player_moves = _player_moves(analysis)
+    signals: Dict[Tuple[str, int], Dict[str, object]] = {}
+    for index, move in enumerate(player_moves):
+        if move.quality not in (engine.QUALITY_BLUNDER, engine.QUALITY_MISTAKE):
+            continue
+        following = player_moves[index + 1 : index + 2]
+        if not following or following[0].seconds_spent is None:
+            continue
+        reply = following[0]
+        signals[(move.color, move.move_number)] = {
+            "next_move_san": reply.san,
+            "next_move_seconds_spent": reply.seconds_spent,
+            "post_error_rush": float(reply.seconds_spent) <= RUSHED_MOVE_SECONDS,
+        }
+    return signals
 
 
 def _dimension(key: str, score: float, evidence: str) -> Dict[str, object]:
@@ -755,6 +819,228 @@ def _capitalization(games: List[Dict[str, object]]) -> int:
     return total
 
 
+def _dimension_evidence(
+    dimensions: Dict[str, Optional[Dict[str, object]]], key: str
+) -> str:
+    """Return the prose evidence already attached to a dimension, if any."""
+    dimension = dimensions.get(key)
+    if not dimension:
+        return ""
+    return str(dimension.get("evidence") or "")
+
+
+def _pattern(
+    key: str,
+    label: str,
+    opportunities: int,
+    occurrences: int,
+    occurrences_kind: str,
+    contributing_games: int,
+    games: int,
+    evidence: str,
+) -> Optional[Dict[str, object]]:
+    """Build one contextual pattern, or ``None`` when its denominator is too thin.
+
+    ``opportunities`` is the denominator — how often the situation actually
+    arose — and ``occurrences`` the numerator, with ``occurrences_kind`` naming
+    what that numerator counts so a caller never has to guess the direction.
+
+    ``games`` is the total number of analysed games the profile was built from
+    (the "across N games" context), while ``contributing_games`` is how many of
+    them actually supplied at least one opportunity. When ``opportunities`` does
+    not clear :data:`MIN_PATTERN_OPPORTUNITIES` the pattern is dropped entirely,
+    so a single event is never dressed up as a habit. The rate is always the real
+    quotient of two observed counts, never inferred.
+    """
+    if opportunities < MIN_PATTERN_OPPORTUNITIES:
+        return None
+    return {
+        "key": key,
+        "label": label,
+        "opportunities": opportunities,
+        "occurrences": occurrences,
+        "occurrences_kind": occurrences_kind,
+        "games": games,
+        "contributing_games": contributing_games,
+        "rate": round(occurrences / opportunities, 2),
+        "evidence": evidence,
+    }
+
+
+def _clock_pressure_patterns(
+    primitives: List[Dict[str, object]], games: int
+) -> List[Dict[str, object]]:
+    """Expose the clock-pressure blunder rate as patterns with a real denominator.
+
+    The denominator is moves actually taken with a given amount of time left, so
+    the rate is a genuine observed frequency rather than a bare mistake count.
+    Buckets with fewer than :data:`MIN_CLOCK_BUCKET_MOVES` moves are skipped.
+    """
+    totals: Dict[str, Dict[str, int]] = {}
+    contributing: Dict[str, int] = {}
+    for entry in primitives:
+        pressure = entry.get("clock_pressure") or {}
+        if not isinstance(pressure, dict):
+            continue
+        for label, counts in pressure.items():
+            if label not in CLOCK_BUCKET_PATTERN_KEYS:
+                continue
+            bucket = totals.setdefault(label, {"moves": 0, "blunders": 0})
+            bucket["moves"] += int(counts.get("moves", 0))
+            bucket["blunders"] += int(counts.get("blunders", 0))
+            contributing[label] = contributing.get(label, 0) + 1
+
+    patterns: List[Dict[str, object]] = []
+    for label, _, _ in CLOCK_BUCKETS:
+        counts = totals.get(label)
+        if not counts or counts["moves"] < MIN_CLOCK_BUCKET_MOVES:
+            continue
+        blunders = counts["blunders"]
+        patterns.append(
+            {
+                "key": CLOCK_BUCKET_PATTERN_KEYS[label],
+                "label": f"Blunder rate with {label} on the clock",
+                "opportunities": counts["moves"],
+                "occurrences": blunders,
+                "occurrences_kind": "blunders",
+                "games": games,
+                "contributing_games": contributing.get(label, 0),
+                "rate": round(blunders / counts["moves"], 2),
+                "evidence": (
+                    f"You played {counts['moves']} moves with {label} on the clock "
+                    f"and blundered {blunders} of them."
+                ),
+            }
+        )
+    return patterns
+
+
+def _tilt_pattern(
+    primitives: List[Dict[str, object]], games: int
+) -> Optional[Dict[str, object]]:
+    """Report how often a game's post-blunder accuracy fell below its own average.
+
+    The denominator is only the games that actually had a blunder with a move to
+    follow it — :func:`build_game_primitives` leaves ``accuracy_after_blunder`` as
+    ``None`` otherwise — so the rate is a real frequency over opportunities, not
+    over the whole sample. A game counts as an occurrence when its post-blunder
+    accuracy sits at least :data:`TILT_DROP_ACCURACY_POINTS` under that same
+    game's overall accuracy, a within-game comparison so an accurate game is never
+    measured against a sloppy one. When no game supplies an opportunity, or none
+    qualifies as a material dip, the pattern is dropped entirely rather than
+    reported as a zero.
+    """
+    opportunities = [
+        entry
+        for entry in primitives
+        if entry.get("accuracy_after_blunder") is not None
+    ]
+    if not opportunities:
+        return None
+    drops = 0
+    for entry in opportunities:
+        overall = entry.get("overall_accuracy")
+        if overall is None:
+            continue
+        if float(overall) - float(entry["accuracy_after_blunder"]) >= (
+            TILT_DROP_ACCURACY_POINTS
+        ):
+            drops += 1
+    if drops == 0:
+        # Nothing qualified as a material dip, so there is no observed drop to
+        # report. Like a too-thin denominator, this is dropped rather than
+        # emitted as a zero-rate finding.
+        return None
+    return _pattern(
+        "post_blunder_accuracy_drop",
+        "Accuracy dip after your own blunder",
+        len(opportunities),
+        drops,
+        "games with a post-blunder drop",
+        len(opportunities),
+        games,
+        (
+            "After a blunder your accuracy fell at least "
+            f"{TILT_DROP_ACCURACY_POINTS:.0f} points below that game's average "
+            f"in {drops} of {len(opportunities)} games with a blunder."
+        ),
+    )
+
+
+def _patterns(
+    primitives: List[Dict[str, object]],
+    dimensions: Dict[str, Optional[Dict[str, object]]],
+    games: int,
+) -> List[Dict[str, object]]:
+    """Structured pattern counts, each carrying its own context.
+
+    Only re-exposes numerators and denominators that the module already computes
+    elsewhere and flattens into prose. A pattern whose situation never arose, or
+    arose too rarely to read, is omitted rather than emitted as a zero. Labels
+    and evidence are phrased as observed frequency in this sample, never as proof
+    of a fixed psychological trait.
+    """
+    patterns: List[Dict[str, object]] = []
+
+    chances = [entry for entry in primitives if entry.get("reached_winning_position")]
+    evidence = _dimension_evidence(dimensions, "conversion")
+    if chances and evidence:
+        pattern = _pattern(
+            "winning_position_conversion",
+            "Converting winning positions",
+            len(chances),
+            sum(1 for entry in chances if entry.get("converted_winning_position")),
+            "converted",
+            len(chances),
+            games,
+            evidence,
+        )
+        if pattern:
+            patterns.append(pattern)
+
+    lost = [entry for entry in primitives if entry.get("was_losing")]
+    evidence = _dimension_evidence(dimensions, "fighting_spirit")
+    if lost and evidence:
+        pattern = _pattern(
+            "losing_position_salvage",
+            "Salvaging losing positions",
+            len(lost),
+            sum(1 for entry in lost if entry.get("comeback")),
+            "rescued",
+            len(lost),
+            games,
+            evidence,
+        )
+        if pattern:
+            patterns.append(pattern)
+
+    clocked = [entry for entry in primitives if entry.get("time_trouble") is not None]
+    if clocked:
+        trouble = sum(1 for entry in clocked if entry.get("time_trouble"))
+        pattern = _pattern(
+            "time_trouble_frequency",
+            "Games reaching time trouble",
+            len(clocked),
+            trouble,
+            "in time trouble",
+            len(clocked),
+            games,
+            (
+                f"You dropped into time trouble in {trouble} of {len(clocked)} "
+                "games with clock data."
+            ),
+        )
+        if pattern:
+            patterns.append(pattern)
+
+    tilt = _tilt_pattern(primitives, games)
+    if tilt:
+        patterns.append(tilt)
+
+    patterns.extend(_clock_pressure_patterns(primitives, games))
+    return patterns
+
+
 def build_batch_profile(games: List[Dict[str, object]]) -> Optional[Dict[str, object]]:
     """Aggregate per-game primitives into a psychology profile for the report."""
     if len(games) < MIN_GAMES_FOR_PROFILE:
@@ -807,6 +1093,7 @@ def build_batch_profile(games: List[Dict[str, object]]) -> Optional[Dict[str, ob
 
     leaks = _leaks(dimensions)
     headline = _headline(str(player_type["player_type"]), dimensions)
+    patterns = _patterns(primitives, dimensions, len(games))
 
     caveats: List[str] = []
     if dimensions["time_management"] is None:
@@ -830,6 +1117,7 @@ def build_batch_profile(games: List[Dict[str, object]]) -> Optional[Dict[str, ob
         "dimension_order": list(DIMENSION_ORDER),
         "dimensions": dimensions,
         "leaks": leaks,
+        "patterns": patterns,
         "form": _form(ordered),
         "time_pressure": _time_pressure(primitives),
         "speed_profile": _speed_totals(primitives),
@@ -840,7 +1128,12 @@ def build_batch_profile(games: List[Dict[str, object]]) -> Optional[Dict[str, ob
 
 
 def build_prompt_payload(profile: Dict[str, object]) -> Dict[str, object]:
-    """Trim the profile for the LLM: metrics and evidence, no raw internals."""
+    """Trim the profile for the LLM: metrics and evidence, no raw internals.
+
+    The structured ``patterns`` section is intentionally excluded. Its evidence
+    sentences are already carried by ``dimensions`` and ``evidence``, so sending
+    the counts again would only spend prompt tokens on redundant data.
+    """
     dimensions: Dict[str, object] = {}
     raw_dimensions = profile.get("dimensions")
     if isinstance(raw_dimensions, dict):

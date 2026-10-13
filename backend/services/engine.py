@@ -48,6 +48,17 @@ DEFAULT_WORKERS = 1
 ENGINE_HASH_MB = 16
 DEFAULT_EVAL_REUSE_COVERAGE = 0.9
 
+# --- Replay-your-own-mistake drill tolerances ------------------------------
+#
+# An attempted drill move is accepted when EITHER it is close enough to the
+# engine's single best move for the position, OR it keeps the evaluation the
+# player already had before their mistake. Both tolerances are in pawns and are
+# the only place the strictness of the drill is defined: lower them to grade
+# harder, raise them to be more forgiving. A move exactly on a threshold counts
+# as acceptable (the comparison is inclusive).
+ATTEMPT_BEST_MOVE_TOLERANCE_PAWNS = 0.5
+ATTEMPT_EVAL_RETENTION_TOLERANCE_PAWNS = 0.5
+
 
 class EngineError(Exception):
     """Base error for engine analysis failures."""
@@ -388,11 +399,20 @@ class StockfishAnalyzer:
         server_evals: Optional[Sequence["extractor.ServerEval"]] = None,
         pool: Optional[EnginePool] = None,
     ) -> AnalysisResult:
-        game = chess.pgn.read_game(io.StringIO(pgn))
+        # python-chess raises assorted low-level errors (IndexError, ValueError,
+        # KeyError...) while parsing a non-PGN body; they must all become one
+        # honest, user-facing message rather than escaping as a crash.
+        try:
+            game = chess.pgn.read_game(io.StringIO(pgn))
+        except Exception as exc:
+            raise EngineError("Could not parse the game PGN.") from exc
         if game is None:
             raise EngineError("Could not parse the game PGN.")
 
-        mainline = list(game.mainline())
+        try:
+            mainline = list(game.mainline())
+        except Exception as exc:
+            raise EngineError("Could not parse the game PGN.") from exc
         if not mainline:
             raise EngineError("The game PGN contains no moves.")
 
@@ -604,3 +624,185 @@ def moves_san(board: chess.Board, moves: List[chess.Move], limit: int = 6) -> Li
         except (ValueError, IndexError):
             break
     return sans
+
+
+ATTEMPT_REASON_BEST = "This move is as good as the engine's best move here."
+ATTEMPT_REASON_RETAINED = "This move keeps the advantage you had before the mistake."
+ATTEMPT_REASON_TOO_WEAK = "This move gives up more than the engine is willing to allow."
+ATTEMPT_REASON_ILLEGAL = "That move is not legal in this position."
+ATTEMPT_REASON_BAD_POSITION = "The position could not be read."
+ATTEMPT_REASON_UNAVAILABLE = (
+    "Engine validation is unavailable right now, so this move was not graded."
+)
+
+_attempt_pool: Optional[EnginePool] = None
+_attempt_pool_lock = threading.Lock()
+
+
+def _shared_attempt_pool() -> EnginePool:
+    """A lazily started pool reused by every drill validation.
+
+    Spawning Stockfish per attempt would add process-startup latency to a move
+    the player expects to be checked instantly, so one pool is shared. Reads of
+    the env-configured depth/time happen once, on first use.
+    """
+    global _attempt_pool
+    if _attempt_pool is None:
+        with _attempt_pool_lock:
+            if _attempt_pool is None:
+                _attempt_pool = EnginePool.create()
+    return _attempt_pool
+
+
+def _parse_attempt_move(board: chess.Board, played: str) -> Optional[chess.Move]:
+    """Resolve a played move written as either SAN or UCI, or ``None``."""
+    text = played.strip()
+    if not text:
+        return None
+    move: Optional[chess.Move] = None
+    try:
+        move = board.parse_san(text)
+    except ValueError:
+        try:
+            candidate = chess.Move.from_uci(text.lower())
+        except ValueError:
+            return None
+        move = candidate
+    if move is None:
+        return None
+    try:
+        return move if move in board.legal_moves else None
+    except (ValueError, IndexError):
+        return None
+
+
+def _attempt_eval_pawns(cp: int) -> float:
+    """White-perspective centipawns as pawns, with mate scores pinned.
+
+    Any mate score collapses to the same magnitude so two different mating
+    moves compare as equal instead of differing by their distance to mate.
+    """
+    if cp >= MATE_SCORE // 2:
+        return MATE_SCORE / 100
+    if cp <= -MATE_SCORE // 2:
+        return -MATE_SCORE / 100
+    return cp / 100
+
+
+def is_attempt_reasonable(
+    delta_from_best: float,
+    delta_from_before: Optional[float],
+    *,
+    best_tolerance: float = ATTEMPT_BEST_MOVE_TOLERANCE_PAWNS,
+    retention_tolerance: float = ATTEMPT_EVAL_RETENTION_TOLERANCE_PAWNS,
+) -> bool:
+    """Decide an attempt from its two distances, without touching the engine.
+
+    ``delta_from_best`` is how far the attempt's evaluation sits from the
+    engine's best move; ``delta_from_before`` is how far it sits from the
+    evaluation the player had before the mistake (``None`` when that anchor is
+    unknown). Both tolerances are inclusive.
+    """
+    if delta_from_best <= best_tolerance:
+        return True
+    return delta_from_before is not None and delta_from_before <= retention_tolerance
+
+
+def evaluate_attempt(
+    fen: str,
+    played: str,
+    *,
+    eval_before_pawns: Optional[float] = None,
+    pool: Optional[EnginePool] = None,
+) -> Dict[str, object]:
+    """Grade one drill attempt with real engine evaluation.
+
+    The returned mapping always reports whether validation actually ran through
+    ``validated``. Callers MUST check that flag before trusting ``reasonable``:
+    an engine failure never rejects the player's move, it degrades to
+    ``validated=False`` so the frontend can fall back to its exact-match check.
+
+    ``eval_before_pawns`` is the White-perspective evaluation stored on the
+    moment (the value before the player's original mistake), used by the
+    retention criterion. Engine evals are White-perspective too, so the two are
+    directly comparable regardless of which side is to move.
+    """
+    result: Dict[str, object] = {
+        "reasonable": False,
+        "validated": False,
+        "played_san": None,
+        "played_eval_pawns": None,
+        "best_san": None,
+        "best_eval_pawns": None,
+        "delta_from_best": None,
+        "delta_from_before": None,
+        "reason": ATTEMPT_REASON_UNAVAILABLE,
+        "tolerances": {
+            "best_move_pawns": ATTEMPT_BEST_MOVE_TOLERANCE_PAWNS,
+            "eval_retention_pawns": ATTEMPT_EVAL_RETENTION_TOLERANCE_PAWNS,
+        },
+    }
+
+    try:
+        board = chess.Board(fen)
+    except ValueError:
+        result["reason"] = ATTEMPT_REASON_BAD_POSITION
+        return result
+
+    move = _parse_attempt_move(board, played)
+    if move is None:
+        result["reason"] = ATTEMPT_REASON_ILLEGAL
+        return result
+
+    result["played_san"] = move_san(board, move)
+
+    active_pool = pool
+    try:
+        if active_pool is None:
+            active_pool = _shared_attempt_pool()
+        played_board = board.copy()
+        played_board.push(move)
+        before_score = active_pool.score(board)
+        played_score = active_pool.score(played_board)
+    except Exception:
+        # A missing or misbehaving engine must never grade a learner wrong.
+        result["reason"] = ATTEMPT_REASON_UNAVAILABLE
+        return result
+
+    best_eval = _attempt_eval_pawns(before_score.cp)
+    played_eval = _attempt_eval_pawns(played_score.cp)
+    delta_from_best = abs(played_eval - best_eval)
+    delta_from_before = (
+        abs(played_eval - float(eval_before_pawns))
+        if eval_before_pawns is not None
+        else None
+    )
+    reasonable = is_attempt_reasonable(delta_from_best, delta_from_before)
+
+    if delta_from_best <= ATTEMPT_BEST_MOVE_TOLERANCE_PAWNS:
+        reason = ATTEMPT_REASON_BEST
+    elif (
+        delta_from_before is not None
+        and delta_from_before <= ATTEMPT_EVAL_RETENTION_TOLERANCE_PAWNS
+    ):
+        reason = ATTEMPT_REASON_RETAINED
+    else:
+        reason = ATTEMPT_REASON_TOO_WEAK
+
+    result.update(
+        {
+            "reasonable": reasonable,
+            "validated": True,
+            "best_san": (
+                move_san(board, before_score.best) if before_score.best else None
+            ),
+            "best_eval_pawns": round(best_eval, 2),
+            "played_eval_pawns": round(played_eval, 2),
+            "delta_from_best": round(delta_from_best, 2),
+            "delta_from_before": (
+                round(delta_from_before, 2) if delta_from_before is not None else None
+            ),
+            "reason": reason,
+        }
+    )
+    return result

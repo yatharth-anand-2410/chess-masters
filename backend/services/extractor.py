@@ -39,10 +39,26 @@ LICHESS_RESERVED_SEGMENTS = frozenset(
         "video",
     }
 )
+# Lichess itself treats the first eight alphanumerics of a game URL as the game
+# ID and tolerates trailing characters: https://lichess.org/dVix3Oe8o7Oo is
+# redirected to https://lichess.org/dVix3Oe8/black. Matching that behaviour is
+# what keeps real, user-pasted links working. A segment with no eight-character
+# run at all is still rejected.
 LICHESS_GAME_ID_PATTERN = re.compile(r"^([a-zA-Z0-9]{8})([a-zA-Z0-9]*)$")
 CHESS_COM_GAME_ID_PATTERN = re.compile(r"/(?:live|daily|computer)/(\d{5,})")
 CHESS_COM_TRAILING_ID_PATTERN = re.compile(r"/(\d{5,})/?$")
 CHESS_COM_ANY_ID_PATTERN = re.compile(r"(\d{5,})")
+
+_LICHESS_GAME_ID_ERROR = (
+    "Could not find an 8-character Lichess game ID in the provided URL."
+)
+# Lichess refuses to export an anonymous player's casual/unrated game. It
+# signals that with a 303 redirect to /signup rather than an error status, so
+# the message names the real cause instead of blaming a bad link.
+LICHESS_NOT_SHARED_ERROR = (
+    "Lichess would not share that game. Casual and unrated games are not "
+    "available without signing in to Lichess."
+)
 
 DEFAULT_USER_AGENT = http.DEFAULT_USER_AGENT
 ARCHIVE_MONTHS_TO_SCAN = 4
@@ -57,7 +73,20 @@ _MONTH_CACHE: Dict[str, List[dict]] = {}
 _MONTH_CACHE_LOCKS: Dict[str, threading.Lock] = {}
 _MONTH_CACHE_GUARD = threading.Lock()
 
+# A casual-game recovery pulls one player's whole recent game list, so the raw
+# multi-game PGN is memoized per username for the life of the process: a repeat
+# analysis of another game by the same player skips the download.
+_MAX_CACHED_USER_GAMES = 16
+_USER_GAMES_CACHE: Dict[str, str] = {}
+_USER_GAMES_CACHE_GUARD = threading.Lock()
+
 LICHESS_EXPORT_URL = "https://lichess.org/game/export/{game_id}"
+# Lichess still answers these two for a casual/unrated game whose export is
+# refused: the game metadata names the players, and a player's game list can be
+# searched for the game. See ``_recover_lichess_casual_pgn``.
+LICHESS_GAME_META_URL = "https://lichess.org/api/game/{game_id}"
+LICHESS_USER_GAMES_URL = "https://lichess.org/api/games/user/{username}"
+LICHESS_USER_GAMES_MAX = 100
 CHESS_COM_ARCHIVES_URL = "https://api.chess.com/pub/player/{username}/games/archives"
 
 
@@ -79,6 +108,10 @@ class RateLimitError(ExtractionError):
 
 class UpstreamRequestError(ExtractionError):
     """An upstream API request failed."""
+
+
+class GameNotSharedError(ExtractionError):
+    """The platform will not export the game without authentication."""
 
 
 @dataclass(frozen=True)
@@ -117,13 +150,18 @@ class GameData:
     server_evals: Tuple[ServerEval, ...] = ()
 
 
-def _get(url: str, params: Optional[dict[str, str]] = None) -> requests.Response:
+def _get(
+    url: str,
+    params: Optional[dict[str, str]] = None,
+    allow_redirects: bool = True,
+) -> requests.Response:
     try:
         response = http.get(
             url,
             params=params,
             headers={"User-Agent": DEFAULT_USER_AGENT},
             timeout=REQUEST_TIMEOUT_SECONDS,
+            allow_redirects=allow_redirects,
         )
     except requests.RequestException as exc:
         raise UpstreamRequestError(f"Request to {url} failed: {exc}") from exc
@@ -150,9 +188,7 @@ def _url_host_and_segments(url: str) -> tuple[str, list[str]]:
 def extract_lichess_game_meta(url: str) -> tuple[str, Optional[str], bool]:
     host, segments = _url_host_and_segments(url)
     if host != LICHESS_HOST and not host.endswith(f".{LICHESS_HOST}"):
-        raise InvalidGameUrlError(
-            "Could not find an 8-character Lichess game ID in the provided URL."
-        )
+        raise InvalidGameUrlError(_LICHESS_GAME_ID_ERROR)
     if len(segments) >= 3 and segments[0] == "game" and segments[1] == "export":
         candidate, remaining = segments[2], segments[3:]
     elif len(segments) >= 2 and segments[0] == "game":
@@ -160,25 +196,30 @@ def extract_lichess_game_meta(url: str) -> tuple[str, Optional[str], bool]:
     elif segments:
         candidate, remaining = segments[0], segments[1:]
     else:
-        raise InvalidGameUrlError(
-            "Could not find an 8-character Lichess game ID in the provided URL."
-        )
+        raise InvalidGameUrlError(_LICHESS_GAME_ID_ERROR)
 
     match = LICHESS_GAME_ID_PATTERN.match(candidate)
     if not match or candidate.lower() in LICHESS_RESERVED_SEGMENTS:
-        raise InvalidGameUrlError(
-            "Could not find an 8-character Lichess game ID in the provided URL."
-        )
+        raise InvalidGameUrlError(_LICHESS_GAME_ID_ERROR)
     game_id, trailing = match.group(1), match.group(2)
     color = next(
         (segment.lower() for segment in remaining if segment.lower() in ("white", "black")),
         None,
     )
+    # A share link with trailing characters but no colour segment (for example
+    # https://lichess.org/dVix3Oe8o7Oo) needs a redirect lookup to learn the
+    # colour the user played.
     needs_resolve = bool(trailing) and color is None
     return game_id, color, needs_resolve
 
 
 def resolve_lichess_color(url: str) -> Optional[str]:
+    """Follow Lichess's own redirect to learn which colour the user played.
+
+    A share link such as ``https://lichess.org/dVix3Oe8o7Oo`` answers with a
+    303 to ``/dVix3Oe8/black``; reading the ``Location`` header recovers the
+    colour without downloading the game.
+    """
     try:
         response = http.head(
             url,
@@ -208,6 +249,18 @@ def extract_chesscom_game_id(url: str) -> str:
     raise InvalidGameUrlError(
         "Could not find a numeric Chess.com game ID in the provided URL."
     )
+
+
+def _chesscom_game_url_matches(game_url: str, game_id: str) -> bool:
+    """True when a stored Chess.com URL ends with exactly this game id.
+
+    A plain ``endswith`` check would let a short id (e.g. ``23456789``) match a
+    different game whose URL ends in ``123456789``, so the id must be the whole
+    final path segment.
+    """
+    path = urlsplit(game_url).path.rstrip("/")
+    segment = path.rsplit("/", 1)[-1] if path else ""
+    return segment == game_id
 
 
 def clean_pgn(pgn: str) -> str:
@@ -341,15 +394,156 @@ def parse_server_evals(pgn: str) -> Tuple[ServerEval, ...]:
     return tuple(evals)
 
 
+def _looks_like_pgn(body: str) -> bool:
+    """True when an HTTP body is PGN, not a rendered error page.
+
+    Lichess serves its HTML error page with a 200 status, so status alone is
+    not enough to trust the body. A real export starts with an opening tag
+    header such as ``[Event "..."]``; an HTML page starts with a doctype or
+    ``<html``.
+    """
+    stripped = body.lstrip("\ufeff \t\r\n")
+    if not stripped:
+        return False
+    lowered = stripped[:16].lower()
+    if lowered.startswith("<!doctype") or lowered.startswith("<html"):
+        return False
+    return stripped.startswith("[")
+
+
+# Each game in a user's multi-game export begins with its own ``[Event ...]``
+# header block; splitting on that boundary keeps every game's raw text (and its
+# ``%clk`` / ``%eval`` comments) byte-for-byte intact.
+_PGN_EVENT_SPLIT = re.compile(r"(?m)^(?=\[Event\s)")
+_PGN_SITE_HEADER = re.compile(r'(?m)^\[Site\s+"([^"]*)"\]')
+_LICHESS_SITE_ID = re.compile(r"lichess\.org/([A-Za-z0-9]{8})")
+
+
+def _lichess_player_user_ids(game_id: str) -> List[str]:
+    """Return the non-anonymous player user names for a Lichess game.
+
+    ``GET /api/game/{id}`` still answers for casual games that the export
+    endpoint refuses, and its ``players.*.userId`` values name the accounts
+    whose game list can be searched instead.
+    """
+    response = _get(LICHESS_GAME_META_URL.format(game_id=game_id))
+    try:
+        payload = response.json()
+    except ValueError:
+        return []
+    players = payload.get("players") if isinstance(payload, dict) else None
+    if not isinstance(players, dict):
+        return []
+    user_ids: List[str] = []
+    for color in ("white", "black"):
+        player = players.get(color)
+        user_id = player.get("userId") if isinstance(player, dict) else None
+        if isinstance(user_id, str) and user_id.strip():
+            user_ids.append(user_id.strip())
+    return user_ids
+
+
+def _fetch_user_games_pgn(user_id: str) -> Optional[str]:
+    """Fetch (and memoize) a user's recent games as one multi-game PGN blob."""
+    with _USER_GAMES_CACHE_GUARD:
+        cached = _USER_GAMES_CACHE.get(user_id)
+    if cached is not None:
+        return cached
+    response = _get(
+        LICHESS_USER_GAMES_URL.format(username=user_id),
+        params={
+            "max": str(LICHESS_USER_GAMES_MAX),
+            "clocks": "true",
+            "evals": "true",
+        },
+    )
+    pgn = response.text
+    if not _looks_like_pgn(pgn):
+        return None
+    with _USER_GAMES_CACHE_GUARD:
+        _USER_GAMES_CACHE[user_id] = pgn
+        while len(_USER_GAMES_CACHE) > _MAX_CACHED_USER_GAMES:
+            _USER_GAMES_CACHE.pop(next(iter(_USER_GAMES_CACHE)))
+    return pgn
+
+
+def _select_game_pgn(user_games_pgn: str, game_id: str) -> Optional[str]:
+    """Return the raw game block whose ``[Site ...]`` names ``game_id``.
+
+    The block is returned as its original text (string splitting, not a
+    re-serialized python-chess game) so ``%clk`` / ``%eval`` comments survive
+    for ``parse_player_move_times`` and ``parse_server_evals``.
+    """
+    for block in _PGN_EVENT_SPLIT.split(user_games_pgn):
+        if not _looks_like_pgn(block):
+            continue
+        site = _PGN_SITE_HEADER.search(block)
+        if site is None:
+            continue
+        match = _LICHESS_SITE_ID.search(site.group(1))
+        if match and match.group(1) == game_id:
+            return block.strip()
+    return None
+
+
+def _recover_lichess_casual_pgn(game_id: str) -> Optional[str]:
+    """Best-effort recovery of a refused casual game via a player's game list.
+
+    Never raises: any failure (both players anonymous, unknown user, game
+    outside the fetched window, network error) returns ``None`` so the caller
+    keeps the honest ``GameNotSharedError``.
+    """
+    try:
+        for user_id in _lichess_player_user_ids(game_id):
+            try:
+                games_pgn = _fetch_user_games_pgn(user_id)
+            except ExtractionError:
+                continue
+            if games_pgn is None:
+                continue
+            block = _select_game_pgn(games_pgn, game_id)
+            if block is not None:
+                return block
+    except Exception:  # a best-effort fallback must never break the request
+        return None
+    return None
+
+
 def fetch_lichess_pgn(game_id: str) -> str:
-    """Fetch the raw PGN (clock and eval comments included) for a game."""
+    """Fetch the raw PGN (clock and eval comments included) for a game.
+
+    Lichess answers an export it will not share with ``303 See Other`` to
+    ``/signup`` (what happens for an anonymous player's casual/unrated game)
+    instead of an error status, so redirects are inspected *before* the body is
+    trusted.
+    """
     response = _get(
         LICHESS_EXPORT_URL.format(game_id=game_id),
         params={"evals": "true"},
+        allow_redirects=False,
     )
+    if 300 <= response.status_code < 400:
+        location = response.headers.get("Location", "").lower()
+        if "signup" in location or "login" in location:
+            # A refused casual/unrated game is often still retrievable from a
+            # player's public game list; only give up with the honest message
+            # when that fallback finds nothing.
+            recovered = _recover_lichess_casual_pgn(game_id)
+            if recovered is not None:
+                return recovered
+            raise GameNotSharedError(LICHESS_NOT_SHARED_ERROR)
+        raise GameNotFoundError(
+            "Lichess redirected this game export instead of returning it. "
+            "The game is not publicly available."
+        )
     pgn = response.text
     if not pgn.strip():
         raise GameNotFoundError("Lichess returned an empty PGN for this game.")
+    if not _looks_like_pgn(pgn):
+        raise GameNotFoundError(
+            "That game could not be found on Lichess. "
+            "Check that the link points to a finished game."
+        )
     return pgn
 
 
@@ -431,7 +625,7 @@ def fetch_chesscom_game(username: str, game_id: str) -> tuple[str, str, str]:
         if error is not None and rate_limit_error is None:
             rate_limit_error = error
         for game in games:
-            if game.get("url", "").rstrip("/").endswith(game_id):
+            if _chesscom_game_url_matches(game.get("url", ""), game_id):
                 pgn = game.get("pgn", "")
                 if not pgn:
                     raise GameNotFoundError("The matched Chess.com game has no PGN.")

@@ -381,6 +381,40 @@ def _build_weakness_moments(
         return [future.result() for future in futures]
 
 
+def _attach_clock_context(engine_data: Dict[str, object], analysis) -> None:
+    """Project per-move clock facts onto the strength/weakness moments.
+
+    Each moment already names the move that produced it, so the seconds the
+    player spent and the clock they had are looked up on the analysis. A move
+    that answers one of the player's own blunders or mistakes also carries
+    whether that reply was rushed, which is what makes the per-moment coach note
+    specific. Moves without clock data stay untouched, so no zero is fabricated.
+    """
+    moves = {(move.color, move.move_number): move for move in analysis.moves}
+    rush_signals = psychology.post_error_rush_signals(analysis)
+    for key in ("strength_moments", "weakness_moments"):
+        moments = engine_data.get(key)
+        if not isinstance(moments, list):
+            continue
+        for moment in moments:
+            if not isinstance(moment, dict):
+                continue
+            move = moves.get((moment.get("color"), moment.get("move_number")))
+            if move is None:
+                continue
+            if move.seconds_spent is not None:
+                moment["seconds_spent"] = move.seconds_spent
+            if move.clock_remaining is not None:
+                moment["clock_remaining"] = move.clock_remaining
+            signal = rush_signals.get((move.color, move.move_number))
+            if signal:
+                moment["post_error_rush"] = signal["post_error_rush"]
+                moment["next_move"] = {
+                    "san": signal["next_move_san"],
+                    "seconds_spent": signal["next_move_seconds_spent"],
+                }
+
+
 def build_insights(
     analysis,
     pool: Optional[engine_module.EnginePool] = None,
@@ -412,6 +446,7 @@ def build_insights(
         for move, capitalizes in strength_candidates
     ]
     engine_data["weakness_moments"] = weakness_moments
+    _attach_clock_context(engine_data, analysis)
     engine_data["resources"] = _build_resources(analysis, weakness_moments)
     engine_data["psychology"] = psychology.build_game_primitives(analysis)
     return engine_data

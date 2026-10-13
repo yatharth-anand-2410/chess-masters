@@ -12,6 +12,7 @@ import { PSYCHOLOGY_MIN_GAMES } from "../../../components/AnalyzerForm";
 import type { InsightsData } from "../../../components/insights";
 import { apiGet, externalGameUrl } from "../../../lib/api";
 import type { Usage } from "../../../lib/api";
+import { warmBackend } from "../../../lib/backend-wake";
 import { createClient } from "../../../lib/supabase-client";
 import LimitReachedPrompt from "../../../components/LimitReachedPrompt";
 import UpgradePrompt from "../../../components/UpgradePrompt";
@@ -59,6 +60,12 @@ export default function AnalysisDetailPage() {
   const [detail, setDetail] = useState<AnalysisDetail | null>(null);
   const [usage, setUsage] = useState<Usage | null>(null);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    // Drills and Q&A both call the deployed backend, so wake it on arrival
+    // rather than when the player makes their first move.
+    warmBackend();
+  }, []);
 
   useEffect(() => {
     const supabase = createClient();
@@ -168,6 +175,7 @@ export default function AnalysisDetailPage() {
               insights={insights}
               psychologyLocked={psychologyLocked}
               gamesAnalyzed={gamesAnalyzed}
+              analysisId={analysisId}
             />
           ) : insights &&
             ((insights.weakness_moments?.length ?? 0) > 0 ||
