@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { Topbar } from "../../components/ui/Topbar";
+import { Pill } from "../../components/ui/Pill";
 import AuthButton from "../../components/AuthButton";
 import { API_BASE } from "../../lib/api";
 import { createClient } from "../../lib/supabase-client";
@@ -279,23 +281,10 @@ export default function SubscriptionPage() {
 
   return (
     <main className="dashboard">
-      <header className="topbar">
-        <Link href="/" className="wordmark">
-          <span className="wordmark-glyph" aria-hidden="true">
-            ♜
-          </span>
-          Chessmasters
-        </Link>
-        <div className="topbar-actions">
-          <Link href="/" className="nav-link">
-            Analyze
-          </Link>
-          <Link href="/history" className="nav-link">
-            History
-          </Link>
-          <AuthButton user={user} onAuthChange={() => setUser(null)} />
-        </div>
-      </header>
+      <Topbar
+        user={user}
+        onAuthChange={() => setUser(null)}
+      />
 
       <div className="upgrade-prompt upgrade-hero">
         <h1>
@@ -304,9 +293,9 @@ export default function SubscriptionPage() {
 
         {billing && (
           <p className="plan-status">
-            <span className={`plan-pill plan-${stillPaid ? "paid" : "free"}`}>
+            <Pill tone={stillPaid ? "shell" : "neutral"} size="sm">
               {statusLabel(status)}
-            </span>
+            </Pill>
           </p>
         )}
 

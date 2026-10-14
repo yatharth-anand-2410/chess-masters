@@ -1,9 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
+import { motion, AnimatePresence } from "motion/react";
+import { Loader2, Send } from "lucide-react";
 import { API_BASE } from "../lib/api";
 import { streamPost } from "../lib/stream";
 import UpgradePrompt from "./UpgradePrompt";
+import { Pill } from "./ui/Pill";
+import { Button } from "./ui/Button";
 
 export type ThreadMessage = {
   id: string;
@@ -47,9 +51,6 @@ export default function AnalysisThread({
         content: question,
         created_at: new Date().toISOString(),
       },
-    ]);
-    setMessages((prev) => [
-      ...prev,
       {
         id: `local-answer-${Date.now()}`,
         role: "assistant",
@@ -105,46 +106,76 @@ export default function AnalysisThread({
   };
 
   return (
-    <div className="thread">
-      <div className="thread-messages">
+    <div className="thread flex flex-col h-full bg-[var(--ink-2)] rounded-[var(--radius-card)] border border-[var(--line-soft)] p-4">
+      <div className="thread-messages flex-1 overflow-y-auto flex flex-col gap-3 min-h-[160px] max-h-[480px] pr-1">
         {messages.length === 0 && (
-          <p className="thread-empty">
+          <p className="thread-empty text-xs text-[var(--text-muted)] italic py-4 text-center">
             Ask a question about this game, for example: &ldquo;Why was 5...gxf5 a
             problem?&rdquo;
           </p>
         )}
-        {messages.map((message) => (
-          <div key={message.id} className={`thread-message role-${message.role}`}>
-            <span className="thread-author">
-              {message.role === "user" ? "You" : "Coach"}
-            </span>
-            <div className="thread-content">{message.content}</div>
-          </div>
-        ))}
+        <AnimatePresence initial={false}>
+          {messages.map((message) => {
+            const isUser = message.role === "user";
+            return (
+              <motion.div
+                key={message.id}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.15 }}
+                className={`thread-message p-3 rounded-lg border ${
+                  isUser
+                    ? "bg-[var(--ink-3)] border-[var(--line-soft)] self-end max-w-[88%]"
+                    : "bg-[var(--ink)] border-[var(--line)] self-start max-w-[92%]"
+                }`}
+              >
+                <div className="mb-1">
+                  <Pill tone={isUser ? "neutral" : "shell"} size="sm">
+                    {isUser ? "You" : "Coach"}
+                  </Pill>
+                </div>
+                <div className="thread-content text-xs leading-relaxed text-[var(--text)] whitespace-pre-wrap">
+                  {message.content || (
+                    <span className="text-[var(--text-muted)] italic">Thinking...</span>
+                  )}
+                </div>
+              </motion.div>
+            );
+          })}
+        </AnimatePresence>
         {replying && (
-          <div className="thread-typing">
-            <span className="spinner" aria-hidden="true" />
-            Coach is thinking...
+          <div className="thread-typing flex items-center gap-2 text-xs text-[var(--gold)] font-mono py-1">
+            <Loader2 size={12} className="animate-spin" />
+            <span>Coach is analyzing moves...</span>
           </div>
         )}
       </div>
 
-      {error && <div className="error-banner">{error}</div>}
+      {error && <div className="error-banner mt-2 text-xs">{error}</div>}
 
       {upgradeRequired ? (
-        <UpgradePrompt feature="qna" />
+        <div className="mt-3">
+          <UpgradePrompt feature="qna" />
+        </div>
       ) : limitReached ? null : (
-        <form className="thread-composer" onSubmit={submit}>
+        <form className="thread-composer mt-3 flex items-center gap-2" onSubmit={submit}>
           <input
             type="text"
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
-            placeholder="Ask about this game..."
+            placeholder="Ask about this position..."
             disabled={replying}
+            className="flex-1 px-3 py-2 text-xs rounded-md bg-[var(--input-bg)] border border-[var(--input-line)] text-[var(--text)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--gold)]"
           />
-          <button type="submit" className="btn" disabled={replying || !draft.trim()}>
+          <Button
+            type="submit"
+            variant="primary"
+            size="sm"
+            disabled={replying || !draft.trim()}
+            iconStart={replying ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />}
+          >
             Ask
-          </button>
+          </Button>
         </form>
       )}
     </div>

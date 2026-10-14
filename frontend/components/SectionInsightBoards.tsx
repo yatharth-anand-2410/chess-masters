@@ -1,10 +1,11 @@
 "use client";
 
-import { useId, useState } from "react";
-
+import React, { useId, useState } from "react";
+import { motion, AnimatePresence } from "motion/react";
 import CriticalPositionBoard from "./CriticalPositionBoard";
 import { ChevronDownIcon } from "./ReportIcons";
 import type { InsightMoment } from "./insights";
+import { Pill } from "./ui/Pill";
 
 function qualityLabel(quality: string): string {
   switch (quality) {
@@ -20,6 +21,13 @@ function qualityLabel(quality: string): string {
       return quality;
   }
 }
+
+const qualityToneMap: Record<string, "alert" | "caution" | "positive" | "neutral"> = {
+  blunder: "alert",
+  mistake: "caution",
+  inaccuracy: "caution",
+  strong: "positive",
+};
 
 function phaseLabel(phase: string): string {
   switch (phase) {
@@ -38,17 +46,12 @@ function moveLabel(moment: InsightMoment): string {
   return `${moment.move_number}${moment.color === "black" ? "..." : "."} ${moment.san}`;
 }
 
-/**
- * Numbers arriving from JSON are untrusted: anything that is not a finite
- * number is treated as missing so it renders as nothing instead of `NaN`.
- */
 function finite(value: number | null | undefined): number | null {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
 const SUB_TEN_SECOND_LIMIT = 10;
 
-/** Move duration: `1.4s` below ten seconds, whole seconds above (`12s`). */
 function formatDuration(value: number | null | undefined): string | null {
   const seconds = finite(value);
   if (seconds === null || seconds < 0) {
@@ -60,7 +63,6 @@ function formatDuration(value: number | null | undefined): string | null {
   return `${Math.round(seconds)}s`;
 }
 
-/** Clock reading: `2:07`, widening to `1:02:07` only for long time controls. */
 function formatClock(value: number | null | undefined): string | null {
   const seconds = finite(value);
   if (seconds === null) {
@@ -77,19 +79,10 @@ function formatClock(value: number | null | undefined): string | null {
   return `${minutes}:${padded}`;
 }
 
-/**
- * Clock evidence for one moment: how long the move took, what was left on the
- * clock, and whether the player rushed the reply.
- *
- * Every part is optional and independently emitted, because clock data only
- * exists for games whose source carried it. A moment with nothing to say
- * renders no element at all — no em dash, no zero.
- */
 function MoveEvidence({ moment }: { moment: InsightMoment }) {
   const spent = formatDuration(moment.player_seconds_spent ?? moment.seconds_spent);
   const clock = formatClock(moment.player_clock_remaining ?? moment.clock_remaining);
   const rushed = moment.post_error_rush === true;
-  const replySeconds = formatDuration(moment.next_move?.seconds_spent);
 
   if (!spent && !clock && !rushed) {
     return null;
@@ -100,8 +93,8 @@ function MoveEvidence({ moment }: { moment: InsightMoment }) {
       {spent && <span className="insight-stat">Took {spent}</span>}
       {clock && <span className="insight-stat">{clock} left</span>}
       {rushed && (
-        <span className="insight-rush">
-          answered in {replySeconds ?? "an instant"} — rushed
+        <span className="insight-stat insight-stat-rush" title="Move made in under 1.5s after an opponent's error">
+          Rushed reply
         </span>
       )}
     </div>
@@ -137,15 +130,27 @@ function InsightBoardCard({ moment }: { moment: InsightMoment }) {
   );
   const evidence = <MoveEvidence moment={moment} />;
 
+  const tone = qualityToneMap[moment.quality] ?? "neutral";
+
   return (
-    <div className={`insight-card quality-${moment.quality}`}>
-      <div className="insight-card-header">
-        {moment.game_label && (
-          <span className="insight-game">{moment.game_label}</span>
+    <div data-surface="paper" className={`insight-card quality-${moment.quality}`}>
+      <div className="insight-card-header flex items-center justify-between gap-2 flex-wrap">
+        <div className="flex items-center gap-2">
+          {moment.game_label && (
+            <Pill tone="neutral" size="sm">{moment.game_label}</Pill>
+          )}
+          <span className="insight-move font-mono font-bold text-sm text-[var(--paper-text)]">
+            {moveLabel(moment)}
+          </span>
+          <Pill tone={tone} size="sm">
+            {qualityLabel(moment.quality)}
+          </Pill>
+        </div>
+        {moment.phase && (
+          <Pill tone="neutral" size="sm">
+            {phaseLabel(moment.phase)}
+          </Pill>
         )}
-        <span className="insight-move">{moveLabel(moment)}</span>
-        <span className="insight-badge">{qualityLabel(moment.quality)}</span>
-        {moment.phase && <span className="insight-phase">{phaseLabel(moment.phase)}</span>}
       </div>
 
       <div className={bodyClass}>
@@ -168,7 +173,7 @@ function InsightBoardCard({ moment }: { moment: InsightMoment }) {
         <div className="insight-card-text">
           {moment.note && (
             <div className="insight-block">
-              <span className="insight-label">
+              <span className="insight-label text-xs font-semibold text-[var(--paper-muted)]">
                 {isStrength ? "Why it worked" : "What happened"}
               </span>
               <p>{moment.note}</p>
@@ -182,52 +187,61 @@ function InsightBoardCard({ moment }: { moment: InsightMoment }) {
             <div className={`insight-more${open ? " is-open" : ""}`}>
               <button
                 type="button"
-                className="insight-more-toggle"
+                className="insight-more-toggle inline-flex items-center gap-1.5 text-xs text-[var(--accent)] font-medium hover:underline cursor-pointer"
                 onClick={() => setOpen((value) => !value)}
                 aria-expanded={open}
                 aria-controls={panelId}
               >
-                {open ? "Hide deeper analysis" : "Deeper analysis"}
-                <ChevronDownIcon className="insight-more-icon" />
+                <span>{open ? "Hide deeper analysis" : "Deeper analysis"}</span>
+                <ChevronDownIcon className={`insight-more-icon transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
               </button>
 
-              {open && (
-                <div className="insight-more-panel" id={panelId}>
-                  {moment.mechanism && (
-                    <div className="insight-block">
-                      <span className="insight-label">Why this happens</span>
-                      <p>{moment.mechanism}</p>
-                    </div>
-                  )}
+              <AnimatePresence>
+                {open && (
+                  <motion.div
+                    id={panelId}
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="insight-more-panel overflow-hidden"
+                  >
+                    {moment.mechanism && (
+                      <div className="insight-block">
+                        <span className="insight-label text-xs font-semibold text-[var(--paper-muted)]">Why this happens</span>
+                        <p>{moment.mechanism}</p>
+                      </div>
+                    )}
 
-                  {moment.motif && (
-                    <div className="insight-block">
-                      <span className="insight-label">Detected motif</span>
-                      <p>
-                        <strong>{moment.motif}</strong>
-                        {moment.motif_details ? ` — ${moment.motif_details}` : ""}
-                      </p>
-                    </div>
-                  )}
+                    {moment.motif && (
+                      <div className="insight-block">
+                        <span className="insight-label text-xs font-semibold text-[var(--paper-muted)]">Detected motif</span>
+                        <p>
+                          <strong>{moment.motif}</strong>
+                          {moment.motif_details ? ` — ${moment.motif_details}` : ""}
+                        </p>
+                      </div>
+                    )}
 
-                  {moment.blindspot && (
-                    <div className="insight-block">
-                      <span className="insight-label">Calculation blind spot</span>
-                      <p>{moment.blindspot.explanation}</p>
-                    </div>
-                  )}
+                    {moment.blindspot && (
+                      <div className="insight-block">
+                        <span className="insight-label text-xs font-semibold text-[var(--paper-muted)]">Calculation blind spot</span>
+                        <p>{moment.blindspot.explanation}</p>
+                      </div>
+                    )}
 
-                  {strongerIdea && (
-                    <div className="insight-block">
-                      <span className="insight-label">Stronger idea</span>
-                      <p>
-                        <strong>{strongerIdea}</strong>
-                        {moment.better_move_idea ? ` — ${moment.better_move_idea}` : ""}
-                      </p>
-                    </div>
-                  )}
-                </div>
-              )}
+                    {strongerIdea && (
+                      <div className="insight-block">
+                        <span className="insight-label text-xs font-semibold text-[var(--paper-muted)]">Stronger idea</span>
+                        <p>
+                          <strong>{strongerIdea}</strong>
+                          {moment.better_move_idea ? ` — ${moment.better_move_idea}` : ""}
+                        </p>
+                      </div>
+                    )}
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           )}
         </div>

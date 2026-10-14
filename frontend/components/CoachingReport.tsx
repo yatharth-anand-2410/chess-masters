@@ -216,7 +216,7 @@ export default function CoachingReport({
 
   if (sections.length === 0) {
     return (
-      <section className={sectionClassName}>
+      <section className={sectionClassName} data-surface="paper">
         <HeroRule rule={nextRule} pending={pending} drillAnchor={hasDrills ? "drills" : null} />
         <MemoizedMarkdown markdown={normalized} />
         {(psychologyProfile || showLockedPsychology) && (
@@ -233,7 +233,7 @@ export default function CoachingReport({
   }
 
   return (
-    <section className={sectionClassName}>
+    <section className={sectionClassName} data-surface="paper">
       <HeroRule rule={nextRule} pending={pending} drillAnchor={hasDrills ? "drills" : null} />
 
       {sections.map((section, index) => {

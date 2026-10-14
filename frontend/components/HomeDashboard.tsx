@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { User } from "@supabase/supabase-js";
+import { Topbar } from "./ui/Topbar";
 import AnalyzerForm, {
   MAX_BATCH_GAMES,
   type AnalysisRequest,
@@ -102,61 +103,6 @@ export default function HomePage() {
     initAnalytics();
   }, []);
 
-  const visualInnerRef = useRef<HTMLDivElement | null>(null);
-
-  useLayoutEffect(() => {
-    const container = visualInnerRef.current;
-    if (!container) {
-      return;
-    }
-
-    let frame = 0;
-
-    const align = () => {
-      frame = 0;
-      const board = container.querySelector<HTMLElement>(".hero-board");
-      const form = document.querySelector<HTMLElement>(".analyzer-form");
-      const stacked = window.matchMedia("(max-width: 960px)").matches;
-      if (!board || !form || stacked) {
-        container.style.transform = "";
-        return;
-      }
-      container.style.transform = "translateY(0px)";
-      const boardRect = board.getBoundingClientRect();
-      const formRect = form.getBoundingClientRect();
-      const delta =
-        formRect.top +
-        formRect.height / 2 -
-        (boardRect.top + boardRect.height / 2);
-      container.style.transform = `translateY(${delta.toFixed(1)}px)`;
-    };
-
-    const schedule = () => {
-      if (frame !== 0) {
-        return;
-      }
-      frame = window.requestAnimationFrame(align);
-    };
-
-    schedule();
-    window.addEventListener("resize", schedule);
-    const hero = document.querySelector(".hero");
-    const observer = new ResizeObserver(schedule);
-    if (hero) {
-      observer.observe(hero);
-    }
-    const visualColumn = container.parentElement;
-    visualColumn?.addEventListener("animationend", schedule);
-
-    return () => {
-      window.removeEventListener("resize", schedule);
-      observer.disconnect();
-      visualColumn?.removeEventListener("animationend", schedule);
-      if (frame !== 0) {
-        window.cancelAnimationFrame(frame);
-      }
-    };
-  }, []);
 
   const refreshUsage = useCallback(async (sessionToken: string) => {
     try {
@@ -709,43 +655,13 @@ export default function HomePage() {
 
   return (
     <main className="dashboard">
-      <header className="topbar">
-        <Link href="/" className="wordmark">
-          <span className="wordmark-glyph" aria-hidden="true">
-            ♜
-          </span>
-          Chessmasters
-        </Link>
-        <div className="topbar-actions">
-          {user && (
-            <>
-              {usage?.plan === "free" && (
-                <span className="quota-pill">
-                  Free Analyses: {usage.analyses_remaining}/
-                  {usage.free_analysis_limit}
-                </span>
-              )}
-              {profile?.role === "coach" && (
-                <Link href="/coach" className="nav-link">
-                  Coach
-                </Link>
-              )}
-              <Link href="/history" className="nav-link">
-                History
-              </Link>
-              <Link href="/subscription" className="nav-link">
-                Subscription
-              </Link>
-            </>
-          )}
-          <AuthButton
-            user={user}
-            onAuthChange={clearSessionState}
-            role={profile?.role ?? null}
-            onToggleRole={profile ? toggleRole : undefined}
-          />
-        </div>
-      </header>
+      <Topbar
+        user={user}
+        usage={usage}
+        role={profile?.role ?? null}
+        onAuthChange={clearSessionState}
+        onToggleRole={profile ? toggleRole : undefined}
+      />
 
       <section className="hero">
         <div className="hero-copy">
@@ -814,9 +730,11 @@ export default function HomePage() {
           {error && <div className="error-banner">{error}</div>}
         </div>
 
-        <aside className="hero-visual" aria-hidden="true">
-          <div className="hero-visual-inner" ref={visualInnerRef}>
-            <HeroBoard />
+        <aside className="hero-visual">
+          <div className="hero-visual-inner">
+            <div aria-hidden="true" className="w-full flex justify-center">
+              <HeroBoard />
+            </div>
             <p className="hero-caption">Every game has a square worth fighting for.</p>
           </div>
         </aside>

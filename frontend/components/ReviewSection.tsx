@@ -149,16 +149,17 @@ export default function ReviewSection({ user, token, onAuthChange }: ReviewSecti
             <span className="review-form-label">
               {hasReview ? "Update your review" : "Rate Chessmasters"}
             </span>
-            <div className="star-input" role="group" aria-label="Your rating">
+            <div className="star-input" role="radiogroup" aria-label="Your rating">
               {[1, 2, 3, 4, 5].map((value) => (
                 <button
                   key={value}
                   type="button"
+                  role="radio"
+                  aria-checked={value === rating}
                   className={`star-button ${
                     value <= (hovered || rating) ? "active" : ""
                   }`}
                   aria-label={`${value} star${value === 1 ? "" : "s"}`}
-                  aria-pressed={value <= rating}
                   onMouseEnter={() => setHovered(value)}
                   onMouseLeave={() => setHovered(0)}
                   onFocus={() => setHovered(value)}

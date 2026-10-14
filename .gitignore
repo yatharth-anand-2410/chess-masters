@@ -17,3 +17,4 @@ supabase/.temp/
 .codex/
 # Chess book PDFs: never commit. In-copyright material; derived index only.
 books/
+e2e-screenshots/

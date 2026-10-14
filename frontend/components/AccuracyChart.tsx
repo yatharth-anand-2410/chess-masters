@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo } from "react";
+import React, { useMemo } from "react";
+import { motion } from "motion/react";
 
 type AccuracyChartProps = {
   data?: string;
@@ -43,10 +44,16 @@ export default function AccuracyChart({ data }: AccuracyChartProps) {
         const isNull = value === null;
         return (
           <div className="acc-bar-group" key={label}>
-            <span className="acc-value">{isNull ? "N/A" : Math.round(value)}</span>
+            <span className="acc-value">{isNull ? "N/A" : Math.round(value)}%</span>
             <div className="acc-bar-track">
               {!isNull && (
-                <div className="acc-bar-fill" style={{ width: `${value}%` }} />
+                <motion.div
+                  className="acc-bar-fill"
+                  initial={{ scaleX: 0 }}
+                  animate={{ scaleX: 1 }}
+                  transition={{ duration: 0.65, delay: index * 0.1, ease: "easeOut" }}
+                  style={{ width: `${value}%`, transformOrigin: "left" }}
+                />
               )}
             </div>
             <span className="acc-label">{label}</span>

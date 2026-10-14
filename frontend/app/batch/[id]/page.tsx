@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import AuthButton from "../../../components/AuthButton";
+import { Topbar } from "../../../components/ui/Topbar";
+import { Pill } from "../../../components/ui/Pill";
 import CoachingReport from "../../../components/CoachingReport";
 import GameAnalysisCard from "../../../components/GameAnalysisCard";
 import { PSYCHOLOGY_MIN_GAMES } from "../../../components/AnalyzerForm";
@@ -89,29 +90,14 @@ export default function BatchDetailPage() {
 
   return (
     <main className="dashboard analysis-dashboard">
-      <header className="topbar">
-        <Link href="/" className="wordmark">
-          <span className="wordmark-glyph" aria-hidden="true">
-            ♜
-          </span>
-          Chessmasters
-        </Link>
-        <div className="topbar-actions">
-          <Link href="/" className="nav-link">
-            New analysis
-          </Link>
-          <Link href="/history" className="nav-link">
-            History
-          </Link>
-          <Link href="/subscription" className="nav-link">
-            Subscription
-          </Link>
-          <AuthButton user={user} onAuthChange={() => router.push("/")} />
-        </div>
-      </header>
+      <Topbar
+        user={user}
+        usage={usage}
+        onAuthChange={() => router.push("/")}
+      />
 
       <div className="game-header">
-        <span className="chip">{platformLabel}</span>
+        <Pill tone="shell" size="sm">{platformLabel}</Pill>
         <h1 className="game-title">Multi-game report</h1>
         <p className="game-meta">
           {completed} of {batch.game_count} games analyzed

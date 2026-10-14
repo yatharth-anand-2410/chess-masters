@@ -1,11 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 import Link from "next/link";
+import { motion, AnimatePresence } from "motion/react";
 import AccuracyChart from "./AccuracyChart";
 import SectionInsightBoards from "./SectionInsightBoards";
 import type { InsightsData } from "./insights";
 import { externalGameUrl, type AnalysisSummary } from "../lib/api";
+import { Pill } from "./ui/Pill";
+import { Button } from "./ui/Button";
 
 type GameAnalysisCardProps = {
   game: AnalysisSummary;
@@ -52,13 +55,13 @@ export default function GameAnalysisCard({
 
   return (
     <article className="game-card">
-      <div className="game-card-header">
-        <span className="game-card-index">Game {index + 1}</span>
-        <span className="history-platform">{platformLabel}</span>
-        <span className="game-card-title">
+      <div className="game-card-header flex items-center gap-2 flex-wrap">
+        <Pill tone="shell" size="sm">Game {index + 1}</Pill>
+        <Pill tone="neutral" size="sm">{platformLabel}</Pill>
+        <span className="game-card-title font-medium text-[var(--text)]">
           {game.opening_name ?? game.game_id}
         </span>
-        <span className="game-card-meta">
+        <span className="game-card-meta text-xs text-[var(--text-muted)]">
           Played as {colorLabel}
           {game.result ? ` · ${game.result}` : ""}
         </span>
@@ -73,62 +76,71 @@ export default function GameAnalysisCard({
           {accuracyData && <AccuracyChart data={accuracyData} />}
 
           {statistics && (
-            <div className="game-card-counts">
-              <span className="count-blunder">
+            <div className="game-card-counts flex items-center gap-2 flex-wrap text-xs font-mono my-2">
+              <Pill tone="alert" size="sm">
                 {statistics.blunder ?? 0} blunders
-              </span>
-              <span className="count-mistake">
+              </Pill>
+              <Pill tone="caution" size="sm">
                 {statistics.mistake ?? 0} mistakes
-              </span>
-              <span className="count-inaccuracy">
+              </Pill>
+              <Pill tone="neutral" size="sm">
                 {statistics.inaccuracy ?? 0} inaccuracies
-              </span>
+              </Pill>
             </div>
           )}
 
           {hasMoments && (
-            <>
-              <button
-                type="button"
-                className="game-card-toggle"
+            <div className="my-2">
+              <Button
+                variant="quiet"
+                size="sm"
                 onClick={() => setShowMoments((prev) => !prev)}
               >
                 {showMoments
                   ? "Hide key moments"
                   : `Show key moments (${weakness.length + strength.length})`}
-              </button>
-              {showMoments && (
-                <div className="game-card-moments">
-                  {weakness.length > 0 && (
-                    <div>
-                      <h3>Weakness</h3>
-                      <SectionInsightBoards moments={weakness} />
-                    </div>
-                  )}
-                  {strength.length > 0 && (
-                    <div>
-                      <h3>Strength</h3>
-                      <SectionInsightBoards moments={strength} />
-                    </div>
-                  )}
-                </div>
-              )}
-            </>
+              </Button>
+
+              <AnimatePresence>
+                {showMoments && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.25 }}
+                    className="game-card-moments overflow-hidden mt-2"
+                  >
+                    {weakness.length > 0 && (
+                      <div className="mb-3">
+                        <h3 className="text-sm font-semibold mb-1 text-[var(--paper-text)]">Weakness</h3>
+                        <SectionInsightBoards moments={weakness} />
+                      </div>
+                    )}
+                    {strength.length > 0 && (
+                      <div>
+                        <h3 className="text-sm font-semibold mb-1 text-[var(--paper-text)]">Strength</h3>
+                        <SectionInsightBoards moments={strength} />
+                      </div>
+                    )}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
           )}
 
-          <div className="game-card-links">
-            <Link href={`/analysis/${game.id}`} className="game-link">
+          <div className="game-card-links flex items-center gap-3 text-xs mt-3">
+            <Link href={`/analysis/${game.id}`} className="game-link text-[var(--gold)] hover:underline">
               Full game analysis →
             </Link>
             <a
               href={externalGameUrl(game)}
               target="_blank"
               rel="noreferrer"
-              className="game-link"
+              className="game-link text-[var(--text-muted)] hover:text-white"
             >
               Open on {platformLabel} ↗
             </a>
-            {batchId && <span className="game-card-batch">Part of this report</span>}
+            {batchId && <span className="game-card-batch text-[var(--text-muted)] font-mono text-[0.7rem]">Part of this report</span>}
           </div>
         </>
       )}

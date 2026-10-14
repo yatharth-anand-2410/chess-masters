@@ -1,8 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-
+import React, { useEffect, useRef, useState } from "react";
+import { ClipboardPaste, Plus, Trash2, Sparkles } from "lucide-react";
+import { motion, AnimatePresence } from "motion/react";
 import { warmBackend } from "../lib/backend-wake";
+import { cn } from "../lib/utils";
+import { Button } from "./ui/Button";
+import { Pill } from "./ui/Pill";
 
 export type Platform = "lichess" | "chess.com";
 export type PlayerColor = "white" | "black";
@@ -77,8 +81,6 @@ export default function AnalyzerForm({
     { id: 1, url: "", color: null },
   ]);
 
-  // The student profile loads asynchronously on the coach's pages, so the
-  // prefilled username can arrive after the form mounted.
   useEffect(() => {
     if (defaultUsername !== undefined) {
       setUsername(defaultUsername);
@@ -104,9 +106,6 @@ export default function AnalyzerForm({
   };
 
   const updateRowUrl = (id: number, value: string) => {
-    // Typing or pasting a link is the clearest signal that an analysis is
-    // coming, and the free-tier backend needs ~20s to boot. `warmBackend` is
-    // throttled and deduplicated, so calling it per keystroke is fine.
     warmBackend();
     const detected = platform === "lichess" ? detectColorFromUrl(value) : null;
     setRows((current) =>
@@ -145,7 +144,6 @@ export default function AnalyzerForm({
   };
 
   const pasteFromClipboard = async (id: number) => {
-    // The player is one click away from analyzing: start the boot now.
     warmBackend();
     try {
       const text = await navigator.clipboard.readText();
@@ -154,11 +152,17 @@ export default function AnalyzerForm({
         return;
       }
     } catch {
-      // Clipboard permission denied; fall back to manual paste.
+      // Clipboard denied; focus input
     }
     const input = inputRefs.current.get(id);
     input?.focus();
     input?.select();
+  };
+
+  const loadSampleGame = () => {
+    handlePlatformChange("lichess");
+    warmBackend();
+    setRows([{ id: 1, url: "https://lichess.org/zR8HRccT/white", color: "white" }]);
   };
 
   const handleSubmit = (event: React.FormEvent) => {
@@ -183,20 +187,19 @@ export default function AnalyzerForm({
       });
       return;
     }
-    if (!onSubmitBatch) {
-      return;
+    if (onSubmitBatch) {
+      onSubmitBatch({
+        platform,
+        username: platform === "chess.com" ? username.trim() : undefined,
+        games,
+        studentId,
+      });
     }
-    onSubmitBatch({
-      platform,
-      username: platform === "chess.com" ? username.trim() : undefined,
-      games,
-      studentId,
-    });
   };
 
   const validGames = rows.filter((row) => row.url.trim());
   const colorReady =
-    platform !== "lichess" || validGames.every((row) => row.color !== null);
+    platform !== "lichess" || rows.every((row) => !row.url.trim() || row.color);
   const usernameReady = platform !== "chess.com" || Boolean(username.trim());
   const multiGame = validGames.length > 1;
   const psychologyUnlocked = validGames.length >= PSYCHOLOGY_MIN_GAMES;
@@ -214,29 +217,66 @@ export default function AnalyzerForm({
 
   return (
     <form className="analyzer-form" onSubmit={handleSubmit}>
-      <div className="platform-toggle" role="group" aria-label="Chess platform">
+      {/* Platform Switch with spring sliding indicator */}
+      <div className="platform-toggle relative flex p-1 rounded-full bg-[var(--ink-3)] border border-[var(--line-soft)]" role="tablist" aria-label="Chess platform">
         <button
           type="button"
-          className={platform === "lichess" ? "toggle active" : "toggle"}
+          role="tab"
+          aria-selected={platform === "lichess"}
+          className={cn(
+            "relative z-10 flex-1 py-1.5 px-4 text-xs sm:text-sm font-medium rounded-full transition-colors cursor-pointer text-center",
+            platform === "lichess"
+              ? "text-[#0c1214] font-semibold"
+              : "text-[var(--text-muted)] hover:text-[var(--text)]"
+          )}
           onClick={() => handlePlatformChange("lichess")}
           disabled={disabled}
         >
+          {platform === "lichess" && (
+            <motion.div
+              layoutId="platform-active-pill"
+              className="absolute inset-0 bg-[var(--gold)] rounded-full -z-10 shadow-sm"
+              transition={{ type: "spring", stiffness: 450, damping: 35 }}
+            />
+          )}
           Lichess
         </button>
+
         <button
           type="button"
-          className={platform === "chess.com" ? "toggle active" : "toggle"}
+          role="tab"
+          aria-selected={platform === "chess.com"}
+          className={cn(
+            "relative z-10 flex-1 py-1.5 px-4 text-xs sm:text-sm font-medium rounded-full transition-colors cursor-pointer text-center",
+            platform === "chess.com"
+              ? "text-[#0c1214] font-semibold"
+              : "text-[var(--text-muted)] hover:text-[var(--text)]"
+          )}
           onClick={() => handlePlatformChange("chess.com")}
           disabled={disabled}
         >
+          {platform === "chess.com" && (
+            <motion.div
+              layoutId="platform-active-pill"
+              className="absolute inset-0 bg-[var(--gold)] rounded-full -z-10 shadow-sm"
+              transition={{ type: "spring", stiffness: 450, damping: 35 }}
+            />
+          )}
           Chess.com
         </button>
       </div>
 
       {platform === "chess.com" && (
-        <label className="field">
-          <span>Chess.com Username</span>
+        <motion.div
+          initial={{ opacity: 0, y: -6 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -6 }}
+          transition={{ duration: 0.15 }}
+          className="field"
+        >
+          <label htmlFor="chesscom-username">Chess.com Username</label>
           <input
+            id="chesscom-username"
             type="text"
             value={username}
             onChange={(event) => setUsername(event.target.value)}
@@ -244,124 +284,171 @@ export default function AnalyzerForm({
             required
             disabled={disabled}
           />
-        </label>
+        </motion.div>
       )}
 
       <div className="field">
-        <span>{rows.length > 1 ? "Game links" : "Game URL"}</span>
-        <div className="game-rows">
-          {rows.map((row, index) => (
-            <div className="game-row" key={row.id}>
-              <span className="game-row-index" aria-hidden="true">
-                {index + 1}
-              </span>
-              <div className="game-row-field">
-                <input
-                  type="url"
-                  ref={(element) => {
-                    if (element) {
-                      inputRefs.current.set(row.id, element);
-                    } else {
-                      inputRefs.current.delete(row.id);
-                    }
-                  }}
-                  value={row.url}
-                  onChange={(event) => updateRowUrl(row.id, event.target.value)}
-                  onFocus={() => warmBackend()}
-                  onPaste={() => warmBackend()}
-                  placeholder={
-                    platform === "lichess"
-                      ? "https://lichess.org/abc12345"
-                      : "https://www.chess.com/game/live/123456789"
-                  }
-                  disabled={disabled}
-                  aria-label={`Game ${index + 1} URL`}
-                  autoComplete="off"
-                  spellCheck={false}
-                  inputMode="url"
-                />
-                <button
-                  type="button"
-                  className="paste-button"
-                  onClick={() => pasteFromClipboard(row.id)}
-                  disabled={disabled}
-                  title="Paste game link from clipboard"
-                >
-                  Paste
-                </button>
-              </div>
-              {platform === "lichess" && (
-                <div
-                  className="game-row-color"
-                  role="group"
-                  aria-label={`Color played in game ${index + 1}`}
-                >
-                  <button
-                    type="button"
-                    className={
-                      row.color === "white" ? "color-chip active" : "color-chip"
-                    }
-                    onClick={() => updateRowColor(row.id, "white")}
-                    disabled={disabled}
-                    title="I played White"
-                  >
-                    W
-                  </button>
-                  <button
-                    type="button"
-                    className={
-                      row.color === "black" ? "color-chip active" : "color-chip"
-                    }
-                    onClick={() => updateRowColor(row.id, "black")}
-                    disabled={disabled}
-                    title="I played Black"
-                  >
-                    B
-                  </button>
-                </div>
-              )}
-              <button
-                type="button"
-                className="game-row-remove"
-                onClick={() => removeRow(row.id)}
-                disabled={disabled || rows.length <= 1}
-                aria-label={`Remove game ${index + 1}`}
-              >
-                ×
-              </button>
-            </div>
-          ))}
-        </div>
-        <div className="game-rows-footer">
+        <div className="flex items-center justify-between mb-1">
+          <span>{rows.length > 1 ? "Game links" : "Game URL"}</span>
+          {/* Pilot 1-Click Sample Game Pill */}
           <button
             type="button"
-            className="add-game"
+            onClick={loadSampleGame}
+            disabled={disabled}
+            className="text-xs text-[var(--gold)] hover:text-[var(--gold-bright)] inline-flex items-center gap-1 cursor-pointer transition-colors"
+          >
+            <Sparkles size={13} />
+            <span>Try sample game</span>
+          </button>
+        </div>
+
+        <div className="game-rows flex flex-col gap-2">
+          <AnimatePresence initial={false}>
+            {rows.map((row, index) => (
+              <motion.div
+                key={row.id}
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.2 }}
+                className="game-row flex items-center gap-2"
+              >
+                <span className="game-row-index text-xs font-mono text-[var(--text-muted)] shrink-0 w-4 text-center" aria-hidden="true">
+                  {index + 1}
+                </span>
+
+                <div className="game-row-field flex-1 relative flex items-center">
+                  <input
+                    type="url"
+                    ref={(element) => {
+                      if (element) {
+                        inputRefs.current.set(row.id, element);
+                      } else {
+                        inputRefs.current.delete(row.id);
+                      }
+                    }}
+                    value={row.url}
+                    onChange={(event) => updateRowUrl(row.id, event.target.value)}
+                    onFocus={() => warmBackend()}
+                    onPaste={() => warmBackend()}
+                    placeholder={
+                      platform === "lichess"
+                        ? "https://lichess.org/abc12345"
+                        : "https://www.chess.com/game/live/123456789"
+                    }
+                    disabled={disabled}
+                    aria-label={`Game ${index + 1} URL`}
+                    autoComplete="off"
+                    spellCheck={false}
+                    inputMode="url"
+                  />
+                  <button
+                    type="button"
+                    className="paste-button"
+                    onClick={() => pasteFromClipboard(row.id)}
+                    disabled={disabled}
+                    title="Paste game link from clipboard"
+                  >
+                    Paste
+                  </button>
+                </div>
+
+                {platform === "lichess" && (
+                  <div
+                    className="game-row-color relative flex p-0.5 rounded-full bg-[var(--ink-3)] border border-[var(--line-soft)] shrink-0"
+                    role="group"
+                    aria-label={`Color played in game ${index + 1}`}
+                  >
+                    <button
+                      type="button"
+                      className={cn(
+                        "relative z-10 w-6 h-6 rounded-full text-xs font-mono font-bold flex items-center justify-center transition-colors cursor-pointer",
+                        row.color === "white"
+                          ? "text-[#0c1214]"
+                          : "text-[var(--text-muted)] hover:text-white"
+                      )}
+                      onClick={() => updateRowColor(row.id, "white")}
+                      disabled={disabled}
+                      title="I played White"
+                    >
+                      {row.color === "white" && (
+                        <motion.div
+                          layoutId={`color-chip-${row.id}`}
+                          className="absolute inset-0 bg-[#f3ecdc] rounded-full -z-10 shadow-sm"
+                          transition={{ type: "spring", stiffness: 450, damping: 35 }}
+                        />
+                      )}
+                      W
+                    </button>
+                    <button
+                      type="button"
+                      className={cn(
+                        "relative z-10 w-6 h-6 rounded-full text-xs font-mono font-bold flex items-center justify-center transition-colors cursor-pointer",
+                        row.color === "black"
+                          ? "text-white"
+                          : "text-[var(--text-muted)] hover:text-white"
+                      )}
+                      onClick={() => updateRowColor(row.id, "black")}
+                      disabled={disabled}
+                      title="I played Black"
+                    >
+                      {row.color === "black" && (
+                        <motion.div
+                          layoutId={`color-chip-${row.id}`}
+                          className="absolute inset-0 bg-[#29373b] rounded-full -z-10 shadow-sm border border-[var(--line)]"
+                          transition={{ type: "spring", stiffness: 450, damping: 35 }}
+                        />
+                      )}
+                      B
+                    </button>
+                  </div>
+                )}
+
+                <button
+                  type="button"
+                  className="game-row-remove"
+                  onClick={() => removeRow(row.id)}
+                  disabled={disabled || rows.length <= 1}
+                  aria-label={`Remove game ${index + 1}`}
+                >
+                  ×
+                </button>
+              </motion.div>
+            ))}
+          </AnimatePresence>
+        </div>
+
+        <div className="game-rows-footer flex items-center justify-between mt-2 text-xs">
+          <button
+            type="button"
+            className="add-game text-[var(--gold)] hover:text-[var(--gold-bright)] transition-colors cursor-pointer disabled:opacity-50"
             onClick={addRow}
             disabled={disabled || rows.length >= rowLimit}
           >
             + Add another game
           </button>
-          <span className="game-rows-hint">
+          <span className="game-rows-hint text-[var(--text-muted)] font-mono">
             {validGames.length} of {rowLimit} games · 1 credit per game
           </span>
         </div>
+
         {psychologyHintAvailable && (
           <p
-            className={`psych-unlock${psychologyUnlocked ? " unlocked" : ""}`}
+            className={cn(
+              "psych-unlock mt-2 text-xs text-[var(--text-muted)] flex items-center gap-1.5",
+              psychologyUnlocked && "text-[var(--green)] font-medium"
+            )}
             aria-live="polite"
           >
             {psychologyUnlocked ? (
               <>
-                <span className="psych-unlock-badge">Unlocked</span>
-                Psychology profile — your report includes a mental-game
-                breakdown.
+                <Pill tone="positive" size="sm">Unlocked</Pill>
+                <span>Psychology profile included in report.</span>
               </>
             ) : (
-              <>
-                Add {gamesToPsychology} more{" "}
-                {gamesToPsychology === 1 ? "game" : "games"} to unlock the
-                Psychology profile.
-              </>
+              <span>
+                Add {gamesToPsychology} more {gamesToPsychology === 1 ? "game" : "games"} to unlock Psychology profile.
+              </span>
             )}
           </p>
         )}

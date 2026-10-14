@@ -1,9 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import Link from "next/link";
+import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import AuthButton from "../../components/AuthButton";
+import { Topbar } from "../../components/ui/Topbar";
 import AnalysisHistory from "../../components/AnalysisHistory";
 import {
   apiGet,
@@ -47,23 +46,10 @@ export default function HistoryPage() {
 
   return (
     <main className="dashboard">
-      <header className="topbar">
-        <Link href="/" className="wordmark">
-          <span className="wordmark-glyph" aria-hidden="true">
-            ♜
-          </span>
-          Chessmasters
-        </Link>
-        <div className="topbar-actions">
-          <Link href="/" className="nav-link">
-            New analysis
-          </Link>
-          <Link href="/subscription" className="nav-link">
-            Subscription
-          </Link>
-          <AuthButton user={user} onAuthChange={() => router.push("/")} />
-        </div>
-      </header>
+      <Topbar
+        user={user}
+        onAuthChange={() => router.push("/")}
+      />
 
       <div className="game-header">
         <h1 className="game-title">All analyses</h1>

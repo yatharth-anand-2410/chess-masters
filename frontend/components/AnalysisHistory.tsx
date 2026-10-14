@@ -1,5 +1,9 @@
+"use client";
+
+import React from "react";
 import type { HistoryEntry } from "../lib/api";
 import { externalGameUrl } from "../lib/api";
+import { Pill } from "./ui/Pill";
 
 type AnalysisHistoryProps = {
   entries: HistoryEntry[];
@@ -32,6 +36,12 @@ function statusLabel(status: string): string {
   }
 }
 
+const statusToneMap: Record<string, "positive" | "caution" | "alert"> = {
+  completed: "positive",
+  processing: "caution",
+  failed: "alert",
+};
+
 export default function AnalysisHistory({
   entries,
   onOpen,
@@ -49,6 +59,7 @@ export default function AnalysisHistory({
       {entries.map((entry) => {
         const platformLabel =
           entry.platform === "lichess" ? "Lichess" : "Chess.com";
+        const tone = statusToneMap[entry.status] ?? "neutral";
 
         if (entry.kind === "batch") {
           const count = entry.game_count ?? 0;
@@ -59,20 +70,20 @@ export default function AnalysisHistory({
                 className="history-item-open"
                 onClick={() => onOpenBatch?.(entry.id)}
               >
-                <div className="history-item-main">
-                  <span className="history-platform">{platformLabel}</span>
-                  <span className="history-batch-badge">Multi-game</span>
+                <div className="history-item-main flex items-center gap-2 flex-wrap">
+                  <Pill tone="neutral" size="sm">{platformLabel}</Pill>
+                  <Pill tone="shell" size="sm">Multi-game</Pill>
                   <span className="history-meta">
                     Overall report · {count} {count === 1 ? "game" : "games"}
                   </span>
                 </div>
-                <div className="history-item-side">
+                <div className="history-item-side flex items-center gap-2">
                   <span className="history-date">
                     {formatDate(entry.created_at)}
                   </span>
-                  <span className={`history-status status-${entry.status}`}>
+                  <Pill tone={tone} size="sm">
                     {statusLabel(entry.status)}
-                  </span>
+                  </Pill>
                 </div>
               </button>
             </div>
@@ -86,8 +97,8 @@ export default function AnalysisHistory({
               className="history-item-open"
               onClick={() => onOpen?.(entry.id)}
             >
-              <div className="history-item-main">
-                <span className="history-platform">{platformLabel}</span>
+              <div className="history-item-main flex items-center gap-2 flex-wrap">
+                <Pill tone="neutral" size="sm">{platformLabel}</Pill>
                 {entry.student?.display_name && (
                   <span className="history-student">
                     {entry.student.display_name}
@@ -97,13 +108,13 @@ export default function AnalysisHistory({
                   {entry.opening_name ?? entry.game_id}
                 </span>
               </div>
-              <div className="history-item-side">
+              <div className="history-item-side flex items-center gap-2">
                 <span className="history-date">
                   {formatDate(entry.created_at)}
                 </span>
-                <span className={`history-status status-${entry.status}`}>
+                <Pill tone={tone} size="sm">
                   {statusLabel(entry.status)}
-                </span>
+                </Pill>
               </div>
             </button>
             <a

@@ -1122,11 +1122,23 @@ async def list_reviews(
     user: Optional[Dict[str, object]] = Depends(get_optional_user),
 ) -> dict:
     user_id = str(user["id"]) if user else None
-    rows = await asyncio.to_thread(db.list_reviews)
-    stats = await asyncio.to_thread(db.get_review_stats)
-    mine = (
-        await asyncio.to_thread(db.get_user_review, user_id) if user_id else None
-    )
+    try:
+        rows = await asyncio.to_thread(db.list_reviews)
+    except Exception as exc:
+        logger.warning("Failed to list reviews from database: %s", exc)
+        rows = []
+    try:
+        stats = await asyncio.to_thread(db.get_review_stats)
+    except Exception as exc:
+        logger.warning("Failed to get review stats from database: %s", exc)
+        stats = {}
+    try:
+        mine = (
+            await asyncio.to_thread(db.get_user_review, user_id) if user_id else None
+        )
+    except Exception as exc:
+        logger.warning("Failed to get user review from database: %s", exc)
+        mine = None
     comments = [
         _public_review(row, user_id)
         for row in rows
