@@ -1547,6 +1547,90 @@ body {
 }
 
 /* -------------------------------------------------------------------------- */
+/* Chessground coordinate strips (DrillBoard + CriticalPositionBoard)          */
+/*                                                                            */
+/* chessground lays the notation out for a wrapper that is LARGER than the     */
+/* board: ranks at `top: -20px`, files at `left: 24px` / `bottom: -4px`, and    */
+/* every rank label nudged down 39% to compensate for text that renders at the */
+/* top of its box. Both boards here are the opposite — chessground is mounted  */
+/* on the card itself, so `.cg-wrap` IS the board: square, `overflow: hidden`, */
+/* with no gutter for a label to bleed into. The offsets therefore dragged the */
+/* notation off its squares: rank numbers sat ~20px above their row (a fifth   */
+/* of a square on the 560px drill board, two thirds on the 256px insight card, */
+/* where they landed on the row boundary and the top one was clipped) and each */
+/* file letter a quarter square to the right of its file, cut off at the foot. */
+/*                                                                            */
+/* Anchoring each strip to the board and centring every label inside its own   */
+/* eighth puts each number or letter under the square it names: measured worst */
+/* label error 0.9px, down from 24.6px, at both widths and both orientations.  */
+/* -------------------------------------------------------------------------- */
+
+/* Container units are how the notation scales: `cqw` resolves against the     */
+/* board itself, so the cramped insight card keeps a 9px floor while the       */
+/* full-width drill board earns a legible ~13px. `container-type` must stay    */
+/* paired with the font-size rule below — with no query container in scope,    */
+/* `cqw` falls back to the viewport and the labels balloon.                    */
+.drill-board,
+.critical-board {
+  container-type: inline-size;
+}
+
+/* Specificity: `.board.cg-wrap` (3 classes) outranks chessground's own        */
+/* `.cg-wrap coords.ranks coord` (2 classes), which is what lets these land    */
+/* without `!important` and without depending on stylesheet order.             */
+.drill-board.cg-wrap coords.ranks,
+.critical-board.cg-wrap coords.ranks {
+  top: 0;
+  left: 2px;
+}
+
+.drill-board.cg-wrap coords.files,
+.critical-board.cg-wrap coords.files {
+  bottom: 2px;
+  left: 0;
+  /* Auto height lets the strip hug the letters at any font size instead of    */
+  /* clipping them into a fixed 16px box.                                     */
+  height: auto;
+}
+
+/* The stock strip colours are chessground's brown theme, tuned for lichess's  */
+/* darker brown squares. On this board's warmer, lighter squares the white     */
+/* half of that alternation washes out, and `z-index: 2` pieces sit on top of  */
+/* the strips, so a rook or king on the back rank swallowed its own file       */
+/* letter. One ink with a paper halo reads over both square tints and over     */
+/* piece art, which is why the strips are lifted to z-index 3 — still under    */
+/* the solution arrows (9), so a drawn line never gets hidden.                 */
+.drill-board.cg-wrap coords,
+.critical-board.cg-wrap coords {
+  font-size: clamp(9px, 2.4cqw, 15px);
+  opacity: 1;
+  z-index: 3;
+}
+
+/* `.board.cg-wrap coords.ranks coord` (3 classes, 2 elements) is what beats   */
+/* brown's `.orientation-black .ranks :nth-child(odd)` (3 classes) — the rule  */
+/* that paints half the labels white. One ink clears 7:1 on the dark squares   */
+/* and 11:1 on the light ones, so the halo only carries the label over piece   */
+/* art.                                                                        */
+.drill-board.cg-wrap coords.ranks coord,
+.drill-board.cg-wrap coords.files coord,
+.critical-board.cg-wrap coords.ranks coord,
+.critical-board.cg-wrap coords.files coord {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(32, 39, 37, 0.8); /* --ink-text at 80% */
+  text-shadow: 0 0 3px rgba(243, 236, 220, 0.9); /* --paper, warm like the squares */
+}
+
+/* chessground's 39% nudge assumed text sitting at the top of its slice, so it */
+/* is wrong by that much once the label is centred in the slice.               */
+.drill-board.cg-wrap coords.ranks coord,
+.critical-board.cg-wrap coords.ranks coord {
+  transform: none;
+}
+
+/* -------------------------------------------------------------------------- */
 /* Insight board cards (components/SectionInsightBoards.tsx)                   */
 /*                                                                            */
 /* Layout decision: these cards always render inside .section-boards, whose    */
@@ -3885,6 +3969,8 @@ html {
   animation: pulse 1.8s ease-in-out infinite;
 }
 
+/* The rank/file notation is styled in the shared chessground block up in the
+   critical-board section — search "Chessground coordinate strips". */
 .drill-board {
   width: 100%;
   aspect-ratio: 1 / 1;
