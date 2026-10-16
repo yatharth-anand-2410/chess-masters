@@ -3,11 +3,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 import {
-  apiGet,
   apiPost,
   type ReviewsResponse,
   type ReviewSubmissionResponse,
 } from "../lib/api";
+import { apiGetCached, CACHE_TTL } from "../lib/api-cache";
 import AuthButton from "./AuthButton";
 
 type ReviewSectionProps = {
@@ -45,7 +45,7 @@ export default function ReviewSection({ user, token, onAuthChange }: ReviewSecti
   const requestId = useRef(0);
 
   const load = useCallback(
-    async (silent = false) => {
+    async (silent = false, options?: { force?: boolean }) => {
       const id = ++requestId.current;
       if (!silent) {
         setLoading(true);
@@ -54,7 +54,12 @@ export default function ReviewSection({ user, token, onAuthChange }: ReviewSecti
         let result: ReviewsResponse | undefined;
         for (let attempt = 0; attempt < 2; attempt += 1) {
           try {
-            result = await apiGet<ReviewsResponse>("/api/reviews", token || undefined);
+            // The community rating row is not per-tab data: reusing it for a
+            // minute keeps the landing tab from re-reading it on every visit.
+            result = await apiGetCached<ReviewsResponse>("/api/reviews", token || undefined, {
+              ttlMs: CACHE_TTL.account,
+              force: options?.force ?? false,
+            });
             break;
           } catch (err) {
             if (id !== requestId.current || attempt === 1) {
@@ -115,7 +120,8 @@ export default function ReviewSection({ user, token, onAuthChange }: ReviewSecti
         rating,
         comment: comment.trim() || null,
       });
-      await load(true);
+      // The submitted review changes the row: re-read it instead of the cache.
+      await load(true, { force: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not save your review.");
       setRetryable(false);
