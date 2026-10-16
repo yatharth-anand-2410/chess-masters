@@ -286,7 +286,15 @@ def _build_contents(game: extractor.GameData, engine_data: Dict[str, object]) ->
 
 
 def _is_retryable(error: errors.APIError) -> bool:
-    return error.code in (429, 503)
+    if error.code in (429, 503):
+        return True
+    # Some overload responses arrive with the status string populated but an
+    # unexpected numeric code; treat provider-side unavailability as retryable.
+    status = str(getattr(error, "status", "") or "").upper()
+    if status in ("UNAVAILABLE", "RESOURCE_EXHAUSTED"):
+        return True
+    message = str(getattr(error, "message", "") or "").lower()
+    return "high demand" in message or "overloaded" in message
 
 
 def _thinking_config() -> types.ThinkingConfig | None:
@@ -305,18 +313,26 @@ def _thinking_config() -> types.ThinkingConfig | None:
     return types.ThinkingConfig(thinking_budget=budget)
 
 
-async def _open_stream(
+async def _stream_with_fallback(
     client: genai.Client,
     contents: str,
     system_instruction: str = SYSTEM_INSTRUCTION,
 ) -> AsyncIterator[str]:
-    """Open a streaming response, retrying per model and falling back down the chain."""
+    """Stream generated text, retrying per model and falling back down the chain.
+
+    Provider overload ("high demand" 503s) usually surfaces on the first chunk
+    of a stream rather than on the open call, so recovery wraps the *consumption*
+    loop. A failure is only recoverable while nothing has been yielded yet: once
+    any text has been emitted the report is partially delivered and the error
+    propagates instead of silently restarting with duplicated content.
+    """
     last_exc: errors.APIError | None = None
     for model, max_retries in _ordered_models():
         attempt = 0
         while True:
+            emitted = False
             try:
-                return await client.aio.models.generate_content_stream(
+                stream = await client.aio.models.generate_content_stream(
                     model=model,
                     contents=contents,
                     config=types.GenerateContentConfig(
@@ -324,8 +340,13 @@ async def _open_stream(
                         thinking_config=_thinking_config(),
                     ),
                 )
+                async for chunk in stream:
+                    if chunk.text:
+                        emitted = True
+                        yield chunk.text
+                return
             except errors.APIError as exc:
-                if not _is_retryable(exc):
+                if not _is_retryable(exc) or emitted:
                     raise
                 if attempt >= max_retries:
                     last_exc = exc
@@ -349,10 +370,8 @@ async def stream_coaching_report(
     game: extractor.GameData,
     engine_data: Dict[str, object],
 ) -> AsyncIterator[str]:
-    stream = await _open_stream(client, _build_contents(game, engine_data))
-    async for chunk in stream:
-        if chunk.text:
-            yield chunk.text
+    async for text in _stream_with_fallback(client, _build_contents(game, engine_data)):
+        yield text
 
 
 MOMENT_COACH_SYSTEM_INSTRUCTION = """You are an experienced chess coach writing the short note that appears next to a key position board in a student's game report (Elo 800-1800).
@@ -751,10 +770,7 @@ async def stream_question_answer(
     question: str,
 ) -> AsyncIterator[str]:
     contents = _build_qa_contents(analysis, messages, question)
-    response = await _open_stream(
+    async for text in _stream_with_fallback(
         client, contents, system_instruction=QA_SYSTEM_INSTRUCTION
-    )
-
-    async for chunk in response:
-        if chunk.text:
-            yield chunk.text
+    ):
+        yield text

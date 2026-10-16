@@ -514,8 +514,8 @@ def _share_item_payload(
 
 
 @app.get("/api/health")
-async def health() -> dict[str, str]:
-    return {"status": "ok"}
+async def health() -> dict[str, object]:
+    return {"status": "ok", "model_chain": analyzer._model_chain()}
 
 
 class AnalysisRequest(BaseModel):
