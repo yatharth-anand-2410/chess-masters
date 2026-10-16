@@ -2941,7 +2941,7 @@ body:has(.analysis-dashboard) .site-footer {
   display: inline-flex;
   flex-shrink: 0;
   gap: 0.15rem;
-  padding: 0.15rem;
+  padding: 0.25rem;
   background: var(--ink-3);
   border: 1px solid var(--line);
   border-radius: 999px;
@@ -2976,6 +2976,7 @@ body:has(.analysis-dashboard) .site-footer {
 }
 
 .game-row-remove {
+  position: relative;
   flex-shrink: 0;
   width: 2rem;
   height: 2rem;
@@ -3008,6 +3009,7 @@ body:has(.analysis-dashboard) .site-footer {
 }
 
 .add-game {
+  position: relative;
   padding: 0.35rem 0.8rem;
   background: transparent;
   border: 1px dashed var(--line);
@@ -3028,6 +3030,49 @@ body:has(.analysis-dashboard) .site-footer {
 .add-game:disabled {
   opacity: 0.45;
   cursor: not-allowed;
+}
+
+/* --- Touch hit-area expansion -------------------------------------------
+   These controls are visually compact by design; the pseudo-elements below
+   widen the pressable area to ~44px on touch devices without resizing the
+   rendered control. Horizontal expansion is intentionally omitted where two
+   controls sit side-by-side, so hit boxes never overlap each other. */
+.tap-hit {
+  position: relative;
+}
+.tap-hit::after {
+  content: "";
+  position: absolute;
+  inset: -10px;
+}
+.tap-hit-y {
+  position: relative;
+}
+.tap-hit-y::after {
+  content: "";
+  position: absolute;
+  top: -8px;
+  bottom: -8px;
+  left: 0;
+  right: 0;
+}
+.paste-button::after {
+  content: "";
+  position: absolute;
+  top: -8px;
+  bottom: -8px;
+  left: 0;
+  right: 0;
+}
+.game-row-remove::after {
+  content: "";
+  position: absolute;
+  inset: -6px;
+}
+.add-game::after {
+  content: "";
+  position: absolute;
+  inset: -8px;
 }
 
 .game-rows-hint {
@@ -4492,6 +4537,18 @@ body:has(.analysis-dashboard) .site-footer {
 
 .compare-table td strong {
   color: var(--text);
+}
+
+/* On phones (esp. WebKit) the 3-column table is wider than the viewport;
+   scroll it inside its own box instead of panning the whole page. */
+.compare-table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin: 0.25rem 0 1.5rem;
+}
+
+.compare-table-scroll .compare-table {
+  margin: 0;
 }
 
 .report-block {

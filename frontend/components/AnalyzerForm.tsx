@@ -224,7 +224,7 @@ export default function AnalyzerForm({
           role="tab"
           aria-selected={platform === "lichess"}
           className={cn(
-            "relative z-10 flex-1 py-1.5 px-4 text-xs sm:text-sm font-medium rounded-full transition-colors cursor-pointer text-center",
+            "tap-hit-y relative z-10 flex-1 py-1.5 px-4 text-xs sm:text-sm font-medium rounded-full transition-colors cursor-pointer text-center",
             platform === "lichess"
               ? "text-[#0c1214] font-semibold"
               : "text-[var(--text-muted)] hover:text-[var(--text)]"
@@ -247,7 +247,7 @@ export default function AnalyzerForm({
           role="tab"
           aria-selected={platform === "chess.com"}
           className={cn(
-            "relative z-10 flex-1 py-1.5 px-4 text-xs sm:text-sm font-medium rounded-full transition-colors cursor-pointer text-center",
+            "tap-hit-y relative z-10 flex-1 py-1.5 px-4 text-xs sm:text-sm font-medium rounded-full transition-colors cursor-pointer text-center",
             platform === "chess.com"
               ? "text-[#0c1214] font-semibold"
               : "text-[var(--text-muted)] hover:text-[var(--text)]"
@@ -295,7 +295,7 @@ export default function AnalyzerForm({
             type="button"
             onClick={loadSampleGame}
             disabled={disabled}
-            className="text-xs text-[var(--gold)] hover:text-[var(--gold-bright)] inline-flex items-center gap-1 cursor-pointer transition-colors"
+            className="tap-hit text-xs text-[var(--gold)] hover:text-[var(--gold-bright)] inline-flex items-center gap-1 cursor-pointer transition-colors"
           >
             <Sparkles size={13} />
             <span>Try sample game</span>
@@ -355,14 +355,14 @@ export default function AnalyzerForm({
 
                 {platform === "lichess" && (
                   <div
-                    className="game-row-color relative flex p-0.5 rounded-full bg-[var(--ink-3)] border border-[var(--line-soft)] shrink-0"
+                    className="game-row-color relative flex p-1 rounded-full bg-[var(--ink-3)] border border-[var(--line-soft)] shrink-0"
                     role="group"
                     aria-label={`Color played in game ${index + 1}`}
                   >
                     <button
                       type="button"
                       className={cn(
-                        "relative z-10 w-6 h-6 rounded-full text-xs font-mono font-bold flex items-center justify-center transition-colors cursor-pointer",
+                        "tap-hit-y relative z-10 w-7 h-7 rounded-full text-xs font-mono font-bold flex items-center justify-center transition-colors cursor-pointer",
                         row.color === "white"
                           ? "text-[#0c1214]"
                           : "text-[var(--text-muted)] hover:text-white"
@@ -383,7 +383,7 @@ export default function AnalyzerForm({
                     <button
                       type="button"
                       className={cn(
-                        "relative z-10 w-6 h-6 rounded-full text-xs font-mono font-bold flex items-center justify-center transition-colors cursor-pointer",
+                        "tap-hit-y relative z-10 w-7 h-7 rounded-full text-xs font-mono font-bold flex items-center justify-center transition-colors cursor-pointer",
                         row.color === "black"
                           ? "text-white"
                           : "text-[var(--text-muted)] hover:text-white"

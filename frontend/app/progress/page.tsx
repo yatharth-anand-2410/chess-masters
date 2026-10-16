@@ -364,8 +364,13 @@ function ProgressPageContent() {
     );
   }
 
+  // The backend uses "Student <id-prefix>" as a placeholder for unnamed
+  // roster entries; for the player's own view prefer real name sources.
+  const rawStudentName = report?.student_name;
   const displayName =
-    report?.student_name ||
+    (rawStudentName && !/^Student [0-9a-f]{6}$/i.test(rawStudentName)
+      ? rawStudentName
+      : null) ||
     viewingStudent?.display_name ||
     user?.user_metadata?.full_name ||
     (user?.email ? user.email.split("@")[0] : "Player");

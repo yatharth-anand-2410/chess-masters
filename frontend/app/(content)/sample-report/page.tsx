@@ -21,6 +21,14 @@ export const metadata: Metadata = {
     description:
       "The five-section report structure, walked through with the Opera Game.",
     url: "/sample-report",
+    images: [
+      {
+        url: "/opengraph-image",
+        width: 1200,
+        height: 630,
+        alt: "Chessmasters — AI chess game analyzer for Chess.com and Lichess",
+      },
+    ],
   },
 };
 

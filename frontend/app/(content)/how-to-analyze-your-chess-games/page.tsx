@@ -21,6 +21,14 @@ export const metadata: Metadata = {
     description:
       "A five-step review routine that turns your own games into lessons you actually keep.",
     url: "/how-to-analyze-your-chess-games",
+    images: [
+      {
+        url: "/opengraph-image",
+        width: 1200,
+        height: 630,
+        alt: "Chessmasters — AI chess game analyzer for Chess.com and Lichess",
+      },
+    ],
   },
 };
 

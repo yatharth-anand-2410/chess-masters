@@ -4,7 +4,8 @@ import asyncio
 import json
 import logging
 import os
-from typing import AsyncIterator, Dict, List
+import time
+from typing import AsyncIterator, Dict, List, Tuple
 
 from google import genai
 from google.genai import errors, types
@@ -108,6 +109,57 @@ Charts and resources:
 
 def _model_name() -> str:
     return os.environ.get("GEMINI_MODEL", DEFAULT_MODEL)
+
+
+# --- Model fallback chain ----------------------------------------------------
+# The primary model can hit provider-side "high demand" (retryable 503/429)
+# spikes. When a model exhausts its retries the next model in the chain is
+# tried. A model that just failed a whole retry cycle is skipped for
+# _MODEL_COOLDOWN_SECONDS so a single analysis (several Gemini calls) does not
+# pay the full retry penalty on every call. Override the chain with a
+# comma-separated GEMINI_FALLBACK_MODELS env var; set it to "none" to disable
+# fallbacks.
+DEFAULT_FALLBACK_MODELS = ("gemini-3.5-flash-lite", "gemini-3.6-flash")
+_MODEL_COOLDOWN_SECONDS = 120.0
+_PRIMARY_MAX_RETRIES = MAX_STREAM_RETRIES
+_FALLBACK_MAX_RETRIES = 1
+_model_cooldown_until: Dict[str, float] = {}
+
+
+def _model_chain() -> List[str]:
+    """Primary model first, then configured fallbacks (deduplicated)."""
+    chain = [_model_name()]
+    raw = os.environ.get("GEMINI_FALLBACK_MODELS")
+    if raw is None:
+        candidates = list(DEFAULT_FALLBACK_MODELS)
+    else:
+        candidates = [part.strip() for part in raw.split(",") if part.strip()]
+        if [candidate.lower() for candidate in candidates] == ["none"]:
+            candidates = []
+    for candidate in candidates:
+        if candidate not in chain:
+            chain.append(candidate)
+    return chain
+
+
+def _ordered_models() -> List[Tuple[str, int]]:
+    """(model, max retries) pairs, skipping cooling models when others remain."""
+    chain = _model_chain()
+    now = time.monotonic()
+    ordered = [
+        (model, _PRIMARY_MAX_RETRIES if index == 0 else _FALLBACK_MAX_RETRIES)
+        for index, model in enumerate(chain)
+        if _model_cooldown_until.get(model, 0.0) <= now
+    ]
+    if ordered:
+        return ordered
+    # Everything is cooling (or there is only one model): try the full chain
+    # quickly anyway rather than refusing to make a request at all.
+    return [(model, _FALLBACK_MAX_RETRIES) for model in chain]
+
+
+def _mark_model_failed(model: str) -> None:
+    _model_cooldown_until[model] = time.monotonic() + _MODEL_COOLDOWN_SECONDS
 
 
 MAX_PROMPT_KEY_MOMENTS = 12
@@ -258,23 +310,38 @@ async def _open_stream(
     contents: str,
     system_instruction: str = SYSTEM_INSTRUCTION,
 ) -> AsyncIterator[str]:
-    attempt = 0
-    while True:
-        try:
-            response = await client.aio.models.generate_content_stream(
-                model=_model_name(),
-                contents=contents,
-                config=types.GenerateContentConfig(
-                    system_instruction=system_instruction,
-                    thinking_config=_thinking_config(),
-                ),
-            )
-            return response
-        except errors.APIError as exc:
-            if not _is_retryable(exc) or attempt >= MAX_STREAM_RETRIES:
-                raise
-            attempt += 1
-            await asyncio.sleep(RETRY_BASE_DELAY_SECONDS**attempt)
+    """Open a streaming response, retrying per model and falling back down the chain."""
+    last_exc: errors.APIError | None = None
+    for model, max_retries in _ordered_models():
+        attempt = 0
+        while True:
+            try:
+                return await client.aio.models.generate_content_stream(
+                    model=model,
+                    contents=contents,
+                    config=types.GenerateContentConfig(
+                        system_instruction=system_instruction,
+                        thinking_config=_thinking_config(),
+                    ),
+                )
+            except errors.APIError as exc:
+                if not _is_retryable(exc):
+                    raise
+                if attempt >= max_retries:
+                    last_exc = exc
+                    _mark_model_failed(model)
+                    logger.warning(
+                        "Gemini model %s unavailable after retries (%s); moving on",
+                        model,
+                        getattr(exc, "code", "?"),
+                    )
+                    break
+                attempt += 1
+                await asyncio.sleep(RETRY_BASE_DELAY_SECONDS**attempt)
+    if last_exc is None:  # pragma: no cover - chain is never empty
+        raise RuntimeError("Gemini model chain is empty")
+    logger.error("Gemini request failed on every model in the chain: %s", last_exc)
+    raise last_exc
 
 
 async def stream_coaching_report(
@@ -508,28 +575,44 @@ async def describe_moments(
         return {}
 
     attempt = 0
-    while True:
-        try:
-            response = await client.aio.models.generate_content(
-                model=_model_name(),
-                contents=json.dumps(payload),
-                config=types.GenerateContentConfig(
-                    system_instruction=MOMENT_COACH_SYSTEM_INSTRUCTION,
-                    response_mime_type="application/json",
-                    response_schema=MOMENT_DESCRIPTION_SCHEMA,
-                    thinking_config=_thinking_config(),
-                ),
-            )
-            break
-        except errors.APIError as exc:
-            if not _is_retryable(exc) or attempt >= MAX_STREAM_RETRIES:
-                logger.warning("Moment description request failed: %s", exc)
+    response = None
+    for model, max_retries in _ordered_models():
+        while True:
+            try:
+                response = await client.aio.models.generate_content(
+                    model=model,
+                    contents=json.dumps(payload),
+                    config=types.GenerateContentConfig(
+                        system_instruction=MOMENT_COACH_SYSTEM_INSTRUCTION,
+                        response_mime_type="application/json",
+                        response_schema=MOMENT_DESCRIPTION_SCHEMA,
+                        thinking_config=_thinking_config(),
+                    ),
+                )
+                break
+            except errors.APIError as exc:
+                if not _is_retryable(exc):
+                    logger.warning("Moment description request failed: %s", exc)
+                    return {}
+                if attempt >= max_retries:
+                    _mark_model_failed(model)
+                    logger.warning(
+                        "Moment descriptions: model %s unavailable after retries (%s)",
+                        model,
+                        getattr(exc, "code", "?"),
+                    )
+                    break
+                attempt += 1
+                await asyncio.sleep(RETRY_BASE_DELAY_SECONDS**attempt)
+            except Exception:
+                logger.exception("Unexpected error generating moment descriptions")
                 return {}
-            attempt += 1
-            await asyncio.sleep(RETRY_BASE_DELAY_SECONDS**attempt)
-        except Exception:
-            logger.exception("Unexpected error generating moment descriptions")
-            return {}
+        if response is not None:
+            break
+
+    if response is None:
+        logger.warning("Moment description request failed on every model")
+        return {}
 
     try:
         data = json.loads(response.text or "{}")
@@ -668,23 +751,9 @@ async def stream_question_answer(
     question: str,
 ) -> AsyncIterator[str]:
     contents = _build_qa_contents(analysis, messages, question)
-    attempt = 0
-    while True:
-        try:
-            response = await client.aio.models.generate_content_stream(
-                model=_model_name(),
-                contents=contents,
-                config=types.GenerateContentConfig(
-                    system_instruction=QA_SYSTEM_INSTRUCTION,
-                    thinking_config=_thinking_config(),
-                ),
-            )
-            break
-        except errors.APIError as exc:
-            if not _is_retryable(exc) or attempt >= MAX_STREAM_RETRIES:
-                raise
-            attempt += 1
-            await asyncio.sleep(RETRY_BASE_DELAY_SECONDS**attempt)
+    response = await _open_stream(
+        client, contents, system_instruction=QA_SYSTEM_INSTRUCTION
+    )
 
     async for chunk in response:
         if chunk.text:

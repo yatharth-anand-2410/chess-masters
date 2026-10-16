@@ -21,6 +21,14 @@ export const metadata: Metadata = {
     description:
       "Plain-English AI coaching reports for your Chess.com and Lichess games: what went right, what went wrong, and what to train next.",
     url: "/chess-game-analyzer",
+    images: [
+      {
+        url: "/opengraph-image",
+        width: 1200,
+        height: 630,
+        alt: "Chessmasters — AI chess game analyzer for Chess.com and Lichess",
+      },
+    ],
   },
 };
 

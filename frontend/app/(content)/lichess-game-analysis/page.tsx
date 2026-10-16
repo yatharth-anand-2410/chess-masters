@@ -21,6 +21,14 @@ export const metadata: Metadata = {
     description:
       "From eval bar to lesson: a practical routine for reviewing your Lichess games.",
     url: "/lichess-game-analysis",
+    images: [
+      {
+        url: "/opengraph-image",
+        width: 1200,
+        height: 630,
+        alt: "Chessmasters — AI chess game analyzer for Chess.com and Lichess",
+      },
+    ],
   },
 };
 

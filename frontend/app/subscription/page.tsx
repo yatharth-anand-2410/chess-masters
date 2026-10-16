@@ -63,7 +63,7 @@ type Invoice = {
 };
 
 type PlanFeature = {
-  /** Bold lead word(s), e.g. **Unlimited** AI coaching reports. */
+  /** Bold lead word(s), e.g. **100** AI coaching reports per billing period. */
   lead?: string;
   text?: string;
 };
@@ -123,7 +123,7 @@ const PLAN_CARDS: PlanCard[] = [
     blurb: "For serious club players (800-2200 Elo).",
     fallbackPrice: "₹399",
     features: [
-      { lead: "Unlimited", text: "AI coaching reports" },
+      { lead: "100", text: "AI coaching reports per billing period" },
       { lead: "Student Progress & Leaks", text: "(3-Pillar)" },
       { lead: "Full 6-Dimension Psychology", text: "Panel" },
       { lead: "Interactive Replay Drills" },

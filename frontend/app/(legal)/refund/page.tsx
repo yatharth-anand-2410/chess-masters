@@ -17,9 +17,9 @@ export default function RefundPage() {
       <h2>Refunds &amp; cancellations</h2>
       <p>
         Since our AI incurs server costs for every game analyzed, we do not
-        offer refunds once a game pack has been partially or fully used. If you
-        accidentally purchase a pack and have not analyzed any paid games yet,
-        please contact us within 7 days for a full refund.
+        offer refunds once your billing period has been partially or fully
+        used. If you accidentally subscribe and have not analyzed any games in
+        that billing period, please contact us within 7 days for a full refund.
       </p>
       <ul>
         <li>

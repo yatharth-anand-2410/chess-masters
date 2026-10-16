@@ -21,6 +21,14 @@ export const metadata: Metadata = {
     description:
       "The free plan, supported platforms, report contents, and how analyses work.",
     url: "/faq",
+    images: [
+      {
+        url: "/opengraph-image",
+        width: 1200,
+        height: 630,
+        alt: "Chessmasters — AI chess game analyzer for Chess.com and Lichess",
+      },
+    ],
   },
 };
 

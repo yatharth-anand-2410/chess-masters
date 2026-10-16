@@ -1180,9 +1180,10 @@
 @media (min-width: 1001px) {
   /* /tactics lives in the article column (max 720px). The catalog is an
      instrument panel rather than prose, so it is allowed to breathe slightly
-     wider than the text measure — never wider than `.legal-dashboard`. */
+     wider than the text measure — but never past the dashboard gutter
+     (1.5rem), which would create a horizontal scrollbar (was -1.75rem). */
   .studies-catalog {
-    margin-inline: -1.75rem;
+    margin-inline: -1.5rem;
   }
 }
 

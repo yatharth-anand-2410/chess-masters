@@ -21,6 +21,14 @@ export const metadata: Metadata = {
     description:
       "Game Review gives you numbers inside Chess.com. Chessmasters gives you a coaching lesson from any Chess.com or Lichess game.",
     url: "/chess-com-game-review-alternative",
+    images: [
+      {
+        url: "/opengraph-image",
+        width: 1200,
+        height: 630,
+        alt: "Chessmasters — AI chess game analyzer for Chess.com and Lichess",
+      },
+    ],
   },
 };
 
@@ -78,7 +86,8 @@ export default function GameReviewAlternativePage() {
       </p>
 
       <h2>The short version</h2>
-      <table className="compare-table">
+      <div className="compare-table-scroll">
+        <table className="compare-table">
         <thead>
           <tr>
             <th>&nbsp;</th>
@@ -130,6 +139,7 @@ export default function GameReviewAlternativePage() {
           </tr>
         </tbody>
       </table>
+      </div>
 
       <h2>Chess.com Game Review: what it does well</h2>
       <p>

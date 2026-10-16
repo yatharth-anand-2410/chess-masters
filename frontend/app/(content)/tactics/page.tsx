@@ -22,6 +22,14 @@ export const metadata: Metadata = {
     description:
       "Ten tactical patterns that decide most club games, each with a Lichess training link.",
     url: "/tactics",
+    images: [
+      {
+        url: "/opengraph-image",
+        width: 1200,
+        height: 630,
+        alt: "Chessmasters — AI chess game analyzer for Chess.com and Lichess",
+      },
+    ],
   },
 };
 

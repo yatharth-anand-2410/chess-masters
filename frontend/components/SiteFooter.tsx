@@ -54,7 +54,6 @@ export default function SiteFooter() {
               alt="Featured on tools.cafe"
               width={256}
               height={80}
-              loading="lazy"
             />
           </a>
           <a
@@ -70,7 +69,6 @@ export default function SiteFooter() {
               alt="Chessmasters on Product Hunt — leave a review"
               width={250}
               height={54}
-              loading="lazy"
             />
           </a>
         </div>
