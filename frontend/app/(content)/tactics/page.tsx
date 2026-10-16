@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import ArticleMeta from "../../../components/ArticleMeta";
 import JsonLd from "../../../components/JsonLd";
+import TacticsCatalog from "../../../components/studies/TacticsCatalog";
 import {
   articleSchema,
   breadcrumbSchema,
@@ -139,6 +140,9 @@ export default function TacticsPage() {
         <Link href="/chess-game-analyzer">analyze a game</Link>.
       </p>
 
+      <TacticsCatalog />
+
+      <h2>Motif definitions</h2>
       <div className="tactics-grid">
         {TACTICS.map((tactic) => (
           <div className="tactics-card" key={tactic.name}>

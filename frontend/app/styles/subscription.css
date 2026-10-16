@@ -1,0 +1,333 @@
+/* -----------------------------------------------------------------------------
+   subscription workstream styles.
+   Owned by the subscription workstream only - keep it scoped to .subscription-* class names and the
+   primitives defined in globals.css (:root tokens, .btn, .pill, .card-shell).
+   Values must match design-ideas/full-design-showcase.html.
+   -------------------------------------------------------------------------- */
+
+/* Header — pill, title, subtitle, gold status banner */
+.subscription-hero {
+  max-width: 760px;
+  margin: 2.5rem auto 0;
+  text-align: center;
+}
+
+.subscription-title {
+  margin: 0.85rem 0 0;
+  font-family: var(--font-display);
+  font-size: clamp(1.9rem, 4vw, 2.5rem);
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+}
+
+.subscription-subtitle {
+  max-width: 62ch;
+  margin: 0.35rem auto 0;
+  color: var(--text-muted);
+  font-size: 1.1rem;
+  line-height: 1.6;
+}
+
+.subscription-status-bar {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.75rem;
+  max-width: 100%;
+  margin-top: 1.25rem;
+  padding: 0.5rem 1rem;
+  background: var(--ink-2);
+  border: 1px solid var(--gold);
+  border-radius: 999px;
+}
+
+.subscription-status-text {
+  color: var(--text);
+  font-size: 0.85rem;
+}
+
+.subscription-status-text b {
+  color: var(--gold-bright);
+}
+
+.subscription-pill-green {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.15rem 0.55rem;
+  background: rgba(34, 197, 94, 0.12);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  border-radius: 999px;
+  color: var(--green-bright);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.subscription-manage-trigger {
+  padding: 0;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-family: inherit;
+  font-size: 0.85rem;
+  text-decoration: underline;
+  text-decoration-color: var(--line-strong);
+  text-underline-offset: 3px;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.subscription-manage-trigger:hover {
+  color: var(--gold-bright);
+}
+
+/* Notices — action feedback stays visible next to the cards */
+.subscription-notices {
+  max-width: 640px;
+  margin: 0 auto;
+}
+
+.subscription-notice {
+  margin: 1rem 0 0;
+  text-align: left;
+}
+
+.subscription-notice-ok {
+  color: var(--green-bright);
+  font-size: 0.95rem;
+}
+
+/* Manage / cancel surface opened from the status banner */
+.subscription-manage-panel {
+  max-width: 720px;
+  margin: 1.5rem auto 0;
+  padding: 1.25rem 1.5rem;
+  background: var(--ink-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+}
+
+.subscription-manage-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.subscription-manage-title {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.subscription-manage-meta {
+  margin: 0.75rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
+
+.subscription-manage-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-top: 1rem;
+}
+
+/* Pricing — exactly two tiers: Pro Student (featured) and Master Coach */
+.subscription-pricing-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.5rem;
+  margin-top: 2.5rem;
+}
+
+@media (max-width: 860px) {
+  .subscription-pricing-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.subscription-plan-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  padding: 2rem 1.5rem;
+  background: var(--ink-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+}
+
+.subscription-plan-card[data-featured="true"] {
+  border-color: var(--gold);
+  background: linear-gradient(180deg, rgba(226, 182, 95, 0.08) 0%, var(--ink-2) 100%);
+}
+
+.subscription-plan-badge {
+  position: absolute;
+  top: -12px;
+  right: 1.5rem;
+  padding: 0.15rem 0.55rem;
+  background: var(--gold);
+  border-radius: 999px;
+  color: #141712;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.subscription-plan-name {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
+.subscription-plan-card[data-featured="true"] .subscription-plan-name {
+  color: var(--gold-bright);
+}
+
+.subscription-plan-blurb {
+  margin: 0.25rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.subscription-plan-price {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  color: var(--text);
+  font-family: var(--font-display);
+  font-size: 2.4rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.subscription-plan-price span {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+  font-weight: 400;
+}
+
+.subscription-plan-features {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.subscription-plan-features li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  line-height: 1.5;
+}
+
+.subscription-plan-features b {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.subscription-plan-check {
+  flex: none;
+  color: var(--text-muted);
+  font-weight: 700;
+}
+
+.subscription-plan-action {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  margin-top: auto;
+}
+
+.subscription-plan-btn {
+  align-self: stretch;
+  justify-content: center;
+  width: 100%;
+  text-align: center;
+}
+
+.subscription-plan-btn[data-state="active"]:disabled {
+  opacity: 1;
+  background: var(--gold);
+  border-color: var(--gold);
+  color: #181c16;
+  cursor: default;
+}
+
+.subscription-plan-helper {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  line-height: 1.5;
+  text-align: center;
+}
+
+/* Invoices — kept subtle below the cards */
+.subscription-invoices {
+  margin-top: 2.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--line-soft);
+}
+
+.subscription-invoices h2 {
+  margin: 0 0 0.75rem;
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.subscription-invoice-list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.subscription-invoice-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+  padding: 0.55rem 0;
+  border-bottom: 1px solid var(--line-soft);
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+}
+
+.subscription-invoice-amount {
+  color: var(--text);
+}
+
+.subscription-invoice-status {
+  text-transform: capitalize;
+}
+
+.subscription-invoice-row a {
+  margin-left: auto;
+  color: var(--gold-bright);
+  text-decoration: none;
+}
+
+.subscription-invoice-row a:hover {
+  text-decoration: underline;
+}

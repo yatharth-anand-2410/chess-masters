@@ -1,8 +1,6 @@
 "use client";
 
 import React from "react";
-import { motion } from "motion/react";
-import { ChevronDownIcon, TargetIcon } from "./ReportIcons";
 import type { NextGameRule } from "./reportParsing";
 
 type HeroRuleProps = {
@@ -11,66 +9,59 @@ type HeroRuleProps = {
   pending?: boolean;
   /** Anchor to the drill section, or null when the report has no drills. */
   drillAnchor?: string | null;
+  /**
+   * The concrete "why" paragraph behind the rule, assembled from the top
+   * weakness moment. Omitted when the evidence is too thin.
+   */
+  why?: string | null;
 };
 
 /**
- * The signature card on the report: one rule for the next game.
- * Inverts the cream report surface with a deep ink panel and an elegant
- * brass rule drawing across the top.
+ * "Core Actionable Takeaway · The Next Game Rule" — the showcase's hero wedge.
+ * A paper panel lifted by an accent rule on the left, carrying the one rule the
+ * player should run in their next game plus the evidence it came from.
  */
 export default function HeroRule({
   rule,
   pending = false,
   drillAnchor = null,
+  why = null,
 }: HeroRuleProps) {
   if (!rule) {
     if (!pending) {
       return null;
     }
     return (
-      <aside className="hero-rule hero-rule-loading relative overflow-hidden" aria-hidden="true">
-        <span className="hero-rule-mark">
-          <TargetIcon className="hero-rule-icon" />
+      <section
+        className="review-hero-wedge is-loading"
+        aria-hidden="true"
+      >
+        <span className="review-hero-kicker">
+          Core Actionable Takeaway · The Next Game Rule
         </span>
-        <div className="hero-rule-body">
-          <span className="hero-rule-kicker">Next game rule</span>
-          <span className="hero-rule-ghost hero-rule-ghost-wide" />
-          <span className="hero-rule-ghost hero-rule-ghost-narrow" />
-        </div>
-      </aside>
+        <span className="review-hero-ghost is-wide" />
+        <span className="review-hero-ghost is-narrow" />
+      </section>
     );
   }
 
   return (
-    <aside className="hero-rule relative overflow-hidden" aria-labelledby="hero-rule-heading">
-      {/* Signature brass draw-in motion from true resting value */}
-      <motion.div
-        className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-[var(--gold)] to-[rgba(201,153,63,0.15)] origin-left"
-        initial={{ scaleX: 0 }}
-        animate={{ scaleX: 1 }}
-        transition={{ duration: 0.8, ease: [0.2, 0.7, 0.2, 1] }}
-        aria-hidden="true"
-      />
-      <span className="hero-rule-mark" aria-hidden="true">
-        <TargetIcon className="hero-rule-icon" />
+    <section className="review-hero-wedge" aria-labelledby="hero-rule-heading">
+      <span className="review-hero-kicker">
+        Core Actionable Takeaway · The Next Game Rule
       </span>
-      <div className="hero-rule-body">
-        <h2 className="hero-rule-kicker" id="hero-rule-heading">
-          Next game rule
-        </h2>
-        <p className="hero-rule-text" key={rule.rule}>
-          {rule.rule}
-        </p>
-        <div className="hero-rule-foot">
-          <span className="hero-rule-source">{rule.sourceLabel}</span>
-          {drillAnchor && (
-            <a className="hero-rule-cta" href={`#${drillAnchor}`}>
-              Practise this now
-              <ChevronDownIcon className="hero-rule-cta-icon" />
-            </a>
-          )}
-        </div>
+      <h2 className="review-hero-title" id="hero-rule-heading">
+        &ldquo;{rule.rule}&rdquo;
+      </h2>
+      {why && <p className="review-hero-why">{why}</p>}
+      <div className="review-hero-foot">
+        <span className="review-hero-source">{rule.sourceLabel}</span>
+        {drillAnchor && (
+          <a className="review-hero-cta" href={`#${drillAnchor}`}>
+            Practise this now ↓
+          </a>
+        )}
       </div>
-    </aside>
+    </section>
   );
 }

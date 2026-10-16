@@ -1,0 +1,2081 @@
+/* -----------------------------------------------------------------------------
+   review workstream styles.
+   Owned by the review workstream only - scoped to .review-* class names and the
+   primitives defined in globals.css (:root tokens, .btn, .pill, .card-shell).
+   Values must match design-ideas/full-design-showcase.html.
+   -------------------------------------------------------------------------- */
+
+/* ===========================================================================
+   1. DUAL WORKSPACE
+   Dark sticky instrument on the left, paper editorial canvas on the right.
+   =========================================================================== */
+
+.review-workspace {
+  display: grid;
+  grid-template-columns: 480px minmax(0, 1fr);
+  gap: 1.75rem;
+  align-items: start;
+  margin-top: 1.5rem;
+}
+
+.review-workspace.is-solo {
+  display: block;
+}
+
+.review-canvas-column {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+@media (max-width: 1080px) {
+  .review-workspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* ===========================================================================
+   2. BOARD INSTRUMENT (sticky left column)
+   =========================================================================== */
+
+.review-instrument {
+  position: sticky;
+  top: 72px;
+  max-width: 480px;
+  background: var(--ink-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+@media (max-width: 1080px) {
+  .review-instrument {
+    position: static;
+  }
+}
+
+.review-instrument-empty {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.5rem 0.25rem;
+}
+
+.review-instrument-empty p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.88rem;
+}
+
+.review-instrument-kicker {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--gold-bright);
+}
+
+/* Player strips ---------------------------------------------------------- */
+
+.review-player-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.4rem 0.6rem;
+  background: var(--ink-3);
+  border-radius: var(--radius-control);
+  font-size: 0.84rem;
+  min-height: 34px;
+}
+
+.review-player-info {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
+.review-player-avatar {
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.72rem;
+  flex-shrink: 0;
+}
+
+.review-player-avatar.is-w {
+  background: #fbf6ec;
+  color: #1c1712;
+}
+
+.review-player-avatar.is-b {
+  background: #222;
+  color: #fff;
+  border: 1px solid var(--line);
+}
+
+.review-player-name {
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.review-player-elo {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.review-player-elo.is-player {
+  color: var(--gold-bright);
+  font-weight: 700;
+}
+
+.review-clock-chip {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  background: var(--ink-1);
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+  border: 1px solid var(--line);
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.review-clock-chip.is-danger {
+  color: var(--red-bright);
+  border-color: rgba(239, 68, 68, 0.4);
+  font-weight: 700;
+}
+
+/* Board stage ------------------------------------------------------------ */
+
+.review-board-stage {
+  display: flex;
+  gap: 0.65rem;
+  justify-content: center;
+  align-items: stretch;
+}
+
+.review-eval-bar {
+  width: 14px;
+  flex-shrink: 0;
+  background: #2b2b2b;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  position: relative;
+  overflow: hidden;
+}
+
+.review-eval-fill {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  background: #fbf6ec;
+  transition: height 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.review-eval-label {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) rotate(-90deg);
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: #f4eee2;
+  text-shadow: 0 0 3px rgba(0, 0, 0, 0.95), 0 1px 2px rgba(0, 0, 0, 0.9);
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.review-board {
+  position: relative;
+  width: 100%;
+  max-width: 440px;
+  aspect-ratio: 1 / 1;
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.6);
+  /* cqw in the coordinate styles below resolves against this board. */
+  container-type: inline-size;
+}
+
+/* Board square palette — the review surface uses the tournament-wood tokens
+   (--sq-light / --sq-dark) rather than chessground's default brown, so the
+   instrument, the mini boards and the drill arena all read as one board. A
+   2x2 conic tile paints the checkerboard; it is invariant under the 180°
+   rotation that flipping orientation applies, so both colours stay correct. */
+.review-board cg-board,
+.review-moment-board cg-board,
+.review-drill-arena .drill-board cg-board {
+  background-color: var(--sq-light);
+  background-image: conic-gradient(
+    var(--sq-dark) 90deg,
+    var(--sq-light) 90deg 180deg,
+    var(--sq-dark) 180deg 270deg,
+    var(--sq-light) 270deg
+  );
+  background-size: 25% 25%;
+}
+
+.review-board cg-board square.last-move,
+.review-moment-board cg-board square.last-move,
+.review-drill-arena .drill-board cg-board square.last-move {
+  background-color: var(--sq-hl);
+}
+
+/* Always-visible, high-contrast notation, anchored to the board itself. The
+   container query drives the font size from the board width so a 440px board
+   reads at ~12px while the same rules never shrink below 10px. */
+.review-board.cg-wrap coords.ranks {
+  top: 0;
+  left: 2px;
+}
+
+.review-board.cg-wrap coords.files {
+  bottom: 2px;
+  left: 0;
+  height: auto;
+}
+
+.review-board.cg-wrap coords {
+  font-size: clamp(10px, 2.1cqw, 14px);
+  opacity: 1;
+  z-index: 3;
+}
+
+.review-board.cg-wrap coords.ranks coord,
+.review-board.cg-wrap coords.files coord {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(28, 23, 18, 0.86);
+  text-shadow: 0 0 3px rgba(243, 236, 220, 0.95), 0 0 6px rgba(243, 236, 220, 0.7);
+  font-weight: 700;
+}
+
+.review-board.cg-wrap coords.ranks coord {
+  transform: none;
+}
+
+/* The last move uses chessground's own highlight; the blunder square gets the
+   red wash and the flagged squares the gold tint from the showcase. */
+.review-board .cg-custom-highlight {
+  background: var(--sq-hl) !important;
+}
+
+.review-board .review-hl-blunder {
+  background: var(--sq-blunder) !important;
+}
+
+/* The best-move arrow uses the AA-safe teal, same convention as the drills. */
+.review-board .cg-shapes .green {
+  color: var(--teal-light);
+  opacity: 0.95;
+}
+
+/* Scrubber deck ---------------------------------------------------------- */
+
+.review-scrubber-deck {
+  background: var(--ink-3);
+  border-radius: var(--radius-control);
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.review-scrubber-track {
+  height: 38px;
+  background: var(--ink-1);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  position: relative;
+  overflow: hidden;
+  cursor: pointer;
+  touch-action: none;
+}
+
+.review-scrubber-track:focus-visible {
+  outline: 2px solid var(--gold-bright);
+  outline-offset: 2px;
+}
+
+.review-eval-curve {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.review-eval-zero {
+  stroke: rgba(255, 255, 255, 0.2);
+  stroke-dasharray: 2 2;
+  stroke-width: 0.8;
+}
+
+.review-eval-path {
+  fill: none;
+  stroke: var(--cyan);
+  stroke-width: 1.8;
+}
+
+.review-scrubber-note {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-family: var(--font-mono);
+}
+
+.review-scrubber-cursor {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--gold-bright);
+  pointer-events: none;
+  box-shadow: 0 0 6px rgba(226, 182, 95, 0.8);
+}
+
+.review-scrubber-ctl-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.review-ctl-group {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.review-ctl-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  background: var(--ink-2);
+  border: 1px solid var(--line);
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.72rem;
+}
+
+.review-ctl-btn:hover:not(:disabled) {
+  color: var(--text);
+  border-color: var(--line-strong);
+}
+
+.review-ctl-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.review-ply-readout {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.review-ply-readout b {
+  color: var(--text);
+}
+
+.review-badge {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  padding: 0.12rem 0.4rem;
+  border-radius: 4px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.review-badge-bad {
+  background: var(--red-bright);
+  color: #fff;
+}
+
+.review-badge-good {
+  background: var(--green-bright);
+  color: #040708;
+}
+
+.review-badge-neutral {
+  background: var(--ink-1);
+  border: 1px solid var(--line);
+  color: var(--text-muted);
+}
+
+.review-instrument-foot {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.review-instrument-foot a {
+  color: var(--gold-bright);
+  font-size: 0.82rem;
+  text-decoration: none;
+}
+
+.review-instrument-foot a:hover {
+  text-decoration: underline;
+}
+
+/* Batch instrument ------------------------------------------------------- */
+
+.review-batch-instrument {
+  gap: 1rem;
+}
+
+.review-batch-head {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.review-batch-title {
+  color: var(--text);
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  font-weight: 600;
+}
+
+.review-batch-platform {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+}
+
+.review-batch-block {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  background: var(--ink-3);
+  border-radius: var(--radius-control);
+}
+
+.review-batch-block-title {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.review-batch-phase {
+  display: grid;
+  grid-template-columns: 84px 1fr 44px;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.8rem;
+}
+
+.review-batch-phase-label {
+  color: var(--text-muted);
+}
+
+.review-batch-phase-track {
+  height: 8px;
+  background: var(--ink-1);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.review-batch-phase-fill {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, var(--teal), var(--gold));
+  border-radius: 999px;
+}
+
+.review-batch-phase-value {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--text);
+  text-align: right;
+}
+
+.review-batch-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.review-batch-chip {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  color: var(--text-muted);
+}
+
+.review-batch-chip.is-alert {
+  color: var(--red-bright);
+  border-color: rgba(239, 68, 68, 0.35);
+}
+
+.review-batch-chip.is-caution {
+  color: var(--gold-bright);
+  border-color: rgba(226, 182, 95, 0.35);
+}
+
+.review-batch-empty {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+/* ===========================================================================
+   3. PAPER CANVAS
+   =========================================================================== */
+
+.report.review-canvas {
+  padding: clamp(1.25rem, 3vw, 2.25rem);
+  border-radius: var(--radius-card);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+}
+
+/* Inside the dual workspace the grid already spaces the canvas. */
+.review-workspace .report.review-canvas {
+  margin-top: 0;
+}
+
+.review-canvas .report-section,
+.review-canvas .report-section + .report-section {
+  margin-top: 0;
+}
+
+.review-canvas .report-section h2:first-child {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
+}
+
+.review-canvas-header {
+  display: block;
+}
+
+/* Structural wrappers around the micro-components; spacing comes from the
+   canvas flex gap, these rules only keep the blocks explicit. */
+.review-psych-slot,
+.review-focus-section,
+.review-moments-section {
+  display: block;
+}
+
+.review-coach-notes {
+  margin-top: 0.25rem;
+}
+
+.review-section-head {
+  margin-bottom: 0.75rem;
+}
+
+.review-section-head h2,
+.review-section-head h3 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--paper-text);
+}
+
+.review-section-head p {
+  margin: 0.15rem 0 0;
+  font-size: 0.82rem;
+  color: var(--paper-muted);
+}
+
+/* Game header ------------------------------------------------------------ */
+
+.review-game-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.review-game-header-main {
+  min-width: 0;
+}
+
+.review-pill-paper {
+  display: inline-flex;
+  align-items: center;
+  background: rgba(47, 107, 98, 0.12);
+  color: var(--accent);
+  border: 1px solid rgba(47, 107, 98, 0.28);
+  border-radius: 999px;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.15rem 0.6rem;
+  margin-bottom: 0.4rem;
+}
+
+.review-game-header-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(1.5rem, 2.6vw, 2rem);
+  font-weight: 700;
+  line-height: 1.15;
+  color: var(--paper-text);
+}
+
+.review-game-header-meta {
+  margin: 0.25rem 0 0;
+  color: var(--paper-muted);
+  font-size: 0.95rem;
+}
+
+.review-game-header-meta code {
+  padding: 0.1rem 0.35rem;
+  background: var(--paper-2);
+  border: 1px solid var(--paper-line);
+  border-radius: 4px;
+  font-size: 0.88em;
+}
+
+.review-game-header-actions {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.review-btn-paper {
+  display: inline-flex;
+  align-items: center;
+  background: var(--paper-inset);
+  border: 1px solid var(--paper-line);
+  border-radius: 999px;
+  color: var(--paper-text);
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0.4rem 0.85rem;
+  text-decoration: none;
+}
+
+.review-btn-paper:hover {
+  border-color: var(--accent);
+}
+
+.review-btn-outline {
+  display: inline-flex;
+  align-items: center;
+  background: transparent;
+  border: 1px solid var(--paper-line);
+  border-radius: 999px;
+  color: var(--paper-text);
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0.4rem 0.85rem;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.review-btn-outline:hover {
+  background: var(--paper-2);
+}
+
+.review-btn-outline.is-sm {
+  font-size: 0.75rem;
+  padding: 0.3rem 0.65rem;
+}
+
+.review-instrument .review-btn-outline {
+  color: var(--text-muted);
+  border-color: var(--line);
+}
+
+.review-instrument .review-btn-outline:hover {
+  color: var(--text);
+  border-color: var(--line-strong);
+  background: transparent;
+}
+
+/* Verdict + hero wedge --------------------------------------------------- */
+
+.review-hero-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.review-verdict {
+  border-left: 3px solid var(--accent);
+  padding: 0.15rem 0 0.15rem 0.85rem;
+}
+
+.review-verdict-kicker {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.review-verdict-line {
+  margin: 0.15rem 0 0;
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--paper-text);
+}
+
+.review-verdict-detail {
+  margin: 0.3rem 0 0;
+  font-size: 0.88rem;
+  color: var(--paper-muted);
+  line-height: 1.55;
+}
+
+.review-hero-wedge {
+  background: var(--paper-2);
+  border-left: 5px solid var(--accent);
+  padding: 1.5rem;
+  border-radius: 0 var(--radius-control) var(--radius-control) 0;
+}
+
+.review-hero-wedge.is-loading {
+  min-height: 150px;
+}
+
+.review-hero-kicker {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 0.35rem;
+}
+
+.review-hero-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.45rem;
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--paper-text);
+}
+
+.review-hero-why {
+  margin: 0.5rem 0 0;
+  font-size: 0.95rem;
+  color: var(--paper-muted);
+  line-height: 1.6;
+}
+
+.review-hero-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-top: 0.9rem;
+}
+
+.review-hero-source {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--paper-muted);
+}
+
+.review-hero-cta {
+  color: var(--accent);
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.review-hero-cta:hover {
+  text-decoration: underline;
+}
+
+.review-hero-ghost {
+  display: block;
+  height: 1rem;
+  border-radius: 999px;
+  background: var(--paper-inset);
+  animation: pulse 1.8s ease-in-out infinite;
+}
+
+.review-hero-ghost.is-wide {
+  width: 82%;
+  height: 1.5rem;
+  margin-top: 0.35rem;
+}
+
+.review-hero-ghost.is-narrow {
+  width: 55%;
+  margin-top: 0.6rem;
+}
+
+/* Phase matrix ----------------------------------------------------------- */
+
+.review-phase-box {
+  background: var(--paper-2);
+  border: 1px solid var(--paper-line);
+  border-radius: var(--radius-control);
+  padding: 1.25rem;
+}
+
+.review-phase-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+
+.review-phase-head .review-pill-paper {
+  margin-bottom: 0;
+}
+
+.review-phase-title {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--paper-text);
+}
+
+.review-phase-lede {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--paper-muted);
+}
+
+.review-phase-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.review-phase-row {
+  display: grid;
+  grid-template-columns: 110px 1fr 60px;
+  align-items: center;
+  gap: 1rem;
+}
+
+.review-phase-label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--paper-text);
+}
+
+.review-phase-track {
+  height: 10px;
+  background: var(--paper-inset);
+  border-radius: 999px;
+  overflow: hidden;
+  position: relative;
+}
+
+.review-phase-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+}
+
+.review-phase-fill.is-strong {
+  background: var(--green-paper);
+}
+
+.review-phase-fill.is-ok {
+  background: var(--accent);
+}
+
+.review-phase-fill.is-weak {
+  background: var(--alert);
+}
+
+.review-phase-value {
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--paper-text);
+  text-align: right;
+}
+
+.review-phase-value.is-weak {
+  color: var(--alert);
+}
+
+.review-phase-pill-row {
+  margin-top: 0.35rem;
+}
+
+.review-phase-pill-row .review-pill-paper {
+  margin-bottom: 0;
+}
+
+/* The same bars render inside the dark per-game cards of the batch overview
+   (GameAnalysisCard), so they get an ink-surface palette there. */
+.game-card .review-phase-rows {
+  margin: 0.5rem 0 0.75rem;
+}
+
+.game-card .review-phase-label,
+.game-card .review-phase-value {
+  color: var(--text);
+}
+
+.game-card .review-phase-track {
+  background: var(--ink-1);
+  border: 1px solid var(--line);
+}
+
+.game-card .review-phase-value.is-weak {
+  color: var(--red-bright);
+}
+
+.game-card .review-phase-pill-row .review-pill-paper {
+  background: rgba(201, 153, 63, 0.1);
+  color: var(--gold-bright);
+  border-color: rgba(201, 153, 63, 0.3);
+}
+
+/* Chart tags embedded in a markdown narrative keep their own rhythm. */
+.report-section .review-phase-rows {
+  margin: 0.75rem 0;
+}
+
+/* Choke verification ----------------------------------------------------- */
+
+.review-choke {
+  background: var(--paper-inset);
+  border-left: 4px solid var(--accent);
+  padding: 1rem 1.25rem;
+  border-radius: 0 var(--radius-control) var(--radius-control) 0;
+}
+
+.review-choke-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.review-choke-title {
+  color: var(--alert);
+  font-family: var(--font-display);
+  font-size: 1.02rem;
+}
+
+.review-choke-badge {
+  background: #fff;
+  border: 1px solid var(--paper-line);
+  border-radius: 999px;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.2rem 0.6rem;
+  color: var(--paper-text);
+}
+
+.review-choke-text {
+  margin: 0.35rem 0 0;
+  font-size: 0.9rem;
+  color: var(--paper-muted);
+  line-height: 1.6;
+}
+
+/* ===========================================================================
+   4. PSYCHOLOGY CARD
+   =========================================================================== */
+
+.review-psych {
+  background: var(--paper-2);
+  border: 2px solid var(--accent);
+  border-radius: var(--radius-control);
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  box-shadow: 0 4px 16px rgba(47, 107, 98, 0.1);
+}
+
+.review-psych-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  border-bottom: 1px solid var(--paper-line);
+  padding-bottom: 0.75rem;
+}
+
+.review-psych-kicker {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.review-psych-title {
+  margin: 0.15rem 0 0;
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--paper-text);
+}
+
+.review-psych-badge {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  background: var(--accent);
+  color: #fff;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  font-weight: 700;
+}
+
+.review-psych-diagnosis {
+  margin: 0;
+  font-size: 0.95rem;
+  color: var(--paper-muted);
+  line-height: 1.6;
+}
+
+.review-psych-diagnosis b {
+  color: var(--paper-text);
+}
+
+.review-psych-radar-layout {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  gap: 1.5rem;
+  align-items: center;
+}
+
+@media (max-width: 768px) {
+  .review-psych-radar-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.review-psych-radar-wrap {
+  display: flex;
+  justify-content: center;
+}
+
+/* Radar colours from the showcase: accent threshold, tag-coloured dots. */
+.review-radar {
+  width: 100%;
+  max-width: 240px;
+  height: auto;
+}
+
+.review-radar .psych-radar-ring,
+.review-radar .psych-radar-spoke {
+  fill: none;
+  stroke: var(--paper-line);
+  stroke-width: 1;
+}
+
+.review-radar .psych-radar-threshold {
+  fill: none;
+  stroke: rgba(47, 107, 98, 0.35);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+
+.review-radar .psych-radar-shape {
+  fill: rgba(47, 107, 98, 0.25);
+  stroke: var(--accent);
+  stroke-width: 2;
+  stroke-linejoin: round;
+}
+
+.review-radar .psych-radar-dot {
+  stroke: var(--paper-2);
+  stroke-width: 1.5;
+}
+
+.review-radar .psych-radar-dot.tag-strong {
+  fill: var(--green-paper);
+}
+
+.review-radar .psych-radar-dot.tag-develop {
+  fill: #b45309;
+}
+
+.review-radar .psych-radar-dot.tag-weak {
+  fill: var(--alert);
+}
+
+.review-radar .psych-radar-label {
+  fill: var(--paper-muted);
+  font-size: 10.5px;
+  font-weight: 700;
+}
+
+.review-psych-table {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.review-psych-row {
+  background: var(--paper);
+  border: 1px solid var(--paper-line);
+  border-radius: 4px;
+  padding: 0.55rem 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.review-psych-row-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.review-psych-row-label {
+  color: var(--paper-text);
+  font-size: 0.9rem;
+}
+
+.review-psych-tag {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 3px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.review-psych-tag.is-strong {
+  background: rgba(21, 128, 61, 0.15);
+  color: var(--green-paper);
+}
+
+.review-psych-tag.is-develop {
+  background: rgba(180, 83, 9, 0.15);
+  color: #b45309;
+}
+
+.review-psych-tag.is-weak {
+  background: rgba(125, 53, 39, 0.15);
+  color: var(--alert);
+}
+
+.review-psych-row-evidence {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--paper-muted);
+  line-height: 1.5;
+}
+
+.review-psych-row-fix {
+  margin: 0.1rem 0 0;
+  font-size: 0.78rem;
+  color: var(--paper-text);
+  line-height: 1.5;
+}
+
+.review-psych-row-fix b {
+  color: var(--accent);
+}
+
+.review-psych-note {
+  margin: 0.35rem 0 0;
+  font-size: 0.75rem;
+  color: var(--paper-muted);
+}
+
+.review-psych-block {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.review-psych-block-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--paper-text);
+}
+
+/* Form timeline ---------------------------------------------------------- */
+
+.review-form-box {
+  background: var(--paper);
+  border: 1px solid var(--paper-line);
+  border-radius: var(--radius-control);
+  padding: 1rem;
+}
+
+.review-form-head {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+  margin-bottom: 0.5rem;
+  color: var(--paper-text);
+}
+
+.review-form-legend {
+  display: flex;
+  gap: 0.6rem;
+  font-size: 0.72rem;
+  flex-wrap: wrap;
+}
+
+.review-form-legend .is-win {
+  color: var(--green-paper);
+}
+
+.review-form-legend .is-loss {
+  color: var(--alert);
+}
+
+.review-form-legend .is-tilt {
+  color: #b45309;
+}
+
+.review-form-svg {
+  width: 100%;
+  height: 120px;
+  display: block;
+}
+
+.review-form-avg {
+  stroke: var(--paper-line);
+  stroke-dasharray: 4 4;
+  stroke-width: 1;
+}
+
+.review-form-line {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2;
+  stroke-linejoin: round;
+}
+
+.review-form-dot.is-win {
+  fill: var(--green-paper);
+}
+
+.review-form-dot.is-loss {
+  fill: var(--alert);
+}
+
+.review-form-dot.is-draw {
+  fill: #b45309;
+}
+
+.review-form-dot.is-none {
+  fill: var(--paper-muted);
+}
+
+.review-form-tilt {
+  fill: #b45309;
+}
+
+.review-form-value {
+  fill: var(--paper-muted);
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.review-form-label {
+  fill: var(--paper-muted);
+  font-size: 8.5px;
+  font-family: var(--font-mono);
+}
+
+/* Clock pressure + think time -------------------------------------------- */
+
+.review-pressure-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.25rem;
+}
+
+@media (max-width: 768px) {
+  .review-pressure-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.review-pressure-card {
+  background: var(--paper);
+  border: 1px solid var(--paper-line);
+  border-radius: 4px;
+  padding: 0.85rem;
+}
+
+.review-pressure-title {
+  display: block;
+  font-size: 0.82rem;
+  color: var(--paper-text);
+  margin-bottom: 0.5rem;
+}
+
+.review-pressure-row {
+  display: grid;
+  grid-template-columns: 65px 1fr 75px;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.45rem;
+  font-size: 0.8rem;
+  color: var(--paper-text);
+}
+
+.review-pressure-track {
+  height: 8px;
+  background: var(--paper-inset);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.review-pressure-fill {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  border-radius: 4px;
+}
+
+.review-pressure-row.is-worst .review-pressure-fill {
+  background: var(--alert);
+}
+
+.review-pressure-row.is-worst .review-pressure-label {
+  color: var(--alert);
+  font-weight: 700;
+}
+
+.review-pressure-meta {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--paper-muted);
+  text-align: right;
+}
+
+.review-pressure-row.is-worst .review-pressure-meta {
+  color: var(--alert);
+  font-weight: 700;
+}
+
+.review-speed-track {
+  display: flex;
+  height: 12px;
+  border-radius: 6px;
+  overflow: hidden;
+  margin-bottom: 0.65rem;
+}
+
+.review-speed-seg {
+  height: 100%;
+}
+
+.review-speed-seg.seg-0,
+.review-speed-swatch.seg-0 {
+  background: #3b82f6;
+}
+
+.review-speed-seg.seg-1,
+.review-speed-swatch.seg-1 {
+  background: #22c55e;
+}
+
+.review-speed-seg.seg-2,
+.review-speed-swatch.seg-2 {
+  background: #eab308;
+}
+
+.review-speed-seg.seg-3,
+.review-speed-swatch.seg-3 {
+  background: #ef4444;
+}
+
+.review-speed-legend {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.4rem;
+  font-size: 0.74rem;
+  color: var(--paper-muted);
+}
+
+.review-speed-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.review-speed-swatch {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+/* Spectrum + remaining leaks --------------------------------------------- */
+
+.review-spectrum {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.review-spectrum-row {
+  display: grid;
+  grid-template-columns: 120px 1fr 40px;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.8rem;
+  color: var(--paper-text);
+}
+
+.review-spectrum-row.is-leaning .review-spectrum-label {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.review-spectrum-track {
+  height: 8px;
+  background: var(--paper-inset);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.review-spectrum-fill {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  border-radius: 4px;
+}
+
+.review-spectrum-score {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--paper-muted);
+  text-align: right;
+}
+
+.review-psych-leaks {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.review-psych-leak {
+  background: var(--paper);
+  border: 1px solid var(--paper-line);
+  border-radius: 4px;
+  padding: 0.65rem 0.8rem;
+}
+
+.review-psych-leak-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.review-psych-leak-label {
+  font-weight: 700;
+  font-size: 0.88rem;
+  color: var(--paper-text);
+}
+
+.review-psych-caveats {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--paper-muted);
+  border-top: 1px solid var(--paper-line);
+  padding-top: 0.75rem;
+}
+
+/* ===========================================================================
+   5. FOCUS AREAS (Do / Don't cards)
+   =========================================================================== */
+
+.review-focus-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.review-focus-card {
+  background: var(--paper-2);
+  border: 1px solid var(--paper-line);
+  border-radius: var(--radius-control);
+  padding: 1rem 1.25rem;
+  display: grid;
+  grid-template-columns: 40px 1fr 1fr;
+  gap: 1rem;
+  align-items: center;
+}
+
+.review-focus-card.is-single {
+  grid-template-columns: 40px minmax(0, 1fr);
+}
+
+@media (max-width: 700px) {
+  .review-focus-card {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.review-focus-rank {
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  background: var(--paper-inset);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 0.88rem;
+  color: var(--paper-text);
+}
+
+.review-focus-dont {
+  background: rgba(125, 53, 39, 0.08);
+  border-left: 3px solid var(--alert);
+  padding: 0.65rem 0.85rem;
+  border-radius: 0 4px 4px 0;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  color: var(--paper-text);
+}
+
+.review-focus-dont b {
+  color: var(--alert);
+}
+
+.review-focus-do {
+  background: rgba(47, 107, 98, 0.08);
+  border-left: 3px solid var(--accent);
+  padding: 0.65rem 0.85rem;
+  border-radius: 0 4px 4px 0;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  color: var(--paper-text);
+}
+
+.review-focus-do b {
+  color: var(--accent);
+}
+
+/* ===========================================================================
+   6. KEY GAME MOMENTS (mini-board cards)
+   =========================================================================== */
+
+.review-moments {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.review-moments + .review-moments {
+  margin-top: 1rem;
+}
+
+.review-moment {
+  background: var(--paper-2);
+  border: 1px solid var(--paper-line);
+  border-radius: var(--radius-control);
+  padding: 1.25rem;
+  display: grid;
+  grid-template-columns: 140px minmax(0, 1fr);
+  gap: 1.25rem;
+  align-items: start;
+}
+
+@media (max-width: 600px) {
+  .review-moment {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.review-moment-board {
+  width: 140px;
+  height: 140px;
+  border-radius: 4px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--sq-dark);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+@media (max-width: 600px) {
+  .review-moment-board {
+    width: 100%;
+    max-width: 220px;
+    height: auto;
+    aspect-ratio: 1 / 1;
+  }
+}
+
+.review-moment-board .critical-board {
+  width: 140px;
+  height: 140px;
+  max-width: none;
+  margin: 0;
+  border: 0;
+  border-radius: 4px;
+}
+
+@media (max-width: 600px) {
+  .review-moment-board .critical-board {
+    width: 100%;
+    height: 100%;
+  }
+}
+
+.review-moment-board-empty {
+  color: rgba(251, 246, 236, 0.4);
+  font-size: 2rem;
+}
+
+.review-moment-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.review-moment-pills {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.review-moment-pill {
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+}
+
+.review-moment-pill.is-weakness {
+  background: rgba(125, 53, 39, 0.15);
+  color: var(--alert);
+}
+
+.review-moment-pill.is-strength {
+  background: rgba(47, 107, 98, 0.15);
+  color: var(--accent);
+}
+
+.review-moment-pill.is-neutral {
+  background: var(--paper-inset);
+  color: var(--paper-muted);
+}
+
+.review-moment-title {
+  font-size: 1.05rem;
+  color: var(--paper-text);
+  font-weight: 700;
+}
+
+.review-moment-text {
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--paper-muted);
+  line-height: 1.5;
+}
+
+.review-moment-evidence {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--paper-muted);
+}
+
+.review-moment-evidence span {
+  padding: 0.1rem 0.4rem;
+  background: var(--paper);
+  border: 1px solid var(--paper-line);
+  border-radius: 4px;
+}
+
+.review-moment-more {
+  margin-top: 0.25rem;
+}
+
+.review-moment-more-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: none;
+  border: 0;
+  padding: 0;
+  color: var(--accent);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.review-moment-more-toggle:hover {
+  text-decoration: underline;
+}
+
+.review-moment-more-icon {
+  width: 13px;
+  height: 13px;
+  transition: transform 0.2s ease;
+}
+
+.review-moment-more-icon.is-open {
+  transform: rotate(180deg);
+}
+
+.review-moment-block {
+  margin-top: 0.6rem;
+}
+
+.review-moment-block p {
+  margin: 0.15rem 0 0;
+  font-size: 0.85rem;
+  color: var(--paper-muted);
+  line-height: 1.5;
+}
+
+.review-moment-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--paper-muted);
+}
+
+/* ===========================================================================
+   7. REPLAY DRILL ARENA + RESOURCES
+   =========================================================================== */
+
+.review-drill-section {
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+  scroll-margin-top: 1.5rem;
+}
+
+.review-drill-arena {
+  background: #1c2724;
+  color: #f4eee2;
+  border-radius: var(--radius-control);
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+}
+
+.review-arena-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding-bottom: 0.75rem;
+}
+
+.review-arena-kicker {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 0.88rem;
+  color: var(--gold-bright);
+}
+
+.review-arena-lede {
+  margin: 0.15rem 0 0;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.review-arena-pill {
+  background: var(--gold);
+  color: #121b1e;
+  border-radius: 999px;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.2rem 0.6rem;
+}
+
+.review-arena-clock {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0;
+  color: #d8cdb4;
+  font-size: 0.82rem;
+}
+
+.review-arena-clock-icon {
+  width: 14px;
+  height: 14px;
+}
+
+.review-drill-grid {
+  margin-top: 0;
+}
+
+/* The drill cards sit on ink inside the arena: local token overrides keep the
+   shared ui primitives (Pill / Button) readable without touching them. */
+.review-drill-arena .drill-card {
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-left: 1px solid rgba(255, 255, 255, 0.1);
+  color: #f4eee2;
+  --paper-text: #f4eee2;
+  --paper-muted: #9fb0a8;
+  --paper-line: rgba(255, 255, 255, 0.14);
+  --paper-2: rgba(0, 0, 0, 0.25);
+  --paper: #1c2724;
+  --do: #7fc9b8;
+  --dont: #e0897a;
+  --accent: #57a496;
+  --alert: #e08573;
+  --bronze-deep: #e2b65f;
+  --bronze: #e2b65f;
+  --ink-muted-2: #a9b7b0;
+  --gold: #c9993f;
+  --gold-bright: #e2b65f;
+}
+
+.review-drill-arena .drill-card.is-open,
+.review-drill-arena .drill-card.status-solved {
+  border-left-color: var(--do);
+}
+
+.review-drill-arena .drill-card.status-revealed {
+  border-left-color: var(--bronze-deep);
+}
+
+.review-drill-arena .drill-card button[class*="bg-[var(--ink-2)]"] {
+  background: var(--gold);
+  color: #121b1e;
+}
+
+.review-drill-arena .drill-card button[class*="bg-[var(--ink-2)]"]:hover {
+  background: var(--gold-bright);
+}
+
+.review-drill-arena .drill-card .drill-lead,
+.review-drill-arena .drill-card .drill-prompt,
+.review-drill-arena .drill-card .drill-explain {
+  color: #e6e2d8;
+}
+
+.review-drill-arena .drill-card .drill-board {
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
+.review-drill-arena .drill-attempt-note {
+  color: var(--paper-muted);
+}
+
+.review-drill-arena .drill-attempt-success {
+  color: #7fc9b8;
+}
+
+.review-drill-arena .drill-attempt-error {
+  color: #ffb4a6;
+}
+
+.review-drill-arena .drill-attempt-info {
+  color: #d8cdb4;
+}
+
+.review-drill-arena .drill-promotion-btn {
+  color: #f4eee2;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.review-drill-arena .drill-promotion-btn:hover {
+  border-color: var(--gold-bright);
+}
+
+.review-resources {
+  display: flex;
+  flex-direction: column;
+}
+
+.review-resources-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.85rem;
+}
+
+@media (max-width: 600px) {
+  .review-resources-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.review-resource-item {
+  background: var(--paper-2);
+  border: 1px solid var(--paper-line);
+  border-radius: var(--radius-control);
+  padding: 0.85rem 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  text-decoration: none;
+  color: var(--paper-text);
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+
+.review-resource-item:hover {
+  border-color: var(--accent);
+  transform: translateX(2px);
+}
+
+.review-resource-item b {
+  font-size: 0.92rem;
+}
+
+.review-resource-move {
+  font-size: 0.75rem;
+  color: var(--paper-muted);
+}
+
+.review-resource-arrow {
+  color: var(--accent);
+  font-weight: 700;
+  display: inline-flex;
+}
+
+.review-resource-icon {
+  width: 14px;
+  height: 14px;
+}
+
+/* Disclosures ------------------------------------------------------------ */
+
+.review-details {
+  border-top: 1px solid var(--paper-line);
+  padding-top: 0.85rem;
+  font-size: 0.9rem;
+  color: var(--paper-muted);
+}
+
+.review-details summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.review-details summary::before {
+  content: "▸ ";
+  font-size: 0.75em;
+}
+
+.review-details[open] summary::before {
+  content: "▾ ";
+}
+
+.review-details-body {
+  margin-top: 0.75rem;
+}
+
+.review-details-body h2 {
+  margin-top: 1rem;
+  font-size: 1.1rem;
+}
+
+/* Batch games overview --------------------------------------------------- */
+
+.review-games-overview {
+  background: var(--ink-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  padding: 1.5rem;
+}
+
+.review-games-overview .review-section-head h2 {
+  color: var(--text);
+}
+
+.review-games-overview .review-section-head p {
+  color: var(--text-muted);
+}
+
+.review-games-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* Thread column under the canvas */
+.review-thread {
+  position: static;
+  margin-top: 0.5rem;
+}
+
+/* Narrative sections keep the readable width. */
+.review-narrative {
+  min-width: 0;
+}

@@ -1,13 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import CoachingReport from "../../../components/CoachingReport";
 import type { InsightsData } from "../../../components/insights";
+import SharedItemView from "../../../components/studies/SharedItemView";
 import {
   apiGet,
   type SharedBatchReport,
+  type SharedItemPayload,
   type SharedReport,
   type SharedStudent,
 } from "../../../lib/api";
@@ -55,17 +57,32 @@ function buildFeed(data: SharedStudent): FeedItem[] {
 }
 
 /**
- * Public, read-only student page behind an unguessable share token.
+ * One token, three payloads.
+ *
+ * A student share keeps its report feed. A study or tactic share carries
+ * `kind` + `item` and renders the shared content instead — title, subtitle, the
+ * Lichess destination, the chapter/line list and the view counter. Legacy
+ * tokens (captured before shares carried a kind) still return the student feed
+ * shape, which is why nothing here requires `kind` to be present.
+ */
+type SharedTokenPayload = Partial<SharedStudent> & {
+  kind?: "study" | "tactic" | "student";
+  item?: SharedItemPayload | null;
+};
+
+/**
+ * Public, read-only page behind an unguessable share token.
  *
  * Deliberately outside the app shell: no sign-in, no account context, no
  * internal ids. The only data on screen is what the coach chose to share —
- * single-game reports and multi-game reports, never the coach's private notes.
+ * single-game reports, multi-game reports, studies and tactic themes, never the
+ * coach's private notes.
  */
 export default function SharedStudentPage() {
   const params = useParams<{ token: string }>();
   const token = params.token;
 
-  const [data, setData] = useState<SharedStudent | null>(null);
+  const [payload, setPayload] = useState<SharedTokenPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -82,8 +99,8 @@ export default function SharedStudentPage() {
     if (!token) {
       return;
     }
-    apiGet<SharedStudent>(`/api/shared/${token}`)
-      .then((result) => setData(result))
+    apiGet<SharedTokenPayload>(`/api/shared/${token}`)
+      .then((result) => setPayload(result))
       .catch((err) =>
         setError(
           err instanceof Error ? err.message : "This share link is not active."
@@ -91,6 +108,28 @@ export default function SharedStudentPage() {
       )
       .finally(() => setLoading(false));
   }, [token]);
+
+  const sharedItem = useMemo<SharedItemPayload | null>(() => {
+    if (!payload?.item) {
+      return null;
+    }
+    if (payload.kind === "study" || payload.kind === "tactic" || payload.kind === undefined) {
+      return payload.item;
+    }
+    return null;
+  }, [payload]);
+
+  /** The student feed, normalised so a payload without lists cannot crash it. */
+  const studentFeed = useMemo<SharedStudent | null>(() => {
+    if (!payload?.student) {
+      return null;
+    }
+    return {
+      student: payload.student,
+      analyses: payload.analyses ?? [],
+      batches: payload.batches ?? [],
+    };
+  }, [payload]);
 
   const openReport = useCallback(
     async (analysisId: string) => {
@@ -154,7 +193,7 @@ export default function SharedStudentPage() {
     );
   }
 
-  if (error || !data) {
+  if (error || (!sharedItem && !studentFeed)) {
     return (
       <main className="dashboard shared-dashboard">
         <header className="topbar">
@@ -179,8 +218,41 @@ export default function SharedStudentPage() {
     );
   }
 
-  const studentName = data.student.display_name ?? "Student";
-  const feed = buildFeed(data);
+  if (sharedItem) {
+    return (
+      <main className="dashboard shared-dashboard">
+        <header className="topbar">
+          <Link href="/" className="wordmark">
+            <span className="wordmark-glyph" aria-hidden="true">
+              ♜
+            </span>
+            Chessmasters
+          </Link>
+          <div className="topbar-actions">
+            <span className="shared-tag">
+              {sharedItem.kind === "tactic"
+                ? "Shared tactic theme"
+                : "Shared study"}
+            </span>
+          </div>
+        </header>
+
+        <SharedItemView
+          payload={sharedItem}
+          footer={
+            <p className="shared-footnote">
+              Shared by a coach and readable without an account. Nothing on this
+              page is editable, and no coach notes are shown beyond what was
+              shared.
+            </p>
+          }
+        />
+      </main>
+    );
+  }
+
+  const feed = buildFeed(studentFeed as SharedStudent);
+  const studentName = studentFeed?.student.display_name ?? "Student";
   const openReportData = report ?? null;
   const openBatchData = batchReport ?? null;
   const openDate = openReportData?.analysis.created_at ?? openBatchData?.batch.created_at;

@@ -21,7 +21,7 @@ import chess.pgn
 import requests
 from pydantic import BaseModel, Field
 
-from services import http
+from services import http, puzzles
 
 LICHESS_STUDY_URL = "https://lichess.org/study/{study_id}.pgn"
 STUDY_ID_REGEX = re.compile(r"([a-zA-Z0-9]{8})")
@@ -327,3 +327,128 @@ def import_lichess_study(study_id_or_url: str) -> StudyImportResponse:
     study_id = extract_study_id(study_id_or_url)
     pgn_text = fetch_lichess_study_pgn(study_id)
     return parse_study_pgn(pgn_text, study_id)
+
+
+# ---------------------------------------------------------------------------
+# Curated studies: the real leaks of analyzed games, mapped to Lichess drills
+# ---------------------------------------------------------------------------
+
+#: How many studies a curriculum shows at most.
+MAX_CURATED_STUDIES = 6
+
+
+def _as_dict(value: Any) -> Dict[str, Any]:
+    if isinstance(value, dict):
+        return value
+    return {}
+
+
+def _moment_move_number(moment: Dict[str, Any]) -> Optional[int]:
+    value = moment.get("move_number")
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    number = int(value)
+    return number if number > 0 else None
+
+
+def _moment_loss(moment: Dict[str, Any]) -> float:
+    value = moment.get("centipawn_loss")
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return 0.0
+    return float(value)
+
+
+def build_curated_studies(
+    rows: List[Dict[str, Any]],
+    limit: int = MAX_CURATED_STUDIES,
+) -> List[Dict[str, Any]]:
+    """Derive one study per recurring motif from the stored analyses.
+
+    Every card is built from a real ``insights.weakness_moments`` entry: the
+    reason quotes the move, the quality and the opponent of the strongest
+    recorded error, and the motif count is the number of moments the engine
+    actually tagged. A motif with no Lichess destination is dropped rather than
+    rendered as a dead card; an empty (or unenriched) history returns ``[]``.
+    """
+    groups: Dict[str, Dict[str, Any]] = {}
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        moments = _as_dict(row.get("insights")).get("weakness_moments")
+        if not isinstance(moments, list):
+            continue
+        summary = _as_dict(row.get("game_summary"))
+        opponent = str(summary.get("opponent_name") or "").strip() or None
+        analysis_id = str(row.get("id") or "").strip() or None
+        platform_game_id = str(row.get("game_id") or "").strip() or None
+        for moment in moments:
+            if not isinstance(moment, dict):
+                continue
+            theme = puzzles.theme_for_motif(
+                moment.get("motif") or moment.get("resource_theme")
+            )
+            if not theme:
+                continue
+            entry = groups.setdefault(theme, {"count": 0, "best": None})
+            entry["count"] += 1
+            candidate = {
+                "move_number": _moment_move_number(moment),
+                "quality": str(moment.get("quality") or "").strip().lower() or None,
+                "opponent": opponent,
+                "game_id": platform_game_id or analysis_id,
+                "loss": _moment_loss(moment),
+            }
+            best = entry["best"]
+            if best is None or candidate["loss"] > best["loss"]:
+                entry["best"] = candidate
+
+    total_errors = sum(int(entry["count"]) for entry in groups.values())
+    ordered = sorted(
+        groups.items(), key=lambda item: (-int(item[1]["count"]), item[0])
+    )
+
+    studies: List[Dict[str, Any]] = []
+    for theme, entry in ordered[: max(0, limit)]:
+        link = puzzles.primary_link(theme)
+        if link is None or not link.get("url"):
+            continue
+        count = int(entry["count"])
+        label = puzzles.theme_label(theme)
+        if total_errors > count:
+            evidence = (
+                f"{count} of the {total_errors} recorded key errors are "
+                f"{label.lower()} patterns"
+            )
+        else:
+            evidence = f"{count} recorded key errors are {label.lower()} patterns"
+
+        best = entry["best"] or {}
+        fixes: Optional[str] = None
+        if best.get("quality") and best.get("move_number"):
+            opponent = (
+                f" vs {best['opponent']}" if best.get("opponent") else ""
+            )
+            fixes = (
+                f"Fixes your move {best['move_number']} "
+                f"{best['quality']}{opponent}"
+            )
+
+        reason = (
+            f"{fixes} — {evidence}."
+            if fixes
+            else f"{evidence[:1].upper()}{evidence[1:]}."
+        )
+        studies.append(
+            {
+                "id": f"curated-{theme}",
+                "title": puzzles.theme_title(theme),
+                "reason": reason,
+                "source_url": str(link["url"]),
+                "chapters": None,
+                "motif": theme,
+                "fixes": fixes,
+                "game_id": best.get("game_id"),
+                "move_number": best.get("move_number"),
+            }
+        )
+    return studies

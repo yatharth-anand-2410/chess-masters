@@ -10,6 +10,7 @@ import { Chess, type Square } from "chess.js";
 import type { InsightMoment } from "./insights";
 import { arrowSolution, parseUci, type Solution } from "./reportParsing";
 import { trackEvent } from "../lib/analytics";
+import { playSound } from "../lib/sound";
 import { evaluateAttempt } from "../lib/attempt";
 
 export type DrillStatus = "idle" | "solved" | "revealed";
@@ -382,6 +383,7 @@ export default function DrillBoard({
         return;
       }
 
+      playSound("move");
       settleMove(played);
     },
     [lockBoard, settleMove]
@@ -408,6 +410,7 @@ export default function DrillBoard({
         }
         return;
       }
+      playSound("move");
       settleMove(played);
     },
     [promotion, settleMove, unlockBoard]

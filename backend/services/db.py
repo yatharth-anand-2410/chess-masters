@@ -21,6 +21,31 @@ GUEST_ANALYSIS_LIMIT = 1
 
 KNOWN_NON_PAID_STATUSES = {"pending", "halted", "cancelled", "completed", "expired"}
 
+# Subscription tiers (0015_billing_plan_tier.sql). The tier is stored on the
+# usage row so coach-only features can require the Master Coach plan.
+PLAN_TIER_FREE = "free"
+PLAN_TIER_STUDENT = "student"
+PLAN_TIER_COACH = "coach"
+PLAN_TIERS = (PLAN_TIER_FREE, PLAN_TIER_STUDENT, PLAN_TIER_COACH)
+
+# History/list reads must stay light: the `pgn` and `replay` payloads are only
+# fetched when a caller opens one game. `replay_available` (generated in
+# 0014_game_telemetry.sql) tells the UI whether the replay endpoint can serve
+# the row, and the detail read keeps `pgn` so old games stay playable.
+ANALYSIS_LIST_COLUMNS = (
+    "id,user_id,platform,game_url,game_id,username,player_color,player_name,"
+    "opening_name,eco,result,report_markdown,insights,status,error_message,"
+    "created_at,completed_at,batch_id,student_id,game_summary,replay_available,"
+    "student:students(display_name)"
+)
+
+ANALYSIS_DETAIL_COLUMNS = (
+    "id,user_id,platform,game_url,game_id,username,player_color,player_name,pgn,"
+    "opening_name,eco,result,report_markdown,insights,status,error_message,"
+    "created_at,completed_at,batch_id,student_id,game_summary,replay_available,"
+    "student:students(display_name)"
+)
+
 
 def _period_end_in_future(value: Any) -> bool:
     if not value:
@@ -81,6 +106,31 @@ def _user_headers(token: str) -> Dict[str, str]:
     }
 
 
+def _telemetry_check(response: requests.Response) -> None:
+    """Turn a missing-telemetry-column failure into a setup hint.
+
+    PostgREST answers 400 with code 42703 while 0014_game_telemetry.sql has not
+    been run yet; surfacing the hint here means the failure reads as a setup
+    step instead of a mystery 500 in the logs.
+    """
+    if response.status_code == 400 and "42703" in response.text:
+        raise AuthError(
+            "Game telemetry is not deployed. Run migration "
+            "0014_game_telemetry.sql in the Supabase SQL Editor."
+        )
+    response.raise_for_status()
+
+
+def _plan_tier_check(response: requests.Response) -> None:
+    """Turn a missing plan-tier-column failure into a setup hint (0015)."""
+    if response.status_code == 400 and "42703" in response.text:
+        raise AuthError(
+            "Plan tiers are not deployed. Run migration "
+            "0015_billing_plan_tier.sql in the Supabase SQL Editor."
+        )
+    response.raise_for_status()
+
+
 def get_user_from_token(token: str) -> Dict[str, Any]:
     url, _key = _config()
     if not token:
@@ -130,18 +180,46 @@ def update_analysis(user_id: str, analysis_id: str, updates: Dict[str, Any]) -> 
 
 
 def get_analysis(user_id: str, analysis_id: str) -> Optional[Dict[str, Any]]:
+    """One full report row: keeps ``pgn`` (old games stay playable) but never
+    the heavy ``replay`` payload — that has its own endpoint."""
     url, _key = _config()
     response = requests.get(
         f"{url}/rest/v1/analyses",
         params={
-            "select": "*,student:students(display_name)",
+            "select": ANALYSIS_DETAIL_COLUMNS,
             "id": f"eq.{analysis_id}",
             "user_id": f"eq.{user_id}",
+            "limit": "1",
         },
         headers=_service_headers(),
         timeout=TIMEOUT,
     )
-    response.raise_for_status()
+    _telemetry_check(response)
+    rows = response.json()
+    return rows[0] if rows else None
+
+
+def get_analysis_replay(
+    user_id: str, analysis_id: str
+) -> Optional[Dict[str, Any]]:
+    """The stored replay payload for one owned analysis, or ``None``.
+
+    Kept separate from :func:`get_analysis` so the review read never pays for
+    the move-by-move JSON.
+    """
+    url, _key = _config()
+    response = requests.get(
+        f"{url}/rest/v1/analyses",
+        params={
+            "select": "id,replay,replay_available",
+            "id": f"eq.{analysis_id}",
+            "user_id": f"eq.{user_id}",
+            "limit": "1",
+        },
+        headers=_service_headers(),
+        timeout=TIMEOUT,
+    )
+    _telemetry_check(response)
     rows = response.json()
     return rows[0] if rows else None
 
@@ -151,7 +229,7 @@ def list_analyses(
 ) -> List[Dict[str, Any]]:
     url, _key = _config()
     params = {
-        "select": "*,student:students(display_name)",
+        "select": ANALYSIS_LIST_COLUMNS,
         "user_id": f"eq.{user_id}",
         "status": "neq.failed",
         "order": "created_at.desc",
@@ -168,7 +246,7 @@ def list_analyses(
         headers=_service_headers(),
         timeout=TIMEOUT,
     )
-    response.raise_for_status()
+    _telemetry_check(response)
     return response.json()
 
 
@@ -398,6 +476,7 @@ def get_usage(user_id: str) -> Dict[str, Any]:
     if not rows:
         return {
             "plan": "free",
+            "plan_tier": PLAN_TIER_FREE,
             "analyses_used": 0,
             "free_analysis_limit": FREE_ANALYSIS_LIMIT,
             "paid_analysis_limit": PAID_ANALYSIS_LIMIT,
@@ -408,6 +487,7 @@ def get_usage(user_id: str) -> Dict[str, Any]:
     row = rows[0]
     return {
         "plan": row.get("plan", "free"),
+        "plan_tier": row.get("plan_tier", PLAN_TIER_FREE),
         "analyses_used": row.get("analyses_used", 0),
         "free_analysis_limit": row.get("free_analysis_limit", FREE_ANALYSIS_LIMIT),
         "paid_analysis_limit": row.get("paid_analysis_limit", PAID_ANALYSIS_LIMIT),
@@ -415,6 +495,25 @@ def get_usage(user_id: str) -> Dict[str, Any]:
         "current_period_end": row.get("current_period_end"),
         "usage_period_end": row.get("usage_period_end"),
     }
+
+
+def is_coach_plan(user_id: str) -> bool:
+    """True when the account is on the coach tier with paid access left.
+
+    Coach mode and share items are gated on this rather than on the paid flag
+    alone: a Pro Student subscription keeps every analysis feature but does not
+    unlock student rosters. A lapsed or paused-past-period coach account loses
+    the tier even though the stored ``plan_tier`` column keeps its last value.
+    """
+    usage = get_usage(user_id)
+    tier = str(usage.get("plan_tier") or PLAN_TIER_FREE).strip().lower()
+    if tier != PLAN_TIER_COACH:
+        return False
+    return is_paid_plan(
+        str(usage.get("plan", "free")),
+        str(usage.get("subscription_status", "inactive")),
+        usage.get("current_period_end"),
+    )
 
 
 def get_current_subscription(user_id: str) -> Optional[Dict[str, Any]]:
@@ -528,21 +627,42 @@ def update_subscription(subscription_id: str, updates: Dict[str, Any]) -> None:
     response.raise_for_status()
 
 
-def set_paid_access(user_id: str, paid: bool, status: str, period_end: Any = None) -> None:
+def set_paid_access(
+    user_id: str,
+    paid: bool,
+    status: str,
+    period_end: Any = None,
+    *,
+    plan_tier: Optional[str] = None,
+    paid_analysis_limit: Optional[int] = None,
+) -> None:
+    """Store the account's paid state, tier and per-period quota.
+
+    ``plan_tier`` (``student``/``coach``) and ``paid_analysis_limit`` come from
+    the subscription that is being activated; both are optional so callers that
+    only flip the paid flag keep working. The tier is only written when access
+    is granted — a lapsed subscription keeps the last tier on the row for
+    billing history, while :func:`is_coach_plan` still refuses the feature.
+    """
     url, _key = _config()
+    payload: Dict[str, Any] = {
+        "user_id": user_id,
+        "plan": "paid" if paid else "free",
+        "subscription_status": status,
+        "current_period_end": period_end,
+    }
+    if paid and plan_tier:
+        payload["plan_tier"] = plan_tier
+    if paid_analysis_limit is not None:
+        payload["paid_analysis_limit"] = int(paid_analysis_limit)
     response = requests.post(
         f"{url}/rest/v1/account_usage",
         params={"on_conflict": "user_id"},
-        json={
-            "user_id": user_id,
-            "plan": "paid" if paid else "free",
-            "subscription_status": status,
-            "current_period_end": period_end,
-        },
+        json=payload,
         headers={**_service_headers(), "Prefer": "resolution=merge-duplicates"},
         timeout=TIMEOUT,
     )
-    response.raise_for_status()
+    _plan_tier_check(response)
 
 
 def reset_analysis_usage(user_id: str) -> None:
@@ -868,14 +988,20 @@ def list_analyses_by_student(
 
     Failed runs are hidden, matching the main history list: the credits were
     refunded and there is nothing to read.
+
+    The projection carries the same per-game telemetry the player history has
+    (``game_summary``, ``insights``, ``username``) so the student progress
+    surface can compute real numbers, while ``pgn`` stays out to keep the list
+    light.
     """
     url, _key = _config()
     response = requests.get(
         f"{url}/rest/v1/analyses",
         params={
             "select": (
-                "id,platform,game_id,game_url,player_color,player_name,"
-                "opening_name,eco,result,status,error_message,created_at,batch_id"
+                "id,platform,game_id,game_url,username,player_color,player_name,"
+                "opening_name,eco,result,status,error_message,insights,"
+                "game_summary,created_at,batch_id"
             ),
             "user_id": f"eq.{user_id}",
             "student_id": f"eq.{student_id}",
@@ -1132,3 +1258,131 @@ def touch_share_link(token: str) -> None:
         timeout=TIMEOUT,
     )
     _coach_check(response)
+
+
+# ---------------------------------------------------------------------------
+# Share items: no-sign-in study / tactic links (0016_share_items.sql).
+# ---------------------------------------------------------------------------
+
+SHARE_ITEM_COLUMNS = (
+    "token,coach_id,student_id,kind,item_key,title,subtitle,url,"
+    "view_count,last_viewed_at,revoked_at,created_at"
+)
+
+
+def _share_items_check(response: requests.Response) -> None:
+    """Turn a missing share-items table into a setup hint (0016)."""
+    if response.status_code == 404 or (
+        response.status_code == 400 and "42703" in response.text
+    ):
+        raise AuthError(
+            "Share items are not deployed. Run migration "
+            "0016_share_items.sql in the Supabase SQL Editor."
+        )
+    response.raise_for_status()
+
+
+def create_share_item(coach_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
+    """Store one coach-authored share: a study or a tactic theme."""
+    url, _key = _config()
+    response = requests.post(
+        f"{url}/rest/v1/share_items",
+        json={"coach_id": coach_id, **data},
+        headers={**_service_headers(), "Prefer": "return=representation"},
+        timeout=TIMEOUT,
+    )
+    _share_items_check(response)
+    rows = response.json()
+    return rows[0] if rows else {}
+
+
+def list_share_items(
+    coach_id: str,
+    student_id: Optional[str] = None,
+    include_revoked: bool = False,
+) -> List[Dict[str, Any]]:
+    """The coach's share items, newest first.
+
+    ``student_id`` narrows the list to items handed to one student; ``None``
+    returns every item the coach owns, including the ones attached to no
+    student ("anyone with the link"). Revoked items stay out unless asked for.
+    """
+    url, _key = _config()
+    params = {
+        "select": SHARE_ITEM_COLUMNS,
+        "coach_id": f"eq.{coach_id}",
+        "order": "created_at.desc",
+    }
+    if student_id:
+        params["student_id"] = f"eq.{student_id}"
+    if not include_revoked:
+        params["revoked_at"] = "is.null"
+    response = requests.get(
+        f"{url}/rest/v1/share_items",
+        params=params,
+        headers=_service_headers(),
+        timeout=TIMEOUT,
+    )
+    _share_items_check(response)
+    return response.json()
+
+
+def get_share_item(token: str) -> Optional[Dict[str, Any]]:
+    """Service-side lookup for the public share endpoint."""
+    url, _key = _config()
+    response = requests.get(
+        f"{url}/rest/v1/share_items",
+        params={
+            "select": SHARE_ITEM_COLUMNS,
+            "token": f"eq.{token}",
+            "limit": "1",
+        },
+        headers=_service_headers(),
+        timeout=TIMEOUT,
+    )
+    _share_items_check(response)
+    rows = response.json()
+    return rows[0] if rows else None
+
+
+def revoke_share_item(coach_id: str, token: str) -> bool:
+    """Revoke one share item. Idempotent: already-revoked rows stay revoked.
+
+    Returns ``True`` when this call closed a still-active link.
+    """
+    url, _key = _config()
+    response = requests.patch(
+        f"{url}/rest/v1/share_items",
+        params={
+            "coach_id": f"eq.{coach_id}",
+            "token": f"eq.{token}",
+            "revoked_at": "is.null",
+        },
+        json={"revoked_at": datetime.now(timezone.utc).isoformat()},
+        headers={**_service_headers(), "Prefer": "return=representation"},
+        timeout=TIMEOUT,
+    )
+    _share_items_check(response)
+    rows = response.json()
+    return bool(rows)
+
+
+def touch_share_item(token: str) -> Optional[int]:
+    """Bump the view counter and return the new count (``None`` if unknown)."""
+    url, _key = _config()
+    existing = get_share_item(token)
+    if not existing:
+        return None
+    view_count = int(existing.get("view_count", 0) or 0) + 1
+    response = requests.patch(
+        f"{url}/rest/v1/share_items",
+        params={"token": f"eq.{token}"},
+        json={
+            "view_count": view_count,
+            "last_viewed_at": datetime.now(timezone.utc).isoformat(),
+        },
+        headers=_service_headers(),
+        timeout=TIMEOUT,
+    )
+    _share_items_check(response)
+    return view_count

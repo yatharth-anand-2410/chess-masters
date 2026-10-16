@@ -1,130 +1,288 @@
+"use client";
+
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Topbar } from "@/components/ui/Topbar";
 import { Pill } from "@/components/ui/Pill";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
+import ShareMenu from "@/components/studies/ShareMenu";
+import { useStudySession } from "@/components/studies/useStudySession";
+import { apiGet, type CuratedStudy } from "@/lib/api";
+import { warmBackend } from "@/lib/backend-wake";
 
-interface CuratedStudy {
-  id: string;
-  title: string;
-  subtitle: string;
-  blunderOrigin: string;
-  chaptersCount: number;
-  difficulty: string;
-  theme: string;
-  acplReduction: string;
-  fenPreview: string;
-}
+type LoadState = "loading" | "ready" | "unavailable";
 
-const SAMPLE_STUDIES: CuratedStudy[] = [
-  {
-    id: "deflection-najdorf-842",
-    title: "Deflection & Decoy Traps in the Najdorf",
-    subtitle: "Eliminate game-losing queen sacrifices and back-rank deflection oversights",
-    blunderOrigin: "Directly linked to Game #842 Move 28 blunder (28...Re8??)",
-    chaptersCount: 4,
-    difficulty: "Advanced (2100+)",
-    theme: "Tactical Defense",
-    acplReduction: "-18.4 ACPL in Blitz",
-    fenPreview: "r1b1r1k1/pp2qpbp/2p3p1/8/3QP3/1P4P1/PB3PBP/3RR1K1 w - - 3 20",
-  },
-  {
-    id: "lucena-rook-endgames",
-    title: "The Lucena Bridge & Rook Ending Conversion",
-    subtitle: "Master the building of the bridge and avoid stalemate traps when up a pawn",
-    blunderOrigin: "Triggered by Endgame Leak: 4 missed conversions in last 10 games",
-    chaptersCount: 5,
-    difficulty: "Intermediate to Master",
-    theme: "Endgame Technique",
-    acplReduction: "+22% Conversion Rate",
-    fenPreview: "8/5k2/8/3R4/4P3/8/5K2/r7 w - - 0 45",
-  },
-  {
-    id: "pinned-f-pawn-luft",
-    title: "King Luft & Pinned F-Pawn Blindspots",
-    subtitle: "Create proactive escape squares before launching central heavy piece operations",
-    blunderOrigin: "Identified in Cognitive Psychology: Sub-30s tunnel vision",
-    chaptersCount: 3,
-    difficulty: "All Levels",
-    theme: "Prophylaxis",
-    acplReduction: "-84% Pin Blunders",
-    fenPreview: "r4rk1/1pp2ppp/p1np1n2/4p3/4P3/1NN1BP2/PPP3PP/R2QKB1R w KQ - 0 12",
-  },
-];
-
+/**
+ * The personalized curriculum.
+ *
+ * `GET /api/studies/curated` is the only source: every card is derived from the
+ * leaks in real analyzed games, and the sentence a student reads is the
+ * backend's own `reason` — never a template written here. A coach can pass
+ * `?student_id=` (or pick from the roster) to see the student's list instead of
+ * their own.
+ */
 export default function StudiesPage() {
+  const session = useStudySession({ students: true });
+  const [studentId, setStudentId] = useState("");
+  const [studies, setStudies] = useState<CuratedStudy[]>([]);
+  const [loadState, setLoadState] = useState<LoadState>("loading");
+
+  useEffect(() => {
+    warmBackend();
+  }, []);
+
+  // Deep link from a coach roster: /studies?student_id=… preselects the student.
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    const requested = new URLSearchParams(window.location.search).get("student_id");
+    if (requested) {
+      setStudentId(requested);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!session.ready) {
+      return;
+    }
+    let cancelled = false;
+    setLoadState("loading");
+    const query = studentId ? `?student_id=${encodeURIComponent(studentId)}` : "";
+    apiGet<CuratedStudy[]>(
+      `/api/studies/curated${query}`,
+      session.token || undefined
+    )
+      .then((list) => {
+        if (cancelled) {
+          return;
+        }
+        setStudies(Array.isArray(list) ? list : []);
+        setLoadState("ready");
+      })
+      .catch(() => {
+        if (cancelled) {
+          return;
+        }
+        // 401 (no personal list without a session) and 404 (endpoint not
+        // deployed) both land here: show the honest empty state, not an error
+        // page, because the curriculum is a bonus surface.
+        setStudies([]);
+        setLoadState("unavailable");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [session.ready, session.token, studentId]);
+
+  const selectedStudent = session.students.find(
+    (student) => student.id === studentId
+  );
+
+  const openHref = useCallback((study: CuratedStudy) => {
+    const query = new URLSearchParams();
+    if (study.source_url) {
+      query.set("url", study.source_url);
+    }
+    if (study.motif) {
+      query.set("motif", study.motif);
+    }
+    const suffix = query.toString();
+    return `/study/${encodeURIComponent(study.id)}${suffix ? `?${suffix}` : ""}`;
+  }, []);
+
+  const coachOptions = session.students.map((student) => ({
+    id: student.id,
+    display_name: student.display_name,
+  }));
+
+  const loading = loadState === "loading";
+
   return (
     <div className="min-h-screen bg-[var(--ink-1)] text-[var(--text)] flex flex-col">
       <Topbar />
 
-      <main className="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 py-8">
-        {/* Header Banner */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-[var(--line)]">
+      <main className="flex-1 w-full max-w-[1440px] mx-auto px-4 sm:px-6 py-8">
+        <div className="studies-head-row">
           <div>
             <div className="flex items-center gap-2 mb-1.5">
-              <span className="text-[var(--gold-bright)] font-mono text-sm">📚 CURRICULUM</span>
-              <Pill tone="shell" size="sm">Tailored to Student Leaks</Pill>
+              <span className="studies-eyebrow">♞ Curriculum</span>
+              <Pill tone="shell" size="sm">
+                {selectedStudent
+                  ? `For ${selectedStudent.display_name}`
+                  : session.signedIn
+                    ? "Tailored to your leaks"
+                    : "Personalized from analyzed games"}
+              </Pill>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-display font-bold tracking-tight text-[var(--text)]">
-              Curated Lichess Studies & Drills
+            <h1 className="studies-page-title">
+              Curated Lichess Studies &amp; Drills
             </h1>
-            <p className="text-sm text-[var(--text-muted)] mt-1 max-w-2xl">
-              Every study in your curriculum is generated directly from tactical oversights and endgame leaks identified in your analyzed games.
+            <p className="studies-page-sub">
+              {session.signedIn
+                ? "Every study below is derived from tactical leaks identified in your analysed games — the assigned reason quotes the game and the move that produced it."
+                : "Each study is derived from tactical leaks identified in a player's analysed games — the assigned reason quotes the game and the move that produced it."}
             </p>
           </div>
-          <div className="flex items-center gap-3">
-            <Button variant="ghost" size="sm" href="https://lichess.org/study" target="_blank">
+
+          <div className="studies-head-actions">
+            {session.isCoach && coachOptions.length > 0 && (
+              <label className="studies-student-picker">
+                <span>Personalise for</span>
+                <select
+                  value={studentId}
+                  onChange={(event) => setStudentId(event.target.value)}
+                >
+                  <option value="">My own games</option>
+                  {coachOptions.map((student) => (
+                    <option key={student.id} value={student.id}>
+                      {student.display_name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+            <Button
+              variant="ghost"
+              size="sm"
+              href="https://lichess.org/study"
+              target="_blank"
+            >
               Browse All Lichess Studies ↗
             </Button>
           </div>
         </div>
 
-        {/* Studies Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
-          {SAMPLE_STUDIES.map((study) => (
-            <Card
-              key={study.id}
-              surface="shell"
-              pad="md"
-              className="flex flex-col justify-between hover:border-[var(--line-strong)] transition-all group"
-            >
-              <div>
-                <div className="flex items-center justify-between gap-2 mb-3">
-                  <Pill tone="alert" size="sm">{study.theme}</Pill>
-                  <span className="text-xs font-mono text-[var(--gold-bright)]">
-                    {study.chaptersCount} Chapters
-                  </span>
-                </div>
-
-                <h3 className="font-display font-semibold text-lg text-[var(--text)] group-hover:text-[var(--gold-bright)] transition-colors">
-                  {study.title}
-                </h3>
-                <p className="text-xs text-[var(--text-muted)] mt-1.5 leading-relaxed">
-                  {study.subtitle}
-                </p>
-
-                <div className="mt-4 p-2.5 rounded bg-[var(--ink-3)] border border-[var(--line)] text-xs">
-                  <div className="text-[var(--gold-bright)] font-mono font-medium">
-                    ⚡ Why Assigned:
-                  </div>
-                  <div className="text-[var(--text-muted)] mt-0.5">
-                    {study.blunderOrigin}
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-6 pt-4 border-t border-[var(--line)] flex items-center justify-between">
-                <div className="text-xs font-mono text-[var(--green)]">
-                  {study.acplReduction}
-                </div>
-                <Button variant="primary" size="sm" href={`/study/${study.id}`}>
-                  Open Study ➔
-                </Button>
-              </div>
-            </Card>
-          ))}
+        <div className="studies-count-row">
+          <span className="studies-count-pill">
+            {loading
+              ? "Loading…"
+              : `${studies.length} ${studies.length === 1 ? "Curated Study" : "Curated Studies"}`}
+          </span>
+          <span className="studies-count-note">
+            Personalized from real games · no template drills
+          </span>
         </div>
+
+        {loading && (
+          <div className="studies-grid" aria-hidden="true">
+            {[0, 1, 2].map((key) => (
+              <Card
+                key={key}
+                surface="shell"
+                pad="md"
+                className="studies-card studies-skeleton"
+              />
+            ))}
+          </div>
+        )}
+
+        {!loading && studies.length === 0 && <StudiesEmpty signedIn={session.signedIn} />}
+
+        {!loading && studies.length > 0 && (
+          <div className="studies-grid">
+            {studies.map((study) => (
+              <Card
+                key={study.id}
+                surface="shell"
+                pad="md"
+                className="studies-card"
+              >
+                <div className="studies-card-top">
+                  <div className="studies-card-pills">
+                    {study.fixes ? (
+                      <Pill tone="alert" size="sm">
+                        {study.fixes}
+                      </Pill>
+                    ) : null}
+                    {study.motif ? (
+                      <Pill tone="accent" size="sm">
+                        {study.motif}
+                      </Pill>
+                    ) : null}
+                  </div>
+                  {typeof study.chapters === "number" && (
+                    <span className="studies-chapters">
+                      {study.chapters}{" "}
+                      {study.chapters === 1 ? "Chapter" : "Chapters"}
+                    </span>
+                  )}
+                </div>
+
+                <h2 className="studies-card-title">{study.title}</h2>
+                <p className="studies-card-reason">{study.reason}</p>
+
+                {typeof study.move_number === "number" && study.game_id ? (
+                  <p className="studies-card-origin">
+                    move {study.move_number} · game {study.game_id}
+                  </p>
+                ) : null}
+
+                <div className="studies-card-actions">
+                  <Link className="btn btn-sm studies-card-primary" href={openHref(study)}>
+                    Open Study ➔
+                  </Link>
+                  {study.source_url ? (
+                    <a
+                      className="studies-card-link"
+                      href={study.source_url}
+                      target="_blank"
+                      rel="noopener"
+                    >
+                      Lichess Study ↗
+                    </a>
+                  ) : null}
+                  {session.isCoach ? (
+                    <ShareMenu
+                      kind="study"
+                      itemKey={study.id}
+                      title={study.title}
+                      subtitle={study.reason}
+                      url={study.source_url}
+                      token={session.token}
+                      students={coachOptions}
+                      defaultStudentId={studentId || null}
+                      label="Share with student"
+                    />
+                  ) : null}
+                </div>
+              </Card>
+            ))}
+          </div>
+        )}
       </main>
     </div>
+  );
+}
+
+function StudiesEmpty({ signedIn }: { signedIn: boolean }) {
+  return (
+    <Card surface="empty" pad="lg" className="studies-empty">
+      <span className="studies-empty-glyph" aria-hidden="true">
+        ♟
+      </span>
+      <h2 className="studies-empty-title">
+        Analyze 3+ games to unlock personalized studies
+      </h2>
+      <p className="studies-empty-body">
+        {signedIn
+          ? "Your curriculum is built from the tactical leaks in your own games — a game has to be analysed before a study can be assigned to it."
+          : "Curated studies are generated from a player's own analysed games. Sign in, analyse three or more games, and this page fills with the exact motifs that cost you points."}
+      </p>
+      <div className="studies-empty-actions">
+        <Link className="btn btn-sm studies-card-primary" href="/">
+          Analyze a game ➔
+        </Link>
+        <Link className="studies-card-link" href="/sample-report">
+          See a sample report
+        </Link>
+      </div>
+      <p className="studies-empty-foot">
+        Meanwhile, the{" "}
+        <Link href="/tactics">tactical training directory</Link> covers every
+        motif the analyzer can name.
+      </p>
+    </Card>
   );
 }

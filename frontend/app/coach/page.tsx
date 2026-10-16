@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -15,8 +15,40 @@ import {
 import { createClient } from "../../lib/supabase-client";
 import { Topbar } from "../../components/ui/Topbar";
 import { Pill } from "../../components/ui/Pill";
-import { Crown, ArrowRight, X, Sparkles, Check, Users, ShieldCheck, Lock } from "lucide-react";
+import {
+  Crown,
+  ArrowRight,
+  X,
+  Check,
+  Users,
+  Lock,
+  Activity,
+  Play,
+} from "lucide-react";
 import type { User } from "@supabase/supabase-js";
+
+/**
+ * Roster row. Everything the backend roster payload carries lives on
+ * ``StudentSummary``; the extra keys below are the optional enrichment slots the
+ * roster may grow (rating / leak / homework). When they are absent we render an
+ * honest "—" instead of inventing a number.
+ */
+type RosterStudent = StudentSummary & {
+  latest_rating?: number | null;
+  rating?: number | null;
+  primary_leak?: string | null;
+  tactical_leak?: string | null;
+  leak_severity?: "critical" | "warning" | string | null;
+  homework_status?: string | null;
+};
+
+type HomeworkPill = {
+  label: string;
+  tone: "green" | "red" | "amber" | "muted";
+  hint: string;
+};
+
+const MASTER_COACH_PRICE = "₹1,999";
 
 function formatDate(value?: string | null): string {
   if (!value) {
@@ -29,7 +61,19 @@ function formatDate(value?: string | null): string {
   return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
-function activityLabel(student: StudentSummary): string {
+function daysSince(value?: string | null): number | null {
+  if (!value) {
+    return null;
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+  const diff = Date.now() - date.getTime();
+  return Math.max(0, Math.floor(diff / (24 * 60 * 60 * 1000)));
+}
+
+function activityLabel(student: RosterStudent): string {
   if (!student.analysis_count) {
     return "No analyses yet";
   }
@@ -40,8 +84,94 @@ function activityLabel(student: StudentSummary): string {
   return last ? `${count} · last ${last}` : count;
 }
 
-function initial(name: string): string {
-  return name.trim().charAt(0).toUpperCase() || "?";
+/** Real rating only — never a computed or borrowed number. */
+function ratingOf(student: RosterStudent): number | null {
+  const candidate = student.latest_rating ?? student.rating ?? null;
+  return typeof candidate === "number" && Number.isFinite(candidate)
+    ? candidate
+    : null;
+}
+
+function leakOf(student: RosterStudent): string | null {
+  const leak = (student.primary_leak ?? student.tactical_leak ?? "").trim();
+  return leak || null;
+}
+
+function leakTone(student: RosterStudent): "critical" | "warning" | "info" {
+  const severity = (student.leak_severity ?? "").toLowerCase();
+  if (severity === "warning" || severity === "amber") {
+    return "warning";
+  }
+  if (severity === "info" || severity === "muted") {
+    return "info";
+  }
+  return "critical";
+}
+
+/**
+ * Homework status: use the real field when the roster carries it, otherwise
+ * derive it from the last analysed game (the only real signal we hold) and say so.
+ */
+function homeworkOf(student: RosterStudent): HomeworkPill {
+  const raw = (student.homework_status ?? "").trim().toLowerCase();
+  if (raw === "completed" || raw === "complete" || raw === "done") {
+    return {
+      label: "Completed",
+      tone: "green",
+      hint: "Homework marked completed for this student.",
+    };
+  }
+  if (raw === "pending") {
+    return {
+      label: "Pending",
+      tone: "red",
+      hint: "Homework assigned, not completed yet.",
+    };
+  }
+  if (raw === "assigned") {
+    return {
+      label: "Assigned",
+      tone: "amber",
+      hint: "Homework assigned, waiting on the student.",
+    };
+  }
+
+  if (!student.analysis_count) {
+    return {
+      label: "Not started",
+      tone: "muted",
+      hint: "No game analysed yet — homework starts after the first report.",
+    };
+  }
+
+  const days = daysSince(student.last_analysis_at);
+  if (days !== null && days <= 7) {
+    return {
+      label: "Up to date",
+      tone: "green",
+      hint:
+        days === 0
+          ? "Latest game analysed today — derived from the roster activity, not an assignment."
+          : `Latest game analysed ${days} ${days === 1 ? "day" : "days"} ago — derived from the roster activity, not an assignment.`,
+    };
+  }
+
+  return {
+    label: "Needs review",
+    tone: "red",
+    hint:
+      days === null
+        ? "No recent game on record — review the student's progress and set homework."
+        : `No new game in ${days} days — review the student's progress and set homework.`,
+  };
+}
+
+function progressHref(studentId: string): string {
+  return `/progress?student=${encodeURIComponent(studentId)}`;
+}
+
+function analyzeHref(studentId: string): string {
+  return `/coach/students/${encodeURIComponent(studentId)}#analyze`;
 }
 
 export default function CoachRosterPage() {
@@ -49,8 +179,8 @@ export default function CoachRosterPage() {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState("");
   const [usage, setUsage] = useState<Usage | null>(null);
-  const [isPaid, setIsPaid] = useState(false);
-  const [students, setStudents] = useState<StudentSummary[]>([]);
+  const [hasCoachTier, setHasCoachTier] = useState(false);
+  const [students, setStudents] = useState<RosterStudent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [showForm, setShowForm] = useState(false);
@@ -78,13 +208,19 @@ export default function CoachRosterPage() {
         setToken(session.access_token);
         try {
           const [rows, usageData] = await Promise.all([
-            apiGet<StudentSummary[]>("/api/coach/students", session.access_token),
-            apiGet<Usage>("/api/account/usage", session.access_token).catch(() => null),
+            apiGet<RosterStudent[]>("/api/coach/students", session.access_token),
+            apiGet<Usage>("/api/account/usage", session.access_token).catch(
+              () => null
+            ),
           ]);
           setStudents(rows);
           if (usageData) {
             setUsage(usageData);
-            setIsPaid(usageData.plan === "paid");
+            // plan_tier is the source of truth; older payloads fall back to plan.
+            const tier =
+              usageData.plan_tier ??
+              (usageData.plan === "paid" ? "coach" : "free");
+            setHasCoachTier(tier === "coach");
           }
         } catch (err) {
           setError(
@@ -115,18 +251,24 @@ export default function CoachRosterPage() {
     }
   }, [router]);
 
+  const notifyStudentsChanged = useCallback(() => {
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("cm_students_changed"));
+    }
+  }, []);
+
   const handleOpenAddStudent = useCallback(() => {
-    if (!isPaid) {
+    if (!hasCoachTier) {
       setShowUpgradeModal(true);
       return;
     }
     setShowForm((prev) => !prev);
-  }, [isPaid]);
+  }, [hasCoachTier]);
 
   const addStudent = useCallback(
     async (event: React.FormEvent) => {
       event.preventDefault();
-      if (!isPaid) {
+      if (!hasCoachTier) {
         setShowUpgradeModal(true);
         return;
       }
@@ -152,8 +294,12 @@ export default function CoachRosterPage() {
         setChesscomUsername("");
         setNotes("");
         setShowForm(false);
+        notifyStudentsChanged();
       } catch (err) {
-        if (isUpgradeError(err) || (err instanceof Error && err.message.toLowerCase().includes("upgrade"))) {
+        if (
+          isUpgradeError(err) ||
+          (err instanceof Error && err.message.toLowerCase().includes("upgrade"))
+        ) {
           setShowUpgradeModal(true);
         } else {
           setError(
@@ -164,11 +310,20 @@ export default function CoachRosterPage() {
         setCreating(false);
       }
     },
-    [chesscomUsername, creating, displayName, isPaid, lichessUsername, notes, token]
+    [
+      chesscomUsername,
+      creating,
+      displayName,
+      hasCoachTier,
+      lichessUsername,
+      notes,
+      notifyStudentsChanged,
+      token,
+    ]
   );
 
   const archiveStudent = useCallback(
-    async (student: StudentSummary) => {
+    async (student: RosterStudent) => {
       if (!token || archivingId) {
         return;
       }
@@ -186,6 +341,7 @@ export default function CoachRosterPage() {
         setStudents((current) =>
           current.filter((row) => row.id !== student.id)
         );
+        notifyStudentsChanged();
       } catch (err) {
         setError(
           err instanceof Error ? err.message : "Could not archive this student."
@@ -194,8 +350,26 @@ export default function CoachRosterPage() {
         setArchivingId("");
       }
     },
-    [archivingId, token]
+    [archivingId, notifyStudentsChanged, token]
   );
+
+  const totalAnalyses = useMemo(
+    () =>
+      students.reduce(
+        (sum, student) => sum + (student.analysis_count || 0),
+        0
+      ),
+    [students]
+  );
+
+  const openStudent = useCallback(
+    (studentId: string) => {
+      router.push(progressHref(studentId));
+    },
+    [router]
+  );
+
+  const studentCount = students.length;
 
   return (
     <main className="dashboard">
@@ -208,8 +382,8 @@ export default function CoachRosterPage() {
       />
 
       <div className="max-w-5xl mx-auto px-4 py-6">
-        {/* Upgrade Banner for Free / Preview Accounts */}
-        {!isPaid && (
+        {/* Preview banner for coaches without the Master Coach tier */}
+        {!hasCoachTier && (
           <div className="mb-6 p-4 rounded-xl bg-gradient-to-r from-[var(--ink-2)] via-[rgba(201,153,63,0.12)] to-[var(--ink-2)] border border-[rgba(201,153,63,0.35)] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-lg bg-[rgba(201,153,63,0.15)] border border-[rgba(201,153,63,0.4)] flex items-center justify-center text-[var(--gold-bright)] shrink-0">
@@ -217,67 +391,43 @@ export default function CoachRosterPage() {
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="font-semibold text-sm text-[var(--text)]">Coach Pro Preview</span>
-                  <Pill tone="caution" size="sm">Free Tier</Pill>
+                  <span className="font-semibold text-sm text-[var(--text)]">
+                    Master Coach Preview
+                  </span>
+                  <Pill tone="caution" size="sm">
+                    {usage?.plan_tier === "student" ? "Student plan" : "Free tier"}
+                  </Pill>
                 </div>
                 <p className="text-xs text-[var(--text-muted)] mt-0.5">
-                  You are previewing with sample student profiles. Upgrade to Coach Pro to add live students and share dossiers.
+                  {usage?.plan_tier === "student"
+                    ? "Your Student plan covers your own games. The roster, dossiers and share links need the Master Coach tier."
+                    : "You are previewing the roster. The Master Coach tier unlocks live students, dossiers and share links."}
                 </p>
               </div>
             </div>
             <div className="flex items-center gap-2 shrink-0">
               <Link
                 href="/subscription"
-                className="btn btn-sm inline-flex items-center gap-1.5 whitespace-nowrap bg-gradient-to-r from-[#c9993f] to-[#e2b65f] text-[#141712] font-semibold shadow-sm hover:shadow transition-all"
+                className="students-btn-gold whitespace-nowrap"
               >
                 <Crown size={14} />
-                <span>Upgrade for ₹399/mo</span>
+                <span>Upgrade to Coach Tier</span>
                 <ArrowRight size={13} />
               </Link>
             </div>
           </div>
         )}
 
-        <div className="game-header mb-6">
-          <div className="flex items-center justify-between flex-wrap gap-4">
-            <div>
-              <div className="flex items-center gap-2.5 mb-1">
-                <h1 className="game-title text-2xl font-bold font-serif m-0">Student Roster</h1>
-                {isPaid ? (
-                  <Pill tone="shell" size="sm" icon={<Crown size={12} className="text-[var(--gold-bright)]" />}>
-                    Coach Pro Active
-                  </Pill>
-                ) : (
-                  <Pill tone="neutral" size="sm">
-                    Preview Mode
-                  </Pill>
-                )}
-              </div>
-              <p className="game-meta text-xs text-[var(--text-muted)] m-0">
-                {students.length > 0
-                  ? `${students.length} ${
-                      students.length === 1 ? "student" : "students"
-                    } · analyze their games and share progress links`
-                  : "Create a profile for each student you coach."}
-              </p>
-            </div>
-
-            <button
-              type="button"
-              className="btn btn-sm inline-flex items-center gap-1.5"
-              onClick={handleOpenAddStudent}
-            >
-              {!isPaid && <Lock size={13} className="text-[var(--gold-bright)]" />}
-              <span>{showForm ? "Close form" : "+ Add student"}</span>
-            </button>
-          </div>
-        </div>
-
         {error && <div className="error-banner mb-6">{error}</div>}
 
-        {showForm && isPaid && (
-          <form className="student-form mb-8 p-5 rounded-xl bg-[var(--ink-2)] border border-[var(--line)] shadow-sm" onSubmit={addStudent}>
-            <h3 className="text-base font-semibold text-[var(--text)] mb-3">Add New Student Profile</h3>
+        {showForm && hasCoachTier && (
+          <form
+            className="student-form mb-6 p-5 rounded-xl bg-[var(--ink-2)] border border-[var(--line)] shadow-sm"
+            onSubmit={addStudent}
+          >
+            <h3 className="text-base font-semibold text-[var(--text)] mb-3">
+              Add new student profile
+            </h3>
             <label className="field">
               <span>Student name</span>
               <input
@@ -340,93 +490,277 @@ export default function CoachRosterPage() {
           </form>
         )}
 
-        {loading ? (
-          <p className="history-empty text-center py-12 text-sm text-[var(--text-muted)]">Loading your students...</p>
-        ) : students.length === 0 ? (
-          <div className="coach-empty p-8 rounded-xl bg-[var(--ink-2)] border border-dashed border-[var(--line)] text-center">
-            <p className="text-sm text-[var(--text-muted)] max-w-md mx-auto mb-4">
-              No students yet. Add one with their Lichess or Chess.com username,
-              then analyze their games and share the progress link.
-            </p>
+        <section className="students-panel" aria-labelledby="students-roster-title">
+          <div className="students-panel-head">
+            <div>
+              <div className="flex items-center gap-2.5 flex-wrap">
+                <h1
+                  id="students-roster-title"
+                  className="students-panel-title"
+                >
+                  Students
+                </h1>
+                {hasCoachTier ? (
+                  <Pill
+                    tone="shell"
+                    size="sm"
+                    icon={
+                      <Crown
+                        size={12}
+                        className="text-[var(--gold-bright)]"
+                      />
+                    }
+                  >
+                    Master Coach
+                  </Pill>
+                ) : (
+                  <Pill tone="neutral" size="sm">
+                    Preview mode
+                  </Pill>
+                )}
+              </div>
+              <p className="students-panel-sub">
+                {loading
+                  ? "Loading roster…"
+                  : `Managing ${studentCount} active ${
+                      studentCount === 1 ? "student" : "students"
+                    }`}
+              </p>
+            </div>
+
             <button
               type="button"
-              className="btn"
+              className="students-btn-gold"
               onClick={handleOpenAddStudent}
             >
-              + Add your first student
+              {!hasCoachTier && (
+                <Lock size={13} className="text-[#141712]" />
+              )}
+              <span>{showForm ? "Close form" : "+ Add student"}</span>
             </button>
           </div>
-        ) : (
-          <div className="student-grid grid grid-cols-1 md:grid-cols-2 gap-4">
-            {students.map((student) => (
-              <article key={student.id} className="student-card p-5 rounded-xl bg-[var(--ink-2)] border border-[var(--line)] shadow-sm hover:border-[var(--line-strong)] transition-all">
-                <div className="student-card-head flex items-start justify-between gap-3 mb-3">
-                  <div className="flex items-center gap-3">
-                    <span className="student-avatar w-10 h-10 rounded-full bg-[var(--gold)]/20 border border-[var(--gold)]/40 text-[var(--gold-bright)] font-bold text-sm flex items-center justify-center shrink-0">
-                      {initial(student.display_name)}
-                    </span>
-                    <div>
-                      <h3 className="student-name text-base font-semibold text-[var(--text)] m-0">{student.display_name}</h3>
-                      <p className="student-meta text-xs text-[var(--text-muted)] mt-0.5">{activityLabel(student)}</p>
-                    </div>
-                  </div>
-                  {!isPaid && (
-                    <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-[var(--ink-3)] text-[var(--text-muted)] border border-[var(--line-soft)]">
-                      Sample
-                    </span>
-                  )}
-                </div>
 
-                {student.notes && (
-                  <p className="text-xs text-[var(--text-muted)] line-clamp-2 italic mb-3">
-                    &ldquo;{student.notes}&rdquo;
-                  </p>
-                )}
+          {loading ? (
+            <p className="students-note">Loading your students…</p>
+          ) : students.length === 0 ? (
+            <div className="students-note text-center">
+              <Users
+                size={26}
+                className="mx-auto mb-2 text-[var(--text-muted)]"
+              />
+              <p className="text-sm text-[var(--text)] font-semibold m-0">
+                No students yet
+              </p>
+              <p className="text-xs max-w-md mx-auto mt-1 mb-4">
+                Add a student with their Lichess or Chess.com username, analyze
+                their games, then open their progress matrix and share link.
+              </p>
+              <div className="flex justify-center">
+                <button
+                  type="button"
+                  className="students-btn-gold"
+                  onClick={handleOpenAddStudent}
+                >
+                  + Add your first student
+                </button>
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="students-table-wrap">
+                <table className="students-table">
+                  <thead>
+                    <tr>
+                      <th scope="col">STUDENT</th>
+                      <th scope="col">RATING</th>
+                      <th scope="col">PRIMARY TACTICAL LEAK</th>
+                      <th scope="col">HOMEWORK STATUS</th>
+                      <th scope="col" className="students-th-actions">
+                        ACTIONS
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {students.map((student) => {
+                      const rating = ratingOf(student);
+                      const leak = leakOf(student);
+                      const homework = homeworkOf(student);
+                      const gamesLabel = student.analysis_count
+                        ? `${student.analysis_count} ${
+                            student.analysis_count === 1 ? "game" : "games"
+                          } analysed`
+                        : "no analysed games yet";
+                      const lastResultLabel = student.last_result
+                        ? `last ${student.last_result}`
+                        : "";
+                      const leakCell = leak ? (
+                        <span
+                          className={`students-pill ${
+                            leakTone(student) === "warning"
+                              ? "students-pill-amber"
+                              : leakTone(student) === "info"
+                                ? "students-pill-muted"
+                                : "students-pill-red"
+                          } students-pill-wrap`}
+                          title="Primary tactical leak from this student's analysed games."
+                        >
+                          {leak}
+                        </span>
+                      ) : student.analysis_count === 0 ? (
+                        <span className="students-pill students-pill-muted students-pill-wrap">
+                          No games analysed yet
+                        </span>
+                      ) : student.analysis_count < 4 ? (
+                        <span className="students-pill students-pill-amber students-pill-wrap">
+                          Needs 4+ analysed games
+                        </span>
+                      ) : (
+                        <span
+                          className="students-leak-unknown"
+                          title="Open this student's progress matrix to compute their primary leak."
+                        >
+                          —
+                        </span>
+                      );
 
-                <div className="student-usernames flex flex-wrap gap-1.5 mb-4">
-                  {student.lichess_username && (
-                    <span className="px-2 py-0.5 rounded text-[11px] font-mono bg-[var(--ink-3)] text-[var(--teal-light)] border border-[rgba(87,164,150,0.25)]">
-                      Lichess · {student.lichess_username}
-                    </span>
-                  )}
-                  {student.chesscom_username && (
-                    <span className="px-2 py-0.5 rounded text-[11px] font-mono bg-[var(--ink-3)] text-[var(--green)] border border-[rgba(111,163,131,0.25)]">
-                      Chess.com · {student.chesscom_username}
-                    </span>
-                  )}
-                  {!student.lichess_username && !student.chesscom_username && (
-                    <span className="student-username student-username-none text-xs text-[var(--text-muted)]">
-                      No usernames saved yet
-                    </span>
-                  )}
-                </div>
+                      return (
+                        <tr
+                          key={student.id}
+                          className="students-row"
+                          title={`Open ${student.display_name}'s progress`}
+                          onClick={(event) => {
+                            if (
+                              (event.target as HTMLElement).closest(
+                                "a, button"
+                              )
+                            ) {
+                              return;
+                            }
+                            openStudent(student.id);
+                          }}
+                        >
+                          <td
+                            className="students-cell-student"
+                            data-label=""
+                          >
+                            <Link
+                              href={progressHref(student.id)}
+                              className="students-name"
+                            >
+                              {student.display_name}
+                            </Link>
+                            <div className="students-handles">
+                              {student.lichess_username && (
+                                <span className="students-handle students-handle-lichess">
+                                  lichess · {student.lichess_username}
+                                </span>
+                              )}
+                              {student.chesscom_username && (
+                                <span className="students-handle students-handle-chesscom">
+                                  chess.com · {student.chesscom_username}
+                                </span>
+                              )}
+                              {!student.lichess_username &&
+                                !student.chesscom_username && (
+                                  <span className="students-handle students-handle-none">
+                                    No username linked yet
+                                  </span>
+                                )}
+                            </div>
+                            <span className="students-cell-sub">
+                              {activityLabel(student)}
+                            </span>
+                          </td>
 
-                <div className="student-card-actions flex items-center gap-2 pt-3 border-t border-[var(--line-soft)]">
-                  <Link
-                    href={`/coach/students/${student.id}`}
-                    className="btn btn-sm inline-flex items-center gap-1.5"
-                  >
-                    <span>Open dossier</span>
-                    <ArrowRight size={13} />
-                  </Link>
-                  {isPaid && (
-                    <button
-                      type="button"
-                      className="btn btn-ghost btn-sm text-xs text-[var(--text-muted)] hover:text-red-400"
-                      onClick={() => archiveStudent(student)}
-                      disabled={archivingId === student.id}
-                    >
-                      {archivingId === student.id ? "Archiving..." : "Archive"}
-                    </button>
-                  )}
-                </div>
-              </article>
-            ))}
-          </div>
-        )}
+                          <td data-label="Rating">
+                            {rating !== null ? (
+                              <span className="students-rating">
+                                {rating}
+                              </span>
+                            ) : (
+                              <span
+                                className="students-rating students-rating-missing"
+                                title="No rating captured yet — ratings appear after a rated game is analysed."
+                              >
+                                —
+                              </span>
+                            )}
+                            <span className="students-cell-sub">
+                              {gamesLabel}
+                              {lastResultLabel ? ` · ${lastResultLabel}` : ""}
+                            </span>
+                          </td>
+
+                          <td data-label="Primary tactical leak">
+                            {leakCell}
+                          </td>
+
+                          <td data-label="Homework status">
+                            <span
+                              className={`students-pill students-pill-${homework.tone}`}
+                              title={homework.hint}
+                            >
+                              {homework.label}
+                            </span>
+                          </td>
+
+                          <td data-label="" className="students-cell-actions">
+                            <div className="students-actions">
+                              <Link
+                                href={analyzeHref(student.id)}
+                                className="students-btn-gold"
+                                title={`Analyze a game for ${student.display_name}`}
+                              >
+                                <Play size={13} />
+                                <span>Analyze game</span>
+                              </Link>
+                              <Link
+                                href={progressHref(student.id)}
+                                className="students-btn-ghost"
+                                title={`Open ${student.display_name}'s progress`}
+                              >
+                                <Activity size={13} />
+                                <span>Open progress</span>
+                              </Link>
+                              {hasCoachTier && (
+                                <button
+                                  type="button"
+                                  className="btn btn-ghost btn-sm text-xs text-[var(--text-muted)] hover:text-red-400"
+                                  onClick={() => archiveStudent(student)}
+                                  disabled={archivingId === student.id}
+                                >
+                                  {archivingId === student.id
+                                    ? "Archiving..."
+                                    : "Archive"}
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="students-table-foot">
+                <span className="students-mono">
+                  {totalAnalyses}{" "}
+                  {totalAnalyses === 1 ? "analysis" : "analyses"}
+                </span>{" "}
+                across {studentCount}{" "}
+                {studentCount === 1 ? "student" : "students"} · a dash means the
+                value is not captured yet: ratings come from analysed rated
+                games, leaks need 4+ analysed games, and homework status is
+                derived from the last analysed game until assignments are
+                tracked.
+              </div>
+            </>
+          )}
+        </section>
       </div>
 
-      {/* Subscription Upgrade Modal */}
+      {/* Master Coach upgrade modal */}
       {showUpgradeModal && (
         <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="relative w-full max-w-lg rounded-2xl bg-[var(--ink-2)] border border-[rgba(201,153,63,0.4)] shadow-2xl p-6 overflow-hidden">
@@ -440,23 +774,35 @@ export default function CoachRosterPage() {
             </button>
 
             <div className="inline-flex items-center gap-2 mb-3">
-              <Pill tone="shell" size="sm" icon={<Crown size={12} className="text-[var(--gold-bright)]" />}>
-                Coach Pro Subscription
+              <Pill
+                tone="shell"
+                size="sm"
+                icon={
+                  <Crown size={12} className="text-[var(--gold-bright)]" />
+                }
+              >
+                Master Coach tier
               </Pill>
             </div>
 
             <h2 className="text-xl font-bold font-serif text-[var(--text)] mb-2">
-              Upgrade to Add Live Students
+              Upgrade to Coach Tier
             </h2>
 
             <p className="text-xs text-[var(--text-muted)] leading-relaxed mb-4">
-              You are currently viewing the free preview roster. To connect live Chess.com or Lichess student accounts, batch analyze their games, and share private dossiers, upgrade to Coach Pro.
+              The roster, student dossiers, batch audits and private share links
+              are part of the Master Coach tier. Add live Chess.com or Lichess
+              students and analyze their games on their behalf.
             </p>
 
             <div className="p-3.5 rounded-xl bg-[var(--ink-3)]/70 border border-[var(--line-soft)] mb-5">
               <div className="flex items-baseline justify-between mb-2">
-                <span className="text-xs font-mono font-semibold text-[var(--gold-bright)]">Coach Pro Plan</span>
-                <span className="text-sm font-bold text-[var(--text)]">₹399 / mo</span>
+                <span className="text-xs font-mono font-semibold text-[var(--gold-bright)]">
+                  Master Coach
+                </span>
+                <span className="text-sm font-bold text-[var(--text)]">
+                  {MASTER_COACH_PRICE} / mo
+                </span>
               </div>
               <ul className="text-xs text-[var(--text-muted)] space-y-1.5">
                 <li className="flex items-center gap-2">
@@ -465,15 +811,15 @@ export default function CoachRosterPage() {
                 </li>
                 <li className="flex items-center gap-2">
                   <Check size={13} className="text-emerald-400 shrink-0" />
-                  <span>100 AI game analyses per month</span>
+                  <span>Game analyses on behalf of every student</span>
                 </li>
                 <li className="flex items-center gap-2">
                   <Check size={13} className="text-emerald-400 shrink-0" />
-                  <span>5-game batch audits on behalf of students</span>
+                  <span>5-game batch audits per student</span>
                 </li>
                 <li className="flex items-center gap-2">
                   <Check size={13} className="text-emerald-400 shrink-0" />
-                  <span>Branded shareable progress links for parents</span>
+                  <span>Branded share links for students &amp; parents</span>
                 </li>
               </ul>
             </div>
@@ -481,17 +827,17 @@ export default function CoachRosterPage() {
             <div className="flex items-center gap-3">
               <Link
                 href="/subscription"
-                className="btn flex-1 inline-flex items-center justify-center gap-2 py-2.5 bg-gradient-to-r from-[#c9993f] to-[#e2b65f] text-[#141712] font-bold shadow-md hover:shadow-lg transition-all"
+                className="students-btn-gold flex-1 py-2.5 justify-center text-sm"
               >
                 <Crown size={15} />
-                <span>Upgrade to Pro (₹399/mo)</span>
+                <span>Upgrade to Coach Tier</span>
               </Link>
               <button
                 type="button"
                 onClick={() => setShowUpgradeModal(false)}
                 className="btn btn-ghost text-xs text-[var(--text-muted)]"
               >
-                Continue Preview
+                Continue preview
               </button>
             </div>
           </div>

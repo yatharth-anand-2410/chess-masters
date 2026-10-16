@@ -217,6 +217,17 @@ export function isPsychologyProfile(
   );
 }
 
+/**
+ * `insights.verdict` — the personalized one-liner extracted from the report's
+ * `## Verdict` section. Absent on every report captured before the rollout, so
+ * consumers must treat it as optional and never fabricate a replacement.
+ */
+export type ReportVerdict = {
+  line: string;
+  detail?: string | null;
+  source?: string | null;
+};
+
 export type InsightsData = {
   strength_moments: InsightMoment[];
   weakness_moments: InsightMoment[];
@@ -229,4 +240,5 @@ export type InsightsData = {
   phase_accuracies?: PhaseAccuracies;
   statistics?: QualityStatistics;
   psychology?: PsychologyProfile | null;
+  verdict?: ReportVerdict | null;
 };

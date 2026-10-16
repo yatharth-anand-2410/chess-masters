@@ -4,15 +4,17 @@ import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { Topbar } from "../../../components/ui/Topbar";
-import { Pill } from "../../../components/ui/Pill";
 import AnalysisThread, { type ThreadMessage } from "../../../components/AnalysisThread";
 import CoachingReport from "../../../components/CoachingReport";
 import LockedPsychologyPreview from "../../../components/LockedPsychologyPreview";
 import SectionInsightBoards from "../../../components/SectionInsightBoards";
+import GameHeader from "../../../components/review/GameHeader";
+import BoardInstrument from "../../../components/review/BoardInstrument";
 import { PSYCHOLOGY_MIN_GAMES } from "../../../components/AnalyzerForm";
 import type { InsightsData } from "../../../components/insights";
+import { isDrillable } from "../../../components/reportParsing";
 import { apiGet, externalGameUrl } from "../../../lib/api";
-import type { Usage } from "../../../lib/api";
+import type { GameSummary, Usage } from "../../../lib/api";
 import { warmBackend } from "../../../lib/backend-wake";
 import { createClient } from "../../../lib/supabase-client";
 import LimitReachedPrompt from "../../../components/LimitReachedPrompt";
@@ -27,11 +29,16 @@ type AnalysisDetail = {
     game_url: string;
     player_color: string;
     player_name?: string | null;
+    username?: string | null;
     opening_name?: string | null;
+    eco?: string | null;
     result?: string | null;
     status: string;
     report_markdown?: string | null;
+    /** Stored PGN — the fallback source when no replay is served. */
+    pgn?: string | null;
     insights?: InsightsData | null;
+    game_summary?: GameSummary | null;
     batch_id?: string | null;
     created_at: string;
     error_message?: string | null;
@@ -50,6 +57,10 @@ function formatDate(value: string): string {
     day: "numeric",
     year: "numeric",
   });
+}
+
+function capitalise(value: string): string {
+  return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
 export default function AnalysisDetailPage() {
@@ -115,11 +126,41 @@ export default function AnalysisDetailPage() {
 
   const analysis = detail.analysis;
   const insights = analysis.insights ?? null;
+  const summary = analysis.game_summary ?? null;
   const platformLabel = analysis.platform === "lichess" ? "Lichess" : "Chess.com";
   const colorLabel = analysis.player_color === "white" ? "White" : "Black";
   const gamesAnalyzed = usage?.total_games_analyzed ?? 0;
   const psychologyLocked =
     usage !== null && gamesAnalyzed < PSYCHOLOGY_MIN_GAMES;
+  const hasDrills = (insights?.weakness_moments ?? []).some(isDrillable);
+
+  const speedLabel =
+    summary?.speed && summary.speed !== "unknown" ? capitalise(summary.speed) : null;
+  const pill =
+    [speedLabel, summary?.time_control, platformLabel].filter(Boolean).join(" · ") ||
+    platformLabel;
+
+  const headerNode = (
+    <GameHeader
+      pill={pill}
+      title={analysis.opening_name ?? `Game ${analysis.game_id}`}
+      showDrills={hasDrills}
+      gameId={analysis.game_id}
+      externalUrl={externalGameUrl(analysis)}
+      externalLabel={`Open on ${platformLabel}`}
+      meta={
+        <>
+          Played as {colorLabel}
+          {analysis.result ? `, ${analysis.result}` : ""}
+          {analysis.eco ? ` · ${analysis.eco}` : ""}
+          {analysis.student?.display_name
+            ? ` · For ${analysis.student.display_name}`
+            : ""}
+          {`, analysed ${formatDate(analysis.created_at)}`}
+        </>
+      }
+    />
+  );
 
   return (
     <main className="dashboard analysis-dashboard">
@@ -129,31 +170,21 @@ export default function AnalysisDetailPage() {
         onAuthChange={() => router.push("/")}
       />
 
-      <div className="game-header">
-        <Pill tone="shell" size="sm">{platformLabel}</Pill>
-        {analysis.student?.display_name && (
-          <span className="history-student">
-            For {analysis.student.display_name}
-          </span>
-        )}
-        <h1 className="game-title">{analysis.opening_name ?? analysis.game_id}</h1>
-        <p className="game-meta">
-          Played as {colorLabel}
-          {analysis.result ? `, ${analysis.result}` : ""}
-          {`, analyzed ${formatDate(analysis.created_at)}`}
-        </p>
-        <a
-          href={externalGameUrl(analysis)}
-          target="_blank"
-          rel="noreferrer"
-          className="game-link"
-        >
-          Open on {platformLabel} ↗
-        </a>
-      </div>
+      <div className="review-workspace">
+        <BoardInstrument
+          analysisId={analysisId}
+          token={token}
+          pgn={analysis.pgn ?? null}
+          playerColor={analysis.player_color}
+          playerName={analysis.player_name ?? analysis.username ?? null}
+          playerElo={summary?.player_elo ?? null}
+          opponentName={summary?.opponent_name ?? null}
+          opponentElo={summary?.opponent_elo ?? null}
+          timeControl={summary?.time_control ?? null}
+          moments={insights?.weakness_moments ?? []}
+        />
 
-      <div className="analysis-workspace">
-        <div className="analysis-report-column">
+        <div className="review-canvas-column">
           {analysis.report_markdown ? (
             <CoachingReport
               content={analysis.report_markdown}
@@ -161,12 +192,15 @@ export default function AnalysisDetailPage() {
               psychologyLocked={psychologyLocked}
               gamesAnalyzed={gamesAnalyzed}
               analysisId={analysisId}
+              header={headerNode}
+              gameAccuracy={summary?.accuracy ?? null}
             />
           ) : insights &&
             ((insights.weakness_moments?.length ?? 0) > 0 ||
               (insights.strength_moments?.length ?? 0) > 0) ? (
-            <section className="report">
-              <div className="report-section">
+            <section className="report review-canvas" data-surface="paper">
+              <div className="review-canvas-header">{headerNode}</div>
+              <div className="report-section review-narrative">
                 <h2>Engine review</h2>
                 <p>
                   This game was analyzed as part of a multi-game report, so it has
@@ -184,21 +218,26 @@ export default function AnalysisDetailPage() {
                   </p>
                 )}
               </div>
-              {(insights.strength_moments?.length ?? 0) > 0 && (
-                <div className="report-section">
-                  <h2>Strength</h2>
-                  <SectionInsightBoards moments={insights.strength_moments} />
+              {(insights.weakness_moments?.length ?? 0) > 0 && (
+                <div className="report-section review-moments-section">
+                  <div className="review-section-head">
+                    <h3>Key Game Moments</h3>
+                    <p>Weakness — the positions the engine flagged</p>
+                  </div>
+                  <SectionInsightBoards moments={insights.weakness_moments} />
                 </div>
               )}
-              {(insights.weakness_moments?.length ?? 0) > 0 && (
-                <div className="report-section">
-                  <h2>Weakness</h2>
-                  <SectionInsightBoards moments={insights.weakness_moments} />
+              {(insights.strength_moments?.length ?? 0) > 0 && (
+                <div className="report-section review-moments-section">
+                  <div className="review-section-head">
+                    <h3>Strength</h3>
+                    <p>The moves that worked</p>
+                  </div>
+                  <SectionInsightBoards moments={insights.strength_moments} />
                 </div>
               )}
               {psychologyLocked && (
                 <div className="report-section">
-                  <h2>Psychology</h2>
                   <LockedPsychologyPreview gamesAnalyzed={gamesAnalyzed} />
                 </div>
               )}
@@ -208,26 +247,26 @@ export default function AnalysisDetailPage() {
               {analysis.error_message ?? "This analysis has no report."}
             </div>
           )}
-        </div>
 
-        {token && (
-          <aside className="analysis-thread-column">
-            <h2>Ask about this game</h2>
-            {usage && !usage.qna_enabled ? (
-              usage.plan === "paid" ? (
-                <LimitReachedPrompt periodEnd={usage.current_period_end} />
+          {token && (
+            <aside className="analysis-thread-column review-thread">
+              <h2>Ask about this game</h2>
+              {usage && !usage.qna_enabled ? (
+                usage.plan === "paid" ? (
+                  <LimitReachedPrompt periodEnd={usage.current_period_end} />
+                ) : (
+                  <UpgradePrompt feature="qna" />
+                )
               ) : (
-                <UpgradePrompt feature="qna" />
-              )
-            ) : (
-              <AnalysisThread
-                analysisId={analysisId}
-                token={token}
-                initialMessages={detail.messages}
-              />
-            )}
-          </aside>
-        )}
+                <AnalysisThread
+                  analysisId={analysisId}
+                  token={token}
+                  initialMessages={detail.messages}
+                />
+              )}
+            </aside>
+          )}
+        </div>
       </div>
     </main>
   );

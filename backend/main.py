@@ -5,6 +5,7 @@ import hashlib
 import json
 import logging
 import os
+import re
 import time
 import uuid
 from collections import deque
@@ -12,7 +13,7 @@ from datetime import datetime, timezone
 from typing import AsyncIterator, Deque, Dict, Optional
 
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 from google import genai
@@ -30,9 +31,11 @@ from services import (
     engine,
     extractor,
     progress,
+    puzzles,
     recommendations,
     scouting,
     studies,
+    telemetry,
 )
 
 from pathlib import Path
@@ -137,7 +140,10 @@ def _upgrade_detail(feature: str) -> dict[str, str]:
     messages = {
         "analysis": "Your five free analyses have been used.",
         "qna": "Q&A coaching is available with a paid plan.",
-        "coach": "Coach mode and student rosters are available with a Coach Pro subscription.",
+        "coach": (
+            "Coach mode, student rosters and share links are available with "
+            "the Master Coach plan."
+        ),
     }
     return {
         "code": "upgrade_required",
@@ -278,8 +284,20 @@ def _usage_payload(usage: dict) -> dict:
     else:
         limit = free_limit
     remaining = max(0, limit - used)
+    # The stored tier is what the subscription was bought on; a lapsed account
+    # reports "free" so no surface offers a plan it no longer has. A paid row
+    # without a stored tier is a pre-0015 row: the original ₹399 plan is the
+    # Pro Student tier, which is also what the frontend falls back to.
+    stored_tier = str(usage.get("plan_tier") or "").strip().lower()
+    if not paid:
+        plan_tier = db.PLAN_TIER_FREE
+    elif stored_tier in {db.PLAN_TIER_STUDENT, db.PLAN_TIER_COACH}:
+        plan_tier = stored_tier
+    else:
+        plan_tier = db.PLAN_TIER_STUDENT
     return {
         "plan": "paid" if paid else "free",
+        "plan_tier": plan_tier,
         "analyses_used": used,
         "free_analysis_limit": free_limit,
         "paid_analysis_limit": paid_limit,
@@ -386,6 +404,30 @@ def _coach_error(exc: coach.CoachError) -> HTTPException:
     return HTTPException(status_code=400, detail=str(exc))
 
 
+async def _require_coach_tier(user_id: str) -> None:
+    """Coach-only features need the Master Coach tier, not just any paid plan."""
+    if not await asyncio.to_thread(db.is_coach_plan, user_id):
+        raise HTTPException(status_code=402, detail=_upgrade_detail("coach"))
+
+
+def _subscription_tier(subscription: Optional[dict]) -> str:
+    """The tier a stored subscription was bought on.
+
+    Rows created before the tier rollout (or without a plan tier in the
+    Razorpay notes) default to Pro Student: the original single plan cost
+    ₹399, which is now the student tier.
+    """
+    row = subscription or {}
+    tier = str(row.get("plan_tier") or "").strip().lower()
+    return tier if tier in billing.PLANS else billing.DEFAULT_PLAN
+
+
+def _plan_activation(subscription: Optional[dict]) -> dict:
+    """The usage fields a subscription row unlocks on the account."""
+    plan = billing.PLANS[_subscription_tier(subscription)]
+    return {"plan_tier": plan.id, "paid_analysis_limit": plan.paid_analysis_limit}
+
+
 def _parse_share_token(token: str) -> str:
     """A share token is always a UUID; anything else is a dead link."""
     try:
@@ -400,6 +442,75 @@ async def _resolve_share_link(token: str) -> Dict[str, object]:
     if not coach.is_share_usable(row):
         raise HTTPException(status_code=404, detail="This share link is not active.")
     return row
+
+
+# --- Share items: study / tactic links a coach hands to a student ----------
+
+SHARE_ITEM_KINDS = {"study", "tactic"}
+SHARE_ITEM_KEY_MAX = 200
+SHARE_ITEM_TITLE_MAX = 200
+SHARE_ITEM_SUBTITLE_MAX = 300
+SHARE_ITEM_URL_MAX = 500
+
+
+def _clean_share_text(value: Optional[str], max_length: int) -> Optional[str]:
+    text = str(value or "").strip()
+    if not text:
+        return None
+    return text[:max_length]
+
+
+def _require_share_text(value: Optional[str], max_length: int, field: str) -> str:
+    text = _clean_share_text(value, max_length)
+    if not text:
+        raise HTTPException(status_code=400, detail=f"{field} is required.")
+    return text
+
+
+def _clean_share_url(value: Optional[str]) -> Optional[str]:
+    """Keep the shared destination to an http(s) link or nothing at all."""
+    text = _clean_share_text(value, SHARE_ITEM_URL_MAX)
+    if text is None:
+        return None
+    if not re.match(r"^https?://", text, re.IGNORECASE):
+        raise HTTPException(status_code=400, detail="url must be an http(s) link.")
+    return text
+
+
+def _share_item_payload(
+    item: Dict[str, object],
+    student: Optional[Dict[str, object]] = None,
+    view_count: Optional[int] = None,
+) -> Dict[str, object]:
+    """The public payload for one study/tactic share.
+
+    Both shapes the frontend may read are present: the nested ``item`` object
+    and the same fields flattened at the top level. ``student`` is the shared
+    student (display name and handles only) or ``None`` for an open link.
+    """
+    kind = str(item.get("kind") or "study")
+    count = int(
+        view_count if view_count is not None else item.get("view_count") or 0
+    )
+    title = item.get("title")
+    subtitle = item.get("subtitle")
+    url = item.get("url")
+    return {
+        "kind": kind,
+        "item": {
+            "kind": kind,
+            "item_key": item.get("item_key"),
+            "title": title,
+            "subtitle": subtitle,
+            "url": url,
+            "view_count": count,
+        },
+        "title": title,
+        "subtitle": subtitle,
+        "url": url,
+        "view_count": count,
+        "student": coach.student_public_payload(student) if student else None,
+    }
 
 
 @app.get("/api/health")
@@ -539,8 +650,25 @@ async def stream_analysis(
                 "resources": engine_data.get("resources", []),
                 "player_color": engine_data.get("player_color"),
                 "player_name": engine_data.get("player_name"),
+                "verdict": telemetry.extract_verdict(report_markdown),
             }
             if user_id and analysis_id:
+                game_summary = await asyncio.to_thread(
+                    telemetry.build_game_summary,
+                    analysis=analysis,
+                    engine_data=engine_data,
+                    player_color=game.player_color,
+                    username=payload.username,
+                    platform=game.platform,
+                    pgn=game.pgn,
+                )
+                replay = await asyncio.to_thread(
+                    telemetry.build_replay,
+                    analysis=analysis,
+                    engine_data=engine_data,
+                    player_color=game.player_color,
+                    pgn=game.pgn,
+                )
                 await asyncio.to_thread(
                     db.update_analysis,
                     user_id,
@@ -552,6 +680,8 @@ async def stream_analysis(
                         "result": analysis.result,
                         "report_markdown": report_markdown,
                         "insights": insights_payload,
+                        "game_summary": game_summary,
+                        "replay": replay,
                         "status": "completed",
                         "completed_at": _now_value(),
                     },
@@ -769,6 +899,23 @@ async def stream_batch_analysis(
                         recommendations.build_insights, analysis, pool
                     )
 
+                    game_summary = await asyncio.to_thread(
+                        telemetry.build_game_summary,
+                        analysis=analysis,
+                        engine_data=engine_data,
+                        player_color=game.player_color,
+                        username=payload.username,
+                        platform=game.platform,
+                        pgn=game.pgn,
+                    )
+                    replay = await asyncio.to_thread(
+                        telemetry.build_replay,
+                        analysis=analysis,
+                        engine_data=engine_data,
+                        player_color=game.player_color,
+                        pgn=game.pgn,
+                    )
+
                     await asyncio.to_thread(
                         db.update_analysis,
                         user_id,
@@ -779,6 +926,8 @@ async def stream_batch_analysis(
                             "eco": analysis.eco,
                             "result": analysis.result,
                             "insights": engine_data,
+                            "game_summary": game_summary,
+                            "replay": replay,
                             "status": "completed",
                             "completed_at": _now_value(),
                         },
@@ -904,6 +1053,7 @@ async def stream_batch_analysis(
                 yield sse_event("content_chunk", {"text": chunk})
 
             report_markdown = "".join(report_parts)
+            aggregate["verdict"] = telemetry.extract_verdict(report_markdown)
             await asyncio.to_thread(
                 db.update_batch,
                 user_id,
@@ -1036,6 +1186,39 @@ async def get_analysis(
         except ValueError:
             analysis["insights"] = {}
     return {"analysis": analysis, "messages": messages}
+
+
+@app.get("/api/analyses/{analysis_id}/replay")
+async def get_analysis_replay(
+    analysis_id: str,
+    user: Dict[str, object] = Depends(get_current_user),
+) -> dict:
+    """Serve one game's stored move-by-move replay.
+
+    The replay JSON is large, so it never rides along with the list or the
+    report read; the row's ``replay_available`` flag tells the UI whether this
+    call is worth making.
+    """
+    row = await asyncio.to_thread(
+        db.get_analysis_replay, str(user["id"]), analysis_id
+    )
+    if not row:
+        raise HTTPException(status_code=404, detail="Analysis not found.")
+    replay = row.get("replay")
+    if isinstance(replay, str):
+        try:
+            replay = json.loads(replay)
+        except ValueError:
+            replay = None
+    if not replay:
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                "This game has no stored replay. Replays are captured for "
+                "games analyzed after the replay rollout."
+            ),
+        )
+    return {**replay, "analysis_id": analysis_id, "replay_available": True}
 
 
 class AttemptRequest(BaseModel):
@@ -1265,12 +1448,7 @@ async def create_coach_student(
     user: Dict[str, object] = Depends(get_current_user),
 ) -> dict:
     user_id = str(user["id"])
-    usage = await asyncio.to_thread(db.get_usage, user_id)
-    raw_plan = str(usage.get("plan", "free"))
-    status = str(usage.get("subscription_status", "inactive"))
-    period_end = usage.get("current_period_end")
-    if not db.is_paid_plan(raw_plan, status, period_end):
-        raise HTTPException(status_code=402, detail=_upgrade_detail("coach"))
+    await _require_coach_tier(user_id)
 
     try:
         data = {
@@ -1305,6 +1483,42 @@ async def get_coach_student(
         "batches": batches,
         "share": coach.share_status(share_row),
     }
+
+
+@app.get("/api/coach/students/{student_id}/progress", response_model=None)
+async def coach_student_progress(
+    student_id: str,
+    speeds: Optional[str] = None,
+    days: Optional[int] = None,
+    user: Dict[str, object] = Depends(get_current_user),
+) -> dict:
+    """Longitudinal progress for one of the coach's students.
+
+    ``speeds`` is a comma-separated speed filter and ``days`` a rolling window;
+    both are optional and both are forwarded to the progress service.
+    Ownership is validated before any data is read.
+    """
+    user_id = str(user["id"])
+    await _require_student(user_id, student_id)
+    try:
+        return await asyncio.to_thread(
+            progress.build_student_progress,
+            student_id,
+            coach_id=user_id,
+            speeds=_parse_speeds(speeds),
+            days=_parse_days(days),
+        )
+    except db.AuthError:
+        # A deployment gap (for example the 0014 telemetry migration) is not a
+        # 500: let the app-wide handler turn it into the setup hint.
+        raise
+    except Exception as exc:
+        logger.exception(
+            "Unexpected error building progress for student %s", student_id
+        )
+        raise HTTPException(
+            status_code=500, detail=f"Failed to load student progress: {exc}"
+        )
 
 
 @app.patch("/api/coach/students/{student_id}")
@@ -1369,12 +1583,7 @@ async def create_student_share(
     link carries a fresh token.
     """
     user_id = str(user["id"])
-    usage = await asyncio.to_thread(db.get_usage, user_id)
-    raw_plan = str(usage.get("plan", "free"))
-    status = str(usage.get("subscription_status", "inactive"))
-    period_end = usage.get("current_period_end")
-    if not db.is_paid_plan(raw_plan, status, period_end):
-        raise HTTPException(status_code=402, detail=_upgrade_detail("coach"))
+    await _require_coach_tier(user_id)
 
     student = await asyncio.to_thread(db.get_student, user_id, student_id)
     if not student:
@@ -1400,6 +1609,128 @@ async def revoke_student_share(
 
 
 # ---------------------------------------------------------------------------
+# Share items: study / tactic homework that opens with no sign-in (/s/{token}).
+# ---------------------------------------------------------------------------
+
+
+class ShareItemRequest(BaseModel):
+    kind: str
+    item_key: str
+    title: str
+    subtitle: Optional[str] = None
+    url: Optional[str] = None
+    student_id: Optional[str] = None
+
+
+@app.post("/api/share/items")
+async def create_share_item_endpoint(
+    payload: ShareItemRequest,
+    user: Dict[str, object] = Depends(get_current_user),
+) -> dict:
+    """Create a no-sign-in link for one study or tactic theme.
+
+    Coach-tier only: the link itself is public, but only Master Coach accounts
+    hand homework out. The optional student keeps the link in that student's
+    list while the URL stays the same for anyone who has it.
+    """
+    user_id = str(user["id"])
+    await _require_coach_tier(user_id)
+
+    kind = str(payload.kind or "").strip().lower()
+    if kind not in SHARE_ITEM_KINDS:
+        raise HTTPException(
+            status_code=400,
+            detail="kind must be 'study' or 'tactic'.",
+        )
+    item_key = _require_share_text(payload.item_key, SHARE_ITEM_KEY_MAX, "item_key")
+    title = _require_share_text(payload.title, SHARE_ITEM_TITLE_MAX, "title")
+    subtitle = _clean_share_text(payload.subtitle, SHARE_ITEM_SUBTITLE_MAX)
+    url = _clean_share_url(payload.url)
+
+    student_id = (payload.student_id or "").strip() or None
+    if student_id:
+        student = await asyncio.to_thread(db.get_student, user_id, student_id)
+        if not student or student.get("archived_at"):
+            raise HTTPException(status_code=404, detail="Student not found.")
+
+    row = await asyncio.to_thread(
+        db.create_share_item,
+        user_id,
+        {
+            "student_id": student_id,
+            "kind": kind,
+            "item_key": item_key,
+            "title": title,
+            "subtitle": subtitle,
+            "url": url,
+        },
+    )
+    token = str(row.get("token") or "")
+    if not token:
+        raise HTTPException(
+            status_code=503, detail="Could not create the share link. Please try again."
+        )
+    return {"token": token, "url_path": f"/s/{token}", "view_count": 0}
+
+
+@app.get("/api/coach/students/{student_id}/shares")
+async def list_student_shares(
+    student_id: str,
+    include_all: bool = Query(False, alias="all"),
+    user: Dict[str, object] = Depends(get_current_user),
+) -> list[dict]:
+    """The coach's active share items for one student (``?all=true`` for every item).
+
+    ``?all=true`` also returns the links that were created without a student —
+    "anyone with the link" homework the coach may want to reuse.
+    """
+    user_id = str(user["id"])
+    await _require_coach_tier(user_id)
+
+    student = await asyncio.to_thread(db.get_student, user_id, student_id)
+    if not student:
+        raise HTTPException(status_code=404, detail="Student not found.")
+    rows = await asyncio.to_thread(
+        db.list_share_items,
+        user_id,
+        None if include_all else student_id,
+    )
+    student_name = str(student.get("display_name") or "").strip() or None
+    return [
+        {
+            "token": row.get("token"),
+            "kind": row.get("kind"),
+            "item_key": row.get("item_key"),
+            "title": row.get("title"),
+            "subtitle": row.get("subtitle"),
+            "url": row.get("url"),
+            "student_id": row.get("student_id"),
+            "student_name": student_name if row.get("student_id") else None,
+            "view_count": int(row.get("view_count") or 0),
+            "created_at": row.get("created_at"),
+            "revoked_at": row.get("revoked_at"),
+        }
+        for row in rows
+    ]
+
+
+@app.delete("/api/share/items/{token}")
+async def revoke_share_item_endpoint(
+    token: str,
+    user: Dict[str, object] = Depends(get_current_user),
+) -> dict:
+    """Revoke one share item. Idempotent, and never reveals another coach's rows.
+
+    Revoking stays available even when the subscription has lapsed: closing a
+    link the coach no longer wants open must not require paying again.
+    """
+    user_id = str(user["id"])
+    parsed = _parse_share_token(token)
+    closed = await asyncio.to_thread(db.revoke_share_item, user_id, parsed)
+    return {"token": parsed, "revoked": True, "already_revoked": not closed}
+
+
+# ---------------------------------------------------------------------------
 # Public share pages: no auth, unguessable token, read-only, rate limited.
 # ---------------------------------------------------------------------------
 
@@ -1410,7 +1741,36 @@ async def shared_student(
     request: Request,
 ) -> dict:
     _enforce_shared_rate_limit(_client_ip(request))
-    link = await _resolve_share_link(token)
+    parsed = _parse_share_token(token)
+
+    # Study / tactic shares live in their own table and win the lookup; a token
+    # that is not there at all keeps the original student-report behaviour.
+    try:
+        item = await asyncio.to_thread(db.get_share_item, parsed)
+    except db.AuthError as exc:
+        # A deployment gap (0016_share_items.sql not run yet) must not take the
+        # student-report portal down: log it and fall through to share_links.
+        logger.warning("Share items unavailable, serving share links only: %s", exc)
+        item = None
+    if item is not None:
+        if item.get("revoked_at"):
+            raise HTTPException(
+                status_code=404, detail="This share link is not active."
+            )
+        view_count: Optional[int] = None
+        try:
+            view_count = await asyncio.to_thread(db.touch_share_item, parsed)
+        except Exception:
+            logger.exception("Failed to record share item view")
+        student_row: Optional[Dict[str, object]] = None
+        item_student_id = str(item.get("student_id") or "").strip()
+        if item_student_id:
+            student_row = await asyncio.to_thread(
+                db.get_student_by_id, item_student_id
+            )
+        return _share_item_payload(item, student_row, view_count)
+
+    link = await _resolve_share_link(parsed)
     student_id = str(link["student_id"])
     student, analyses, batches = await asyncio.gather(
         asyncio.to_thread(db.get_student_by_id, student_id),
@@ -1484,27 +1844,44 @@ class BillingVerifyRequest(BaseModel):
     razorpay_signature: str
 
 
+class SubscriptionRequest(BaseModel):
+    plan: Optional[str] = None
+
+
 @app.get("/api/billing/config")
 async def billing_config(
     user: Dict[str, object] = Depends(get_current_user),
 ) -> dict:
-    try:
-        return billing.public_config()
-    except billing.BillingError as exc:
-        raise _billing_error(exc) from exc
+    """The client-safe checkout config: key id plus both tiers, never a secret."""
+    return billing.public_config()
 
 
 @app.post("/api/billing/subscription")
 async def create_billing_subscription(
+    payload: Optional[SubscriptionRequest] = None,
     user: Dict[str, object] = Depends(get_current_user),
 ) -> dict:
+    """Start a Razorpay checkout for one tier (default: Pro Student)."""
     user_id = str(user["id"])
+    try:
+        plan_id = billing.resolve_plan_id(payload.plan if payload else None)
+    except billing.UnknownPlanError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if not billing.configured(plan_id):
+        raise _billing_error(
+            billing.BillingError(
+                "Razorpay is not configured for the "
+                f"{billing.PLANS[plan_id].label} plan on the server."
+            )
+        )
+
     existing = await asyncio.to_thread(db.get_current_subscription, user_id)
     if existing:
         if existing.get("status") in {"created", "pending"}:
             return {
                 "subscription_id": existing["razorpay_subscription_id"],
-                **billing.public_config(),
+                "key_id": billing.key_id(),
+                "plan": _subscription_tier(existing),
             }
         if existing.get("status") == "paused":
             raise HTTPException(
@@ -1517,7 +1894,9 @@ async def create_billing_subscription(
             billing.create_subscription,
             user_id,
             str(user.get("email") or "") or None,
+            plan_id,
         )
+        plan = billing.PLANS[plan_id]
         await asyncio.to_thread(
             db.create_subscription,
             user_id,
@@ -1525,16 +1904,18 @@ async def create_billing_subscription(
                 "razorpay_subscription_id": subscription["id"],
                 "razorpay_plan_id": subscription.get("plan_id", ""),
                 "status": subscription.get("status", "created"),
-                "amount": billing.SUBSCRIPTION_AMOUNT,
+                "plan_tier": plan.id,
+                "amount": plan.amount,
                 "currency": billing.SUBSCRIPTION_CURRENCY,
             },
         )
-        return {
-            "subscription_id": subscription["id"],
-            **billing.public_config(),
-        }
     except billing.BillingError as exc:
         raise _billing_error(exc) from exc
+    return {
+        "subscription_id": subscription["id"],
+        "key_id": billing.key_id(),
+        "plan": plan_id,
+    }
 
 
 @app.post("/api/billing/verify")
@@ -1553,6 +1934,7 @@ async def verify_billing_subscription(
         payload.razorpay_signature,
     ):
         raise HTTPException(status_code=400, detail="Invalid Razorpay payment signature.")
+    activation = _plan_activation(subscription)
     await asyncio.to_thread(
         db.update_subscription,
         payload.razorpay_subscription_id,
@@ -1563,9 +1945,11 @@ async def verify_billing_subscription(
         str(user["id"]),
         True,
         "authenticated",
+        None,
+        **activation,
     )
     await asyncio.to_thread(db.reset_analysis_usage, str(user["id"]))
-    return {"status": "authenticated"}
+    return {"status": "authenticated", "plan": activation["plan_tier"]}
 
 
 @app.get("/api/billing/status")
@@ -1624,12 +2008,14 @@ async def pause_billing_subscription(
         subscription["razorpay_subscription_id"],
         {"status": status, "paused_at": _now_value()},
     )
+    activation = _plan_activation(subscription)
     await asyncio.to_thread(
         db.set_paid_access,
         str(user["id"]),
         db.is_paid_plan("paid", status, period_end),
         status,
         period_end,
+        **activation,
     )
     return {"status": status}
 
@@ -1661,12 +2047,14 @@ async def resume_billing_subscription(
         subscription["razorpay_subscription_id"],
         {"status": status},
     )
+    activation = _plan_activation(subscription)
     await asyncio.to_thread(
         db.set_paid_access,
         str(user["id"]),
         db.is_paid_plan("paid", status, period_end),
         status,
         period_end,
+        **activation,
     )
     return {"status": status}
 
@@ -1724,6 +2112,13 @@ async def razorpay_webhook(request: Request) -> dict:
         logger.warning("Ignoring webhook for unknown subscription %s", subscription_id)
         return {"status": "ignored"}
 
+    # The tier travels in the Razorpay notes from the moment checkout starts,
+    # which is the only tier signal available to events that arrive before the
+    # local row was ever updated.
+    notes = entity.get("notes") if isinstance(entity.get("notes"), dict) else {}
+    noted_tier = str(notes.get("plan_tier") or "").strip().lower()
+    tier = noted_tier if noted_tier in billing.PLANS else _subscription_tier(subscription)
+
     status = str(entity.get("status", "unknown"))
     period_end = entity.get("current_end")
     updates = {"status": status}
@@ -1735,6 +2130,10 @@ async def razorpay_webhook(request: Request) -> dict:
         updates["razorpay_customer_id"] = entity["customer_id"]
     if status == "paused":
         updates["paused_at"] = _now_value()
+    # Persist the tier when the row exists but predates the column value; the
+    # key check keeps pre-0015 deployments from failing on an unknown column.
+    if "plan_tier" in subscription and not str(subscription.get("plan_tier") or "").strip():
+        updates["plan_tier"] = tier
     await asyncio.to_thread(db.update_subscription, subscription_id, updates)
 
     # Creation/pending events can arrive after an authorization event; they do
@@ -1750,6 +2149,7 @@ async def razorpay_webhook(request: Request) -> dict:
             paid,
             status,
             updates.get("current_end"),
+            **_plan_activation({"plan_tier": tier}),
         )
     return {"status": "processed"}
 
@@ -1913,6 +2313,81 @@ async def import_study_endpoint(study_id: str) -> studies.StudyImportResponse:
 
 
 # =============================================================================
+# Tactical Catalog & Curated Studies
+# =============================================================================
+
+# Personalization reads a bounded slice of the newest games: the catalog must
+# stay fast, and the newest analyses are the ones that reflect the leaks.
+TACTICS_SCAN_LIMIT = 25
+CURATED_SCAN_LIMIT = 30
+
+
+@app.get("/api/tactics")
+async def tactics_catalog(
+    user: Optional[Dict[str, object]] = Depends(get_optional_user),
+) -> dict:
+    """Every motif the analyzer can name, with its Lichess training links.
+
+    Signed-out visitors get the plain catalog. A valid bearer token adds the
+    real ``observed_count`` per theme, counted from the motifs stored in the
+    caller's recent analyses; a database problem degrades to the plain catalog
+    instead of failing this public page.
+    """
+    rows: Optional[list[dict]] = None
+    if user and db.configured():
+        try:
+            rows = await asyncio.to_thread(
+                db.list_analyses, str(user["id"]), TACTICS_SCAN_LIMIT
+            )
+        except Exception as exc:
+            logger.warning("Tactics catalog: could not read recent analyses: %s", exc)
+            rows = []
+    return await asyncio.to_thread(puzzles.build_tactics_catalog, rows)
+
+
+@app.get("/api/studies/curated")
+async def curated_studies(
+    student_id: Optional[str] = None,
+    user: Optional[Dict[str, object]] = Depends(get_optional_user),
+) -> list[dict]:
+    """Studies derived from the real leaks of the analyzed games.
+
+    Signed out there is nothing personal to derive, so the list is empty. A
+    coach can pass ``student_id`` to personalize for one of their students
+    (ownership is validated before any analysis is read).
+    """
+    if not user:
+        return []
+    user_id = str(user["id"])
+    requested_student = (student_id or "").strip() or None
+    if requested_student:
+        student = await asyncio.to_thread(db.get_student, user_id, requested_student)
+        if not student or student.get("archived_at"):
+            raise HTTPException(status_code=404, detail="Student not found.")
+    try:
+        if requested_student:
+            rows = await asyncio.to_thread(
+                db.list_analyses_by_student,
+                user_id,
+                requested_student,
+                CURATED_SCAN_LIMIT,
+            )
+        else:
+            rows = await asyncio.to_thread(
+                db.list_analyses, user_id, CURATED_SCAN_LIMIT
+            )
+        return await asyncio.to_thread(studies.build_curated_studies, rows)
+    except db.AuthError:
+        # A deployment gap is a setup hint, not a 500.
+        raise
+    except Exception as exc:
+        logger.exception("Failed to build curated studies for user %s", user_id)
+        raise HTTPException(
+            status_code=500, detail=f"Failed to load curated studies: {exc}"
+        )
+
+
+# =============================================================================
 # Opponent Scouting Dossier
 # =============================================================================
 
@@ -1943,6 +2418,72 @@ async def scout_opponent_endpoint(
 # =============================================================================
 # Longitudinal Student Progress & 3-Pillar Mastery
 # =============================================================================
+
+# Speed buckets accepted by the progress filters, mirroring SpeedBucket in
+# frontend/lib/api.ts.
+PROGRESS_SPEEDS = {
+    telemetry.SPEED_BULLET,
+    telemetry.SPEED_BLITZ,
+    telemetry.SPEED_RAPID,
+    telemetry.SPEED_CLASSICAL,
+    telemetry.SPEED_CORRESPONDENCE,
+}
+
+
+def _parse_speeds(raw: Optional[str]) -> Optional[list[str]]:
+    """Parse the `speeds` query value into a validated filter, or None.
+
+    Unknown tokens (a typo, or a platform label like Chess.com's "daily") are
+    dropped so the report degrades to "all games" instead of pretending the
+    player has none.
+    """
+    if not raw:
+        return None
+    requested = [token.strip().lower() for token in raw.split(",")]
+    speeds = [
+        speed for speed in dict.fromkeys(requested) if speed in PROGRESS_SPEEDS
+    ]
+    return speeds or None
+
+
+def _parse_days(raw: Optional[int]) -> Optional[int]:
+    """A positive rolling window in days, or None for all time."""
+    if raw is None or raw <= 0:
+        return None
+    return raw
+
+
+@app.get("/api/progress", response_model=None)
+async def get_own_progress(
+    speeds: Optional[str] = None,
+    days: Optional[int] = None,
+    user: Dict[str, object] = Depends(get_current_user),
+) -> dict:
+    """Longitudinal progress for the signed-in player's own games.
+
+    Built from the per-game telemetry captured since 0014_game_telemetry.sql;
+    the progress service reports ``insufficient`` whenever fewer than four
+    games match the filter. Its typed report is passed through unfiltered so
+    every panel field the frontend codes against survives.
+    """
+    user_id = str(user["id"])
+    try:
+        return await asyncio.to_thread(
+            progress.build_student_progress,
+            user_id,
+            coach_id=None,
+            speeds=_parse_speeds(speeds),
+            days=_parse_days(days),
+        )
+    except db.AuthError:
+        # A deployment gap (for example the 0014 telemetry migration) is not a
+        # 500: let the app-wide handler turn it into the setup hint.
+        raise
+    except Exception as exc:
+        logger.exception("Unexpected error building progress for user %s", user_id)
+        raise HTTPException(
+            status_code=500, detail=f"Failed to load progress: {exc}"
+        )
 
 
 @app.get("/api/student/{student_id}/progress", response_model=progress.StudentProgressReport)

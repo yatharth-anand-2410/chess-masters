@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 
 import DrillCard from "./DrillCard";
-import { ClockIcon, ExternalLinkIcon, SwordsIcon } from "./ReportIcons";
+import { ClockIcon, ExternalLinkIcon } from "./ReportIcons";
 import type {
   InsightsData,
   InsightMoment,
@@ -35,10 +35,11 @@ function worstClockBucket(psychology?: PsychologyProfile | null): string | null 
 }
 
 /**
- * Resources rebuilt as replayable challenges rather than a list of links.
+ * The showcase's replay drill arena plus the curated resources deck.
  *
  * Every drill is a position the player actually reached, so the section reads
- * as "fix what you just did" instead of "go study something".
+ * as "fix what you just did" instead of "go study something". The arena is the
+ * dark instrument on the paper canvas; the resources below it stay on paper.
  */
 export default function DrillSection({
   moments,
@@ -65,34 +66,49 @@ export default function DrillSection({
     return ![...drillMoves].some((move) => candidate.endsWith(move.replace(/[^a-z0-9]/gi, "")));
   });
 
-  if (drills.length === 0 && extras.length === 0) {
-    return fallback ? <>{fallback}</> : null;
+  if (drills.length === 0 && extras.length === 0 && !fallback) {
+    return null;
   }
 
   const clockBucket = worstClockBucket(psychology);
+  const playAs =
+    insights?.player_color === "black"
+      ? "Black"
+      : insights?.player_color === "white"
+        ? "White"
+        : null;
+  const firstMove = drills[0]?.move_number;
 
   return (
-    <section className="drill-section" id={anchorId} aria-label="Tactical drills">
+    <section
+      className="review-drill-section drill-section"
+      id={anchorId}
+      aria-label="Tactical drills"
+    >
       {drills.length > 0 && (
-        <>
-          <header className="drill-section-head">
-            <h3 className="drill-section-title">
-              <SwordsIcon className="drill-section-icon" />
-              Replay your mistakes
-            </h3>
-            <p className="drill-section-lede">
-              These are your own positions. Find the move you missed.
-            </p>
+        <div className="review-drill-arena">
+          <header className="review-arena-head">
+            <div>
+              <b className="review-arena-kicker">
+                ⚡ Replay drill arena
+                {typeof firstMove === "number" ? ` · Move ${firstMove}` : ""}
+              </b>
+              <p className="review-arena-lede">
+                Fix the exact mistake you just made on the board
+              </p>
+            </div>
+            {playAs && <span className="review-arena-pill">Play as {playAs}</span>}
           </header>
 
           {clockBucket && (
-            <p className="drill-clock">
-              <ClockIcon className="drill-clock-icon" />
-              Most of your blunders came with <strong>{clockBucket}</strong> left on the clock.
+            <p className="review-arena-clock">
+              <ClockIcon className="review-arena-clock-icon" />
+              Most of your blunders came with <strong>{clockBucket}</strong> left on
+              the clock.
             </p>
           )}
 
-          <div className="drill-grid">
+          <div className="drill-grid review-drill-grid">
             {drills.map((moment, index) => (
               <DrillCard
                 key={`${moment.move_number}-${moment.san}-${index}`}
@@ -103,39 +119,45 @@ export default function DrillSection({
               />
             ))}
           </div>
-        </>
+        </div>
       )}
 
       {extras.length > 0 && (
-        <div className="drill-extras">
-          <h4 className="drill-extras-title">Also worth studying</h4>
-          <ul className="drill-extras-list">
+        <div className="review-resources">
+          <div className="review-section-head">
+            <h3>Curated Practice Resources</h3>
+            <p>
+              Direct Lichess training slugs mapped to the root causes in this game
+            </p>
+          </div>
+          <div className="review-resources-grid">
             {extras.map((resource) => (
-              <li key={resource.url}>
-                <a
-                  className="drill-extras-link"
-                  href={resource.url}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  <span className="drill-extras-label">{resource.title}</span>
+              <a
+                key={resource.url}
+                className="review-resource-item"
+                href={resource.url}
+                target="_blank"
+                rel="noreferrer"
+              >
+                <div>
+                  <b>{resource.title}</b>
                   {resource.source_move && (
-                    <span className="drill-extras-move">{resource.source_move}</span>
+                    <div className="review-resource-move">{resource.source_move}</div>
                   )}
-                  <ExternalLinkIcon className="drill-extras-icon" />
-                </a>
-              </li>
+                </div>
+                <span className="review-resource-arrow" aria-hidden="true">
+                  <ExternalLinkIcon className="review-resource-icon" />
+                </span>
+              </a>
             ))}
-          </ul>
+          </div>
         </div>
       )}
 
       {fallback && (
-        <details className="report-details">
-          <summary className="report-details-summary">
-            Read the coach&apos;s full notes
-          </summary>
-          <div className="report-details-body">{fallback}</div>
+        <details className="review-details">
+          <summary>Read the coach&apos;s full notes</summary>
+          <div className="review-details-body">{fallback}</div>
         </details>
       )}
     </section>

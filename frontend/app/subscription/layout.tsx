@@ -1,14 +1,14 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Pricing & Subscription",
+  title: "Subscription & Plan Management",
   description:
-    "Chessmasters pricing: 5 free game analyses, then ₹399 per month for 100 analyses per billing period with batch analysis and follow-up Q&A. Pause, resume, or cancel anytime.",
+    "Chessmasters plans: Pro Student at ₹399/month for serious club players and Master Coach at ₹1,999/month for FIDE trainers, each billed via Razorpay with a 14-day money-back guarantee. Pause, resume, or cancel anytime.",
   alternates: { canonical: "/subscription", types: { "application/rss+xml": "/feed.xml" } },
   openGraph: {
-    title: "Pricing & Subscription · Chessmasters",
+    title: "Subscription & Plan Management · Chessmasters",
     description:
-      "5 free game analyses, then ₹399/month for 100 analyses per billing period. Pause, resume, or cancel anytime.",
+      "Pro Student ₹399/month and Master Coach ₹1,999/month, billed via Razorpay with a 14-day money-back guarantee. Pause, resume, or cancel anytime.",
     url: "/subscription",
   },
 };

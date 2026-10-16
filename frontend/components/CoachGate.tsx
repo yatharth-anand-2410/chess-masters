@@ -29,6 +29,23 @@ type CoachGateProps = {
   children: React.ReactNode;
 };
 
+type CoachTier = "free" | "student" | "coach";
+
+/**
+ * The roster is a Coach-tier surface: a Student subscription (which only covers
+ * the subscriber's own games) never unlocks it.
+ */
+function coachTierOf(usage: Usage | null): CoachTier {
+  if (!usage) {
+    return "free";
+  }
+  if (usage.plan_tier) {
+    return usage.plan_tier;
+  }
+  // Older usage payloads have no plan_tier yet: any active paid plan was coach.
+  return usage.plan === "paid" ? "coach" : "free";
+}
+
 /**
  * Guards the /coach area for signed-in users.
  *
@@ -36,15 +53,14 @@ type CoachGateProps = {
  * - No role chosen yet: one-tap onboarding.
  * - Role is "player": an explicit opt-in card, because the role is a default
  *   experience rather than a locked door — players become coaches all the time.
- * - Role is "coach" with inactive subscription: Coach Pro upgrade gate with
- *   features breakdown, direct subscribe button, and demo preview exploration.
+ * - Coach without the Master Coach tier: paywall with the ₹1,999 plan, a direct
+ *   link to /subscription, and an "Explore Demo Roster" preview path.
  */
 export default function CoachGate({ children }: CoachGateProps) {
   const router = useRouter();
   const [role, setRole] = useState<UserRole | null | "loading">("loading");
   const [user, setUser] = useState<User | null>(null);
   const [usage, setUsage] = useState<Usage | null>(null);
-  const [isPaid, setIsPaid] = useState<boolean>(false);
   const [previewUnlocked, setPreviewUnlocked] = useState<boolean>(false);
   const [token, setToken] = useState("");
   const [error, setError] = useState("");
@@ -77,7 +93,6 @@ export default function CoachGate({ children }: CoachGateProps) {
           setRole(profile.role);
           if (usageData) {
             setUsage(usageData);
-            setIsPaid(usageData.plan === "paid");
           }
         } catch (err) {
           setError(
@@ -171,8 +186,10 @@ export default function CoachGate({ children }: CoachGateProps) {
     );
   }
 
-  // Active coach, but subscription is not active and demo preview has not been opened yet
-  if (!isPaid && !previewUnlocked) {
+  const tier = coachTierOf(usage);
+
+  // Active coach without the Master Coach tier and without the demo preview.
+  if (tier !== "coach" && !previewUnlocked) {
     return (
       <main className="dashboard">
         <Topbar
@@ -183,52 +200,59 @@ export default function CoachGate({ children }: CoachGateProps) {
           onToggleRole={switchToPlayer}
         />
         <div className="max-w-3xl mx-auto mt-6 px-4 pb-16">
-          {/* Hero Header */}
-          <div className="text-center mb-8">
+          <div className="students-gate-hero">
             <div className="inline-flex items-center gap-2 mb-3">
-              <Pill tone="shell" size="md" icon={<Crown size={13} className="text-[var(--gold-bright)]" />}>
-                Coach Pro Tier Required
+              <Pill
+                tone="shell"
+                size="md"
+                icon={<Crown size={13} className="text-[var(--gold-bright)]" />}
+              >
+                Master Coach tier required
               </Pill>
             </div>
-            <h1 className="font-serif text-3xl md:text-4xl font-bold tracking-tight text-[var(--text)] mb-3">
-              Upgrade to Coach Pro
-            </h1>
-            <p className="text-base text-[var(--text-muted)] max-w-xl mx-auto leading-relaxed">
-              Track student rosters, run 5-game batch audits, diagnose recurring tactical leaks, and share live progress portals with parents and students.
+            <h1 className="students-gate-title">Upgrade to Coach Tier</h1>
+            <p className="students-gate-lede">
+              Track student rosters, run 5-game batch audits, diagnose recurring
+              tactical leaks, and share live progress portals with parents and
+              students.
             </p>
+            {tier === "student" && (
+              <p className="students-gate-lede mt-3">
+                Your Student plan covers your own games — the roster, dossiers
+                and share links belong to the Master Coach tier.
+              </p>
+            )}
           </div>
 
-          {/* Plan & Pricing Highlight Card */}
-          <div className="rounded-2xl bg-[var(--ink-2)] border border-[rgba(201,153,63,0.35)] shadow-xl p-6 md:p-8 mb-8 relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-bl from-[rgba(201,153,63,0.15)] to-transparent pointer-events-none rounded-full blur-2xl" />
-
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-6 border-b border-[var(--line-soft)]">
+          <section className="students-gate-card">
+            <div className="students-gate-plan">
               <div>
-                <div className="text-xs font-mono uppercase tracking-wider text-[var(--gold-bright)] font-semibold mb-1">
-                  Coach Pro Membership
+                <div className="students-gate-eyebrow">
+                  Master Coach membership
                 </div>
-                <div className="flex items-baseline gap-2">
-                  <span className="text-3xl font-extrabold text-[var(--text)]">₹399</span>
-                  <span className="text-sm text-[var(--text-muted)]">/ month</span>
+                <div className="students-gate-price">
+                  <strong>₹1,999</strong>
+                  <span>/ month</span>
                 </div>
-                <p className="text-xs text-[var(--text-muted)] mt-1">
-                  Includes 100 game analyses/month · Unlimited student rosters · Cancel anytime
+                <p className="students-gate-price-note">
+                  Games analyzed on behalf of every student · unlimited roster ·
+                  branded share links · cancel anytime
                 </p>
               </div>
 
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+              <div className="students-gate-cta">
                 <Link
                   href="/subscription"
-                  className="btn inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-gradient-to-r from-[#c9993f] to-[#e2b65f] text-[#141712] font-bold shadow-lg hover:shadow-xl transition-all"
+                  className="students-btn-gold py-2.5 px-4 text-sm"
                 >
                   <Crown size={16} />
-                  <span>Upgrade to Coach Pro</span>
+                  <span>Upgrade to Coach Tier</span>
                   <ArrowRight size={15} />
                 </Link>
                 <button
                   type="button"
                   onClick={() => setPreviewUnlocked(true)}
-                  className="btn btn-ghost inline-flex items-center justify-center gap-2 text-xs text-[var(--text-muted)] hover:text-[var(--text)] border border-[var(--line)] hover:border-[var(--line-strong)]"
+                  className="students-btn-ghost py-2.5 px-4 text-sm"
                 >
                   <Eye size={14} />
                   <span>Explore Demo Roster</span>
@@ -236,68 +260,78 @@ export default function CoachGate({ children }: CoachGateProps) {
               </div>
             </div>
 
-            {/* Feature Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-6">
-              <div className="flex items-start gap-3 p-3.5 rounded-xl bg-[var(--ink-3)]/60 border border-[var(--line-soft)]">
-                <div className="w-8 h-8 rounded-lg bg-[rgba(201,153,63,0.15)] border border-[rgba(201,153,63,0.3)] flex items-center justify-center text-[var(--gold-bright)] shrink-0">
+            <div className="students-gate-features">
+              <div className="students-gate-feature">
+                <div className="students-gate-feature-icon">
                   <Users size={16} />
                 </div>
                 <div>
-                  <div className="text-sm font-semibold text-[var(--text)]">Student Roster Management</div>
-                  <div className="text-xs text-[var(--text-muted)] mt-0.5">
-                    Link student Chess.com &amp; Lichess handles with private coaching notes and game archives.
+                  <div className="students-gate-feature-title">
+                    Student roster management
+                  </div>
+                  <div className="students-gate-feature-copy">
+                    Link student Chess.com &amp; Lichess handles with private
+                    coaching notes and game archives.
                   </div>
                 </div>
               </div>
 
-              <div className="flex items-start gap-3 p-3.5 rounded-xl bg-[var(--ink-3)]/60 border border-[var(--line-soft)]">
-                <div className="w-8 h-8 rounded-lg bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0">
+              <div className="students-gate-feature">
+                <div className="students-gate-feature-icon">
                   <BarChart3 size={16} />
                 </div>
                 <div>
-                  <div className="text-sm font-semibold text-[var(--text)]">5-Game Batch Audits</div>
-                  <div className="text-xs text-[var(--text-muted)] mt-0.5">
-                    Simultaneously scan multiple games on behalf of students to catch recurring tactical blindspots.
+                  <div className="students-gate-feature-title">
+                    5-game batch audits
+                  </div>
+                  <div className="students-gate-feature-copy">
+                    Scan multiple games on behalf of a student to catch recurring
+                    tactical blindspots.
                   </div>
                 </div>
               </div>
 
-              <div className="flex items-start gap-3 p-3.5 rounded-xl bg-[var(--ink-3)]/60 border border-[var(--line-soft)]">
-                <div className="w-8 h-8 rounded-lg bg-sky-500/15 border border-sky-500/30 flex items-center justify-center text-sky-400 shrink-0">
+              <div className="students-gate-feature">
+                <div className="students-gate-feature-icon">
                   <Share2 size={16} />
                 </div>
                 <div>
-                  <div className="text-sm font-semibold text-[var(--text)]">Branded Shareable Portals</div>
-                  <div className="text-xs text-[var(--text-muted)] mt-0.5">
-                    Generate one-click read-only links for parents &amp; students with interactive eval curves.
+                  <div className="students-gate-feature-title">
+                    Branded shareable portals
+                  </div>
+                  <div className="students-gate-feature-copy">
+                    One-click read-only links for parents &amp; students with
+                    interactive eval curves.
                   </div>
                 </div>
               </div>
 
-              <div className="flex items-start gap-3 p-3.5 rounded-xl bg-[var(--ink-3)]/60 border border-[var(--line-soft)]">
-                <div className="w-8 h-8 rounded-lg bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400 shrink-0">
+              <div className="students-gate-feature">
+                <div className="students-gate-feature-icon">
                   <Sparkles size={16} />
                 </div>
                 <div>
-                  <div className="text-sm font-semibold text-[var(--text)]">AI Coach Copilot &amp; Psychology</div>
-                  <div className="text-xs text-[var(--text-muted)] mt-0.5">
-                    Longitudinal rating trajectory, ACPL drift, clock panic curves, and AI coach Q&amp;A.
+                  <div className="students-gate-feature-title">
+                    Progress matrix &amp; shared homework
+                  </div>
+                  <div className="students-gate-feature-copy">
+                    Longitudinal rating trajectory, ACPL drift, clock panic
+                    curves, and study links you assign.
                   </div>
                 </div>
               </div>
             </div>
-          </div>
+          </section>
 
-          {/* Trust badge */}
-          <div className="flex items-center justify-center gap-6 text-xs text-[var(--text-muted)]">
-            <div className="flex items-center gap-1.5">
-              <ShieldCheck size={14} className="text-emerald-400" />
-              <span>Secure payments via Razorpay</span>
-            </div>
+          <div className="students-gate-foot">
+            <span className="inline-flex items-center gap-1.5">
+              <ShieldCheck size={14} className="text-[var(--green-bright)]" />
+              Secure payments via Razorpay
+            </span>
             <span>·</span>
-            <div>UPI AutoPay &amp; Cards accepted</div>
+            <span>UPI AutoPay &amp; cards accepted</span>
             <span>·</span>
-            <div>Cancel anytime with 1 click</div>
+            <span>Cancel anytime with 1 click</span>
           </div>
         </div>
       </main>

@@ -1,13 +1,11 @@
 "use client";
 
 import React, { useMemo } from "react";
-import { motion } from "motion/react";
+import PhaseMatrix from "./review/PhaseMatrix";
 
 type AccuracyChartProps = {
   data?: string;
 };
-
-const PHASE_LABELS = ["Opening", "Middlegame", "Endgame"];
 
 function parseAccuracy(data?: string): (number | null)[] {
   if (!data) {
@@ -30,6 +28,11 @@ function parseAccuracy(data?: string): (number | null)[] {
   return [];
 }
 
+/**
+ * The `<AccuracyChart data="[opening, middlegame, endgame]">` tag the reports
+ * embed. It renders the same phase matrix as the real `insights` data so an
+ * older report that only carried the tag still gets the showcase layout.
+ */
 export default function AccuracyChart({ data }: AccuracyChartProps) {
   const values = useMemo(() => parseAccuracy(data), [data]);
 
@@ -38,28 +41,11 @@ export default function AccuracyChart({ data }: AccuracyChartProps) {
   }
 
   return (
-    <div className="accuracy-chart" role="img" aria-label="Phase accuracy bar chart">
-      {PHASE_LABELS.map((label, index) => {
-        const value = values[index] ?? null;
-        const isNull = value === null;
-        return (
-          <div className="acc-bar-group" key={label}>
-            <span className="acc-value">{isNull ? "N/A" : Math.round(value)}%</span>
-            <div className="acc-bar-track">
-              {!isNull && (
-                <motion.div
-                  className="acc-bar-fill"
-                  initial={{ scaleX: 0 }}
-                  animate={{ scaleX: 1 }}
-                  transition={{ duration: 0.65, delay: index * 0.1, ease: "easeOut" }}
-                  style={{ width: `${value}%`, transformOrigin: "left" }}
-                />
-              )}
-            </div>
-            <span className="acc-label">{label}</span>
-          </div>
-        );
-      })}
-    </div>
+    <PhaseMatrix
+      variant="bars"
+      opening={values[0] ?? null}
+      middlegame={values[1] ?? null}
+      endgame={values[2] ?? null}
+    />
   );
 }

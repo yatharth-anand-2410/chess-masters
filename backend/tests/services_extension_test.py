@@ -5,13 +5,19 @@
 4. services.progress (Longitudinal student progress & 3-pillar mastery)
 5. services.copilot (Context-aware AI coach copilot)
 6. Registered FastAPI endpoints in main.py
+
+The progress and copilot tests run the real extraction path against a fake
+``analyses`` table: every number the report claims has to come from the seeded
+rows, and a real (non-demo) account with a thin history must come back
+``insufficient`` instead of a synthetic showcase profile.
 """
 
 from __future__ import annotations
 
 import sys
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from typing import Any, Dict, List
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
@@ -20,6 +26,83 @@ from main import app
 from services import copilot, draws, progress, scouting, studies
 
 client = TestClient(app)
+
+
+# ---------------------------------------------------------------------------
+# Seeded analyser fixture for progress / copilot (shape: Supabase rows)
+# ---------------------------------------------------------------------------
+
+
+def _progress_row(
+    index: int,
+    *,
+    rating: int | None = None,
+    accuracy: float | None = None,
+    motif: str = "Pin",
+    quality: str = "blunder",
+    cpl: int = 250,
+    clock: float | None = 10.0,
+    opponent: str = "Hikaru",
+) -> Dict[str, Any]:
+    """One completed analysis row with real telemetry, as Supabase returns it."""
+    rating = 1500 + index * 10 if rating is None else rating
+    accuracy = 80.0 if accuracy is None else accuracy
+    return {
+        "id": f"analysis-{index}",
+        "status": "completed",
+        "platform": "lichess",
+        "username": "tester",
+        "player_color": "white",
+        "player_name": "Tester",
+        "opening_name": "Sicilian Defence",
+        "result": "1-0",
+        "created_at": f"2026-09-{index + 1:02d}T10:00:00Z",
+        "pgn": (
+            f'[WhiteElo "{rating}"]\n'
+            f'[BlackElo "{rating - 20}"]\n'
+            f'[TimeControl "300+0"]\n'
+        ),
+        "insights": {
+            "weakness_moments": [
+                {
+                    "move_number": 20 + index,
+                    "quality": quality,
+                    "centipawn_loss": cpl,
+                    "clock_remaining": clock,
+                    "motif": motif,
+                    "resource_theme": motif.lower(),
+                }
+            ]
+        },
+        "game_summary": {
+            "speed": "blitz",
+            "time_control": "300+0",
+            "username": "tester",
+            "platform": "lichess",
+            "player_elo": rating,
+            "opponent_name": opponent,
+            "opponent_elo": rating - 20,
+            "accuracy": accuracy,
+            "phase_accuracies": {
+                "opening": 80.0 + index,
+                "middlegame": 70.0 + index,
+                "endgame": 60.0 + index,
+            },
+            "quality": {"blunder": 1, "mistake": 1, "inaccuracy": 2},
+        },
+    }
+
+
+def _patch_progress_db(rows: List[Dict[str, Any]]):
+    """Install a fake ``analyses`` table on ``services.progress.db``."""
+    return patch.multiple(
+        progress.db,
+        configured=lambda: True,
+        get_student_by_id=lambda student_id: None,
+        get_user_profile=lambda user_id: None,
+        list_analyses=lambda user_id, limit=50: list(rows),
+        list_analyses_by_student=lambda user_id, student_id, limit=100: list(rows),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -200,30 +283,100 @@ def test_scout_endpoint():
 
 
 def test_student_progress_report():
-    report = progress.build_student_progress("student_uuid_12345")
-    assert report.student_id == "student_uuid_12345"
-    assert report.elo_trajectory.current_rating > 1000
-    assert len(report.elo_trajectory.series) > 0
-    assert len(report.acpl_drift.chunk_series) > 0
-    assert report.phase_accuracy.opening_current > 0
-    # Verify 3 Pillars
-    assert len(report.three_pillar_mastery.what_has_improved) > 0
-    assert len(report.three_pillar_mastery.what_is_improving) > 0
-    assert len(report.three_pillar_mastery.what_needs_work) > 0
-    # Verify persona profile
-    assert report.persona_profile.archetype is not None
-    assert len(report.persona_profile.radar_metrics) == 6
-    assert len(report.actionable_focus_rules) >= 3
+    """A seeded six-game history yields real numbers, never the demo profile."""
+    rows = [
+        _progress_row(
+            index,
+            accuracy=80.0 + index,
+            motif="Pin" if index % 3 == 0 else "Fork",
+        )
+        for index in range(6)
+    ]
+    with _patch_progress_db(rows):
+        report = progress.build_student_progress("real-user-12345")
+
+    assert report.student_id == "real-user-12345"
+    assert report.insufficient is False
+    assert report.games_used == 6
+    assert report.identity.total_games == 6
+
+    # Ratings and accuracy come from the seeded rows (1500..1550).
+    assert report.elo.starting == 1500
+    assert report.elo.current == 1550
+    assert report.elo.peak == 1550
+    assert report.elo.net_gain == 50
+    assert len(report.elo.series) == 6
+    assert report.accuracy.series[-1].accuracy == 85.0
+    assert report.movement  # six games are enough for before/after windows
+
+    # Leaks are the real motifs of the seeded moments.
+    assert sum(cause.count for cause in report.root_causes) == 6
+    assert {cause.category for cause in report.root_causes} == {"Pin", "Fork"}
+    assert report.pillars.needs_work
+    assert report.persona.archetype != ""
+    assert report.focus_rules
+
+    # The synthetic showcase profile (Aarav, 2077 -> 2145) is never used for a
+    # real account.
+    assert report.elo.current != 2145
+    assert "aarav" not in report.student_name.lower()
+    assert report.identity.accounts[0].username == "tester"
+
+
+def test_student_progress_report_is_honest_when_thin():
+    """Fewer than four games: single-game facts survive, nothing is invented."""
+    with _patch_progress_db([_progress_row(0), _progress_row(1)]):
+        report = progress.build_student_progress("aarav-sharma-123")
+
+    assert report.insufficient is True
+    assert report.games_used == 2
+    assert report.elo.starting == 1500
+    assert report.elo.current == 1510
+    assert report.elo.status == ""
+    assert report.movement == []
+    assert report.pillars.improved == []
+    assert report.pillars.needs_work == []
+    assert report.radar == []
+    assert report.persona.archetype == ""
+    assert report.acpl.baseline is None
+    assert report.phases.best_phase is None
+    # Real leak counts still show what the engine measured.
+    assert sum(cause.count for cause in report.root_causes) == 2
+    assert report.elo.current != 2145
+    assert "aarav" not in report.student_name.lower()
 
 
 def test_student_progress_endpoint():
-    response = client.get("/api/student/student_uuid_12345/progress")
+    rows = [_progress_row(index, accuracy=80.0 + index) for index in range(6)]
+    with _patch_progress_db(rows):
+        response = client.get("/api/student/real-user-12345/progress")
+
     assert response.status_code == 200
     data = response.json()
-    assert data["student_id"] == "student_uuid_12345"
-    assert "three_pillar_mastery" in data
-    assert "what_has_improved" in data["three_pillar_mastery"]
-    assert "persona_profile" in data
+    assert data["student_id"] == "real-user-12345"
+    assert data["insufficient"] is False
+    assert data["elo"]["current"] == 1550
+    # The payload is the new typed report, not the legacy shim objects.
+    assert "pillars" in data
+    assert "improved" in data["pillars"]
+    assert "persona" in data
+    assert "archetype" in data["persona"]
+    assert "three_pillar_mastery" not in data
+    assert "persona_profile" not in data
+    assert data["elo"]["current"] != 2145
+
+
+def test_student_progress_endpoint_is_insufficient_for_a_thin_history():
+    with _patch_progress_db([_progress_row(0)]):
+        response = client.get("/api/student/real-user-99999/progress")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["insufficient"] is True
+    assert data["games_used"] == 1
+    assert data["movement"] == []
+    assert data["persona"]["archetype"] == ""
+    assert data["elo"]["current"] == 1500
 
 
 # ---------------------------------------------------------------------------
@@ -232,17 +385,45 @@ def test_student_progress_endpoint():
 
 
 def test_copilot_heuristic_fallback():
-    req = copilot.CopilotQueryRequest(
-        query="How do I avoid blundering under 30 seconds in Blitz?",
-        player_color="white",
-        student_id="student_123",
-    )
-    import asyncio
-    res = asyncio.run(copilot.answer_copilot_query(req, client=None))
+    """A real account with no analyzed games still gets an honest answer."""
+    with _patch_progress_db([]):
+        req = copilot.CopilotQueryRequest(
+            query="How do I avoid blundering under 30 seconds in Blitz?",
+            player_color="white",
+            student_id="student_123",
+        )
+        import asyncio
+
+        res = asyncio.run(copilot.answer_copilot_query(req, client=None))
+
     assert res.source == "heuristic-engine"
     assert "30 seconds" in res.answer or "clock" in res.answer.lower()
     assert len(res.suggested_actions) > 0
     assert len(res.anchored_facts) > 0
+    # The anchored facts describe the empty history instead of inventing one.
+    assert any("no rated games" in fact for fact in res.anchored_facts)
+    assert all("2145" not in fact for fact in res.anchored_facts)
+    assert "Current Cohort Telemetry" not in res.answer
+
+
+def test_copilot_reads_the_real_progress_attributes():
+    """Copilot anchors on ``persona`` / ``pillars`` / ``elo`` (no legacy shims)."""
+    rows = [_progress_row(index, accuracy=80.0 + index) for index in range(6)]
+    with _patch_progress_db(rows):
+        req = copilot.CopilotQueryRequest(
+            query="Where am I losing points?",
+            player_color="white",
+            student_id="real-user-1",
+        )
+        import asyncio
+
+        res = asyncio.run(copilot.answer_copilot_query(req, client=None))
+
+    joined = " ".join(res.anchored_facts)
+    assert "tester" in joined
+    assert "1550 Elo" in joined
+    assert "Pin" in joined or "Fork" in joined
+    assert "Current Cohort Telemetry" in res.answer
 
 
 def test_copilot_fen_tactics_detection():

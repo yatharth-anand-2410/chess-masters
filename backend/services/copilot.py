@@ -13,7 +13,7 @@ import json
 import logging
 import os
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import chess
 from google import genai
@@ -133,11 +133,18 @@ def _generate_heuristic_answer(
         ])
 
     if student_report:
-        persona = student_report.persona_profile
-        answer_parts.append(
-            f"\n\n**Current Cohort Telemetry:** You are playing as a *{persona.archetype}*. "
-            f"Your next strategic milestone: {persona.next_milestone}"
-        )
+        persona = student_report.persona
+        telemetry_parts: List[str] = []
+        if persona.archetype:
+            telemetry_parts.append(f"You are playing as a *{persona.archetype}*.")
+        if persona.next_milestone:
+            telemetry_parts.append(
+                f"Your next strategic milestone: {persona.next_milestone}"
+            )
+        if telemetry_parts:
+            answer_parts.append(
+                "\n\n**Current Cohort Telemetry:** " + " ".join(telemetry_parts)
+            )
 
     return "\n\n".join(answer_parts), actions
 
@@ -174,12 +181,29 @@ async def answer_copilot_query(
     if request.student_id:
         try:
             student_report = progress.build_student_progress(request.student_id, coach_id=request.user_id)
-            anchored_facts.append(f"Student: {student_report.student_name} ({student_report.elo_trajectory.current_rating} Elo)")
-            anchored_facts.append(f"Persona: {student_report.persona_profile.archetype}")
-            # Add top leak
-            if student_report.three_pillar_mastery.what_needs_work:
-                top_leak = student_report.three_pillar_mastery.what_needs_work[0]
+            rating = student_report.elo.current
+            if rating > 0:
+                anchored_facts.append(
+                    f"Student: {student_report.student_name} ({rating:.0f} Elo)"
+                )
+            else:
+                anchored_facts.append(
+                    f"Student: {student_report.student_name} "
+                    "(no rated games in the analyzed set)"
+                )
+            if student_report.persona.archetype:
+                anchored_facts.append(f"Persona: {student_report.persona.archetype}")
+            # Add the top leak: a pillar when the window is rich enough, else
+            # the largest root cause the engine still measured.
+            if student_report.pillars.needs_work:
+                top_leak = student_report.pillars.needs_work[0]
                 anchored_facts.append(f"Primary Leak: {top_leak.title} ({top_leak.metric})")
+            elif student_report.root_causes:
+                cause = student_report.root_causes[0]
+                anchored_facts.append(
+                    f"Primary Leak: {cause.category} "
+                    f"({cause.percentage}% of the recorded key errors)"
+                )
         except Exception as exc:
             logger.debug("Could not load student progress for %s: %s", request.student_id, exc)
 
@@ -205,7 +229,7 @@ async def answer_copilot_query(
                 "player_color": request.player_color,
                 "anchored_facts": anchored_facts,
                 "detected_motifs": detected_motifs,
-                "persona": student_report.persona_profile.archetype if student_report else None,
+                "persona": student_report.persona.archetype if student_report else None,
             }
             model_name = os.environ.get("GEMINI_MODEL", DEFAULT_MODEL)
             response = await client.aio.models.generate_content(

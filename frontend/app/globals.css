@@ -21,30 +21,60 @@
   --radius-control: var(--radius-control);
 }
 
+/**
+ * DUAL-WORLD DESIGN CONTRACT — mirrors design-ideas/full-design-showcase.html
+ * "Ink world" = shell, nav, cockpits, dark telemetry.
+ * "Paper world" = the coaching report canvas and editorial surfaces.
+ * Keep these values in lockstep with the showcase :root block.
+ */
 :root {
-  --ink: #0c1214;
-  --ink-2: #131c1f;
-  --ink-3: #1b262a;
-  --line: #29373b;
-  --line-soft: #1f2b2f;
-  --text: #ece6d8;
-  --text-muted: #8b9c9c;
+  /* THE INK WORLD */
+  --ink-0: #040708;
+  --ink-1: #080c0e;
+  --ink: #080c0e; /* legacy alias → ink-1 (body background) */
+  --ink-2: #0f1518;
+  --ink-3: #151f24;
+  --ink-4: #1d2b32;
+  --text: #f0f4f5;
+  --text-muted: #8fa0a8;
+  --line: rgba(255, 255, 255, 0.08);
+  --line-strong: rgba(255, 255, 255, 0.16);
+  --line-soft: rgba(255, 255, 255, 0.05);
+
+  /* GOLD TOURNAMENT ACCENTS (SHELL / INK ONLY) */
   --gold: #c9993f;
   --gold-bright: #e2b65f;
-  --green: #6fa383;
-  --red: #c96a5a;
+  --gold-glow: rgba(226, 182, 95, 0.15);
+
+  /* THE PAPER WORLD */
+  --paper: #f4eee2;
+  --paper-2: #eae3d2;
+  --paper-inset: #ded6c1;
+  --paper-line: rgba(28, 23, 18, 0.12);
+  --ink-text: #1c1712;
+  --paper-text: #1c1712;
+  --paper-muted: #5a5247;
+  --ink-muted: #4d5a53;
+
+  /* FUNCTIONAL ACCENTS — pick by surface: ink uses the bright row, paper the deep row */
+  --green: #6fa383; /* ink-surface muted success (legacy) */
+  --green-bright: #22c55e; /* ink win / gain (showcase --green) */
+  --green-paper: #15803d; /* paper win / brilliant */
+  --red: #c96a5a; /* ink-surface muted danger (legacy) */
+  --red-bright: #ef4444; /* ink blunder (showcase --red) */
   --amber: #d3a24a;
+  --warn: #f59e0b;
+  --cyan: #06b6d4; /* Stockfish telemetry vector */
   --teal-light: #57a496;
-  --paper: #f3ecdc;
-  --paper-2: #e9e1cd;
-  --paper-line: #d6cbb1;
-  --ink-text: #202725;
-  --paper-text: #202725;
-  --paper-muted: #4d5a53;
-  --ink-muted: #4d5a53; /* upgraded from #5f6a62 to clear 5.55:1 AA on paper-2 */
   --bronze: #7d5a1c;
   --teal: #2f6b62;
   --oxblood: #7d3527;
+
+  /* CHESSBOARD PALETTE (Classical Tournament Wood) */
+  --sq-light: #e0d0b0;
+  --sq-dark: #8c6a46;
+  --sq-hl: rgba(226, 182, 95, 0.5);
+  --sq-blunder: rgba(239, 68, 68, 0.55);
 
   /* surface-scoped accents — the safe way to reach an accent */
   --accent: var(--teal);        /* paper: 5.25:1 */
@@ -53,12 +83,13 @@
   --hair: 1px solid var(--paper-line);
   --hair-shell: 1px solid var(--line-soft);
 
-  --radius-card: 10px;
-  --radius-control: 6px;
-  --input-bg: #0e1619;
-  --input-line: #3b4d51;
+  --radius-card: 12px; /* showcase --radius */
+  --radius-control: 8px; /* showcase --radius-ctl */
+  --input-bg: #0f1518;
+  --input-line: rgba(255, 255, 255, 0.16);
   --font-display: Georgia, "Times New Roman", serif;
   --font-body: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "DM Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
 * {
@@ -103,7 +134,7 @@ body {
 }
 
 .dashboard {
-  width: min(1180px, 100%);
+  width: min(1440px, 100%);
   margin: 0 auto;
   padding: 1.25rem 1.5rem 2.5rem;
 }
@@ -2657,11 +2688,13 @@ body:has(.analysis-dashboard) .site-footer {
 }
 
 .legal-dashboard {
-  width: min(860px, 100%);
+  /* Same shell as every other page — the reading column below keeps its own
+     measure so long-form text stays readable at the wider width. */
+  width: min(1440px, 100%);
 }
 
 .legal-page {
-  max-width: 720px;
+  max-width: 100%;
   padding: 2.5rem 0 1rem;
   animation: rise 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) both;
 }
@@ -2686,19 +2719,23 @@ body:has(.analysis-dashboard) .site-footer {
 .legal-page p {
   margin: 0 0 1rem;
   color: var(--text-muted);
+  max-width: 92ch;
 }
 
 .legal-page ul {
   margin: 0 0 1rem;
   padding-left: 1.3rem;
   color: var(--text-muted);
+  max-width: 92ch;
 }
 
 .legal-page li {
   margin-bottom: 0.5rem;
 }
 
-.legal-page a {
+/* Prose links only: a real <Button>/<a class="btn"> keeps its own contrast
+   (dark ink on gold) instead of inheriting the gold prose colour. */
+.legal-page a:not(.btn):not([class*="btn-"]) {
   color: var(--gold-bright);
 }
 
@@ -4337,11 +4374,17 @@ body:has(.analysis-dashboard) .site-footer {
    --------------------------------------------------------------------------- */
 
 .content-dashboard {
-  width: min(860px, 100%);
+  /* Same shell width as the app pages. */
+  width: min(1440px, 100%);
 }
 
 .content-page {
-  max-width: 720px;
+  max-width: 100%;
+}
+
+.content-page p,
+.content-page li {
+  max-width: 92ch;
 }
 
 .content-page h3 {
@@ -4919,4 +4962,160 @@ body:has(.analysis-dashboard) .site-footer {
   .student-card-actions {
     flex-wrap: wrap;
   }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   APP DOCK (BOTTOM PAGE SWITCHER + SOUND)
+   Mirrors .showcase-dock in design-ideas/full-design-showcase.html.
+   ──────────────────────────────────────────────────────────────────────────── */
+body.has-dock {
+  padding-bottom: 4.75rem;
+}
+
+.app-dock {
+  position: fixed;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  background: rgba(8, 12, 14, 0.96);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  padding: 0.35rem 0.55rem;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.75);
+  max-width: 96vw;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.app-dock-label {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  color: var(--gold-bright);
+  font-weight: 700;
+  padding: 0 0.35rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+
+.app-dock-btn {
+  padding: 0.28rem 0.6rem;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.app-dock-btn:hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.app-dock-btn.is-active {
+  background: var(--gold);
+  color: #141712;
+  font-weight: 700;
+}
+
+.app-dock-divider {
+  width: 1px;
+  height: 16px;
+  background: var(--line);
+  margin: 0 0.15rem;
+  flex-shrink: 0;
+}
+
+.app-dock-sound {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.28rem 0.55rem;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 0.72rem;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: opacity 0.15s ease, color 0.15s ease;
+}
+
+.app-dock-sound:hover {
+  color: var(--text);
+}
+
+.app-dock-sound.is-muted {
+  opacity: 0.5;
+}
+
+@media (max-width: 560px) {
+  body.has-dock {
+    padding-bottom: 4.25rem;
+  }
+
+  .app-dock {
+    bottom: 10px;
+    padding: 0.3rem 0.4rem;
+  }
+
+  .app-dock-label {
+    display: none;
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   SOUND TOGGLE (shared by the Topbar and the Dock)
+   ──────────────────────────────────────────────────────────────────────────── */
+.sound-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.28rem 0.55rem;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 0.72rem;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: opacity 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.sound-toggle:hover {
+  color: var(--text);
+  border-color: var(--line-strong);
+}
+
+.sound-toggle-icon {
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  justify-content: center;
+  font-size: 0.85rem;
+}
+
+.sound-toggle[aria-pressed="false"] {
+  opacity: 0.5;
+}
+
+.app-dock .sound-toggle {
+  border-color: var(--line);
 }

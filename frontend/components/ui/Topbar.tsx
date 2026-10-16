@@ -2,14 +2,16 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import type { User } from "@supabase/supabase-js";
 import { Menu, X, ChevronDown, Check, AlertCircle, Sparkles } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
-import type { Usage } from "../../lib/api";
+import { apiGet } from "../../lib/api";
+import type { Usage, UserProfile } from "../../lib/api";
 import { createClient } from "../../lib/supabase-client";
 import { Pill } from "./Pill";
 import { Button } from "./Button";
+import SoundToggle from "./SoundToggle";
 
 export type TopbarProps = {
   user?: User | null;
@@ -45,13 +47,30 @@ export function GoogleIcon({ className = "w-4 h-4" }: { className?: string }) {
   );
 }
 
-const NAV_ITEMS = [
-  { href: "/", label: "Review", matcher: (p: string) => p === "/" || p.startsWith("/analysis") },
-  { href: "/progress", label: "Progress", matcher: (p: string) => p.startsWith("/progress") },
-  { href: "/studies", label: "Studies", matcher: (p: string) => p.startsWith("/studies") || p.startsWith("/study") },
-  { href: "/scout", label: "Scout", matcher: (p: string) => p.startsWith("/scout") },
-  { href: "/subscription", label: "Subscription", matcher: (p: string) => p.startsWith("/subscription") || p.startsWith("/upgrade") },
-  { href: "/history", label: "History", matcher: (p: string) => p.startsWith("/history") },
+type NavItem = {
+  href: string;
+  label: string;
+  matcher: (p: string) => boolean;
+  /** Rendered only for coach accounts. */
+  coachOnly?: boolean;
+};
+
+const BASE_NAV_ITEMS: NavItem[] = [
+  { href: "/", label: "Review", matcher: (p) => p === "/" || p.startsWith("/analysis") },
+  { href: "/progress", label: "Progress", matcher: (p) => p.startsWith("/progress") },
+  { href: "/studies", label: "Studies", matcher: (p) => p.startsWith("/studies") || p.startsWith("/study") },
+  { href: "/scout", label: "Scout", matcher: (p) => p.startsWith("/scout") },
+  {
+    href: "/coach",
+    label: "Students",
+    matcher: (p) => p.startsWith("/coach"),
+    coachOnly: true,
+  },
+  { href: "/subscription", label: "Subscription", matcher: (p) => p.startsWith("/subscription") || p.startsWith("/upgrade") },
+  { href: "/history", label: "History", matcher: (p) => p.startsWith("/history") },
+  { href: "/tactics", label: "Tactics", matcher: (p) => p.startsWith("/tactics") },
+  { href: "/about", label: "About", matcher: (p) => p.startsWith("/about") },
+  { href: "/faq", label: "FAQ", matcher: (p) => p.startsWith("/faq") },
 ];
 
 export function Topbar({
@@ -67,8 +86,60 @@ export function Topbar({
   const [menuOpen, setMenuOpen] = useState(false);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   const [internalUser, setInternalUser] = useState<User | null>(user ?? null);
+  const [internalRole, setInternalRole] = useState<"player" | "coach" | null>(role ?? null);
   const [authBusy, setAuthBusy] = useState(false);
   const [authNotice, setAuthNotice] = useState<string | null>(null);
+
+  /**
+   * Pages that don't pass `role` (Progress, History, Studies, …) still need the
+   * Students tab for coach accounts — and the bottom dock resolves the role the
+   * same way, so the two surfaces can never disagree.
+   */
+  useEffect(() => {
+    if (role) {
+      setInternalRole(role);
+      return;
+    }
+    let cancelled = false;
+    const loadRole = async () => {
+      try {
+        const supabase = createClient();
+        const { data } = await supabase.auth.getSession();
+        const token = data.session?.access_token;
+        if (!token) {
+          if (!cancelled) {
+            setInternalRole(null);
+          }
+          return;
+        }
+        const profile = await apiGet<UserProfile>("/api/account/profile", token).catch(() => null);
+        if (!cancelled) {
+          setInternalRole(profile?.role ?? null);
+        }
+      } catch {
+        if (!cancelled) {
+          setInternalRole(null);
+        }
+      }
+    };
+    void loadRole();
+    const handler = () => void loadRole();
+    window.addEventListener("cm_auth_changed", handler);
+    window.addEventListener("cm_students_changed", handler);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("cm_auth_changed", handler);
+      window.removeEventListener("cm_students_changed", handler);
+    };
+  }, [role]);
+
+  const effectiveRole = role ?? internalRole;
+
+  // "Students" replaces the old "Coach" entry and is only for coach accounts.
+  const navItems = useMemo(
+    () => BASE_NAV_ITEMS.filter((item) => !item.coachOnly || effectiveRole === "coach"),
+    [effectiveRole]
+  );
 
   // Sync internal user state with Supabase session and localStorage demo state
   useEffect(() => {
@@ -158,10 +229,10 @@ export function Topbar({
         provider: "google",
         options: {
           redirectTo,
-          queryParams: {
-            access_type: "offline",
-            prompt: "consent",
-          },
+          // No extra Google params on purpose: Supabase manages offline access
+          // and the refresh token itself, and injecting access_type/prompt here
+          // is what produced Google's "Error 400: invalid_request" (the
+          // deployed production request carries neither).
         },
       });
 
@@ -232,52 +303,33 @@ export function Topbar({
         )}
       </AnimatePresence>
 
-      <div className="flex items-center justify-between gap-2 md:gap-4 max-w-7xl mx-auto">
+      <div className="flex items-center justify-between gap-2 md:gap-4 max-w-[1440px] mx-auto flex-wrap">
         {/* Left: Brand Wordmark */}
-        <div className="flex items-center gap-4 lg:gap-6 shrink-0">
+        <div className="flex items-center gap-3 lg:gap-6 min-w-0 flex-1 xl:flex-none">
           <Link
             href="/"
             onClick={closeMenu}
-            className="inline-flex items-center gap-2 font-serif text-lg sm:text-xl font-bold tracking-tight text-[var(--text)] hover:text-white transition-colors group"
+            className="shrink-0 inline-flex items-center gap-2 font-serif text-lg sm:text-xl font-bold tracking-tight text-[var(--text)] hover:text-white transition-colors group"
           >
             <span className="w-7 h-7 rounded-md bg-[var(--gold)]/10 border border-[var(--gold)]/30 flex items-center justify-center text-[var(--gold-bright)] text-sm group-hover:scale-105 transition-transform">
               ♜
             </span>
-            <span className="hidden xs:inline">Chessmasters</span>
+            <span className="hidden sm:inline">Chessmasters</span>
           </Link>
-
-          {/* Desktop Navigation Links */}
-          <nav className="hidden lg:flex items-center gap-1">
-            {NAV_ITEMS.map((item) => {
-              const active = item.matcher(pathname);
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={`px-2.5 py-1.5 text-xs font-medium rounded-[var(--radius-control)] transition-all ${
-                    active
-                      ? "text-[var(--gold-bright)] bg-[var(--ink-3)] font-semibold shadow-xs"
-                      : "text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--ink-2)]"
-                  }`}
-                >
-                  {item.label}
-                </Link>
-              );
-            })}
-          </nav>
         </div>
 
-        {/* Center / Secondary Links on Mid Screens (720px - 1024px) */}
-        <nav className="hidden md:flex lg:hidden items-center gap-1">
-          {NAV_ITEMS.slice(0, 5).map((item) => {
+        {/* Navigation Links — the full tab set. Below lg it takes its own row
+            under the brand + actions so nothing is clipped. */}
+        <nav data-nav="primary" className="hidden md:flex items-center flex-wrap gap-0.5 order-last w-full xl:order-none xl:w-auto xl:flex-1 xl:justify-center">
+          {navItems.map((item) => {
             const active = item.matcher(pathname);
             return (
               <Link
                 key={item.href}
                 href={item.href}
-                className={`px-2 py-1 text-xs font-medium rounded-md transition-colors ${
+                className={`px-1.5 py-1.5 text-xs font-medium rounded-[var(--radius-control)] transition-all whitespace-nowrap ${
                   active
-                    ? "text-[var(--gold-bright)] bg-[var(--ink-3)] font-semibold"
+                    ? "text-[var(--gold-bright)] bg-[var(--ink-3)] font-semibold shadow-xs"
                     : "text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--ink-2)]"
                 }`}
               >
@@ -288,7 +340,10 @@ export function Topbar({
         </nav>
 
         {/* Right: Actions Container (>= 560px Desktop Container required by e2e-audit) */}
-        <div className="hidden sm:flex items-center gap-2 lg:gap-3">
+        <div className="hidden sm:flex items-center gap-2 lg:gap-3 shrink-0">
+          {/* Interface sound toggle — same preference as the bottom dock */}
+          <SoundToggle />
+
           {/* Free Tier Usage Pill */}
           {usage?.plan === "free" && (
             <Pill tone="neutral" size="sm">
@@ -300,7 +355,7 @@ export function Topbar({
           <button
             type="button"
             onClick={handleOpenAI}
-            className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-full bg-[var(--ink-2)] border border-[var(--line)] text-[var(--text-muted)] hover:text-[var(--text)] hover:border-[var(--gold)]/40 transition-all cursor-pointer shadow-xs group"
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-full whitespace-nowrap bg-[var(--ink-2)] border border-[var(--line)] text-[var(--text-muted)] hover:text-[var(--text)] hover:border-[var(--gold)]/40 transition-all cursor-pointer shadow-xs group"
             title="Open AI Coach Drawer (⌘K)"
             aria-label="Open AI Coach Drawer (⌘K)"
           >
@@ -336,21 +391,12 @@ export function Topbar({
                 type="button"
                 onClick={handleGoogleSignIn}
                 disabled={authBusy}
-                className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-white hover:bg-neutral-100 text-neutral-800 border border-neutral-300 rounded-[var(--radius-control)] text-xs font-semibold transition-all shadow-xs active:scale-95 cursor-pointer disabled:opacity-60"
+                className="inline-flex items-center gap-2 px-3.5 py-1.5 whitespace-nowrap bg-white hover:bg-neutral-100 text-neutral-800 border border-neutral-300 rounded-[var(--radius-control)] text-xs font-semibold transition-all shadow-xs active:scale-95 cursor-pointer disabled:opacity-60"
                 title="Sign in with your Google Account"
               >
                 <GoogleIcon className="w-3.5 h-3.5 shrink-0" />
                 <span>{authBusy ? "Connecting..." : "Sign in with Google"}</span>
               </button>
-
-              {/* Direct Login for Pankaj */}
-              <a
-                href="/auth/login-pankaj"
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[var(--ink-2)] hover:bg-[var(--gold)]/10 text-[var(--gold-bright)] border border-[var(--gold)]/30 rounded-[var(--radius-control)] text-xs font-medium transition-all shadow-xs cursor-pointer"
-                title="Sign in as www.pankajpankaj17@gmail.com"
-              >
-                <span>Sign in as Pankaj</span>
-              </a>
             </div>
           ) : (
             /* Signed In User Menu */
@@ -370,7 +416,7 @@ export function Topbar({
                     {displayName.split(" ")[0]}
                   </span>
                   <span className="text-[9px] font-mono text-[var(--text-muted)] leading-tight">
-                    {role === "coach" ? "Coach" : "Player"}
+                    {effectiveRole === "coach" ? "Coach" : "Player"}
                   </span>
                 </div>
                 <ChevronDown size={13} className="text-[var(--text-muted)]" />
@@ -393,7 +439,7 @@ export function Topbar({
                       </div>
                       <div className="mt-1 flex items-center gap-1.5">
                         <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                          {role === "coach" ? "Coach Account" : "Player Account"}
+                          {effectiveRole === "coach" ? "Coach Account" : "Player Account"}
                         </span>
                         {usage?.plan === "paid" && (
                           <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-[var(--gold)]/15 text-[var(--gold-bright)] border border-[var(--gold)]/30">
@@ -413,7 +459,7 @@ export function Topbar({
                           }}
                           className="w-full text-left px-3.5 py-2 hover:bg-[var(--ink-3)] text-[var(--text)] transition-colors flex items-center justify-between"
                         >
-                          <span>{role === "coach" ? "Switch to Player view" : "Switch to Coach mode"}</span>
+                          <span>{effectiveRole === "coach" ? "Switch to Player view" : "Switch to Coach mode"}</span>
                           <Check size={12} className="text-[var(--gold)]" />
                         </button>
                       )}
@@ -523,7 +569,7 @@ export function Topbar({
 
             {/* Mobile Nav Links: All 7 requested routes */}
             <div className="flex flex-col gap-1 text-sm font-medium">
-              {NAV_ITEMS.map((item) => {
+              {navItems.map((item) => {
                 const active = item.matcher(pathname);
                 return (
                   <Link
@@ -586,12 +632,6 @@ export function Topbar({
                     <GoogleIcon className="w-3.5 h-3.5" />
                     <span>Sign in with Google</span>
                   </button>
-                  <a
-                    href="/auth/login-pankaj"
-                    className="w-full py-1 text-center text-[11px] font-mono text-[var(--gold-bright)] hover:underline block"
-                  >
-                    Sign in as Pankaj
-                  </a>
                 </div>
               ) : (
                 <div className="p-2.5 rounded-lg bg-[var(--ink-2)] border border-[var(--line)] flex items-center justify-between">
@@ -602,7 +642,7 @@ export function Topbar({
                     <div>
                       <div className="font-semibold text-xs text-[var(--text)]">{displayName}</div>
                       <div className="text-[10px] text-[var(--gold-bright)] font-mono">
-                        {role ? role.toUpperCase() : "PLAYER"}
+                        {effectiveRole ? effectiveRole.toUpperCase() : "PLAYER"}
                       </div>
                     </div>
                   </div>

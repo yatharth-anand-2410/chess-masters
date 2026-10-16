@@ -16,6 +16,7 @@ import {
 import type { InsightsData, InsightMoment, Resource } from "./insights";
 import { findResourceForMoment, moveLabel, phaseLabel, stakesFor } from "./reportParsing";
 import { trackEvent } from "../lib/analytics";
+import { playSound } from "../lib/sound";
 import { Pill } from "./ui/Pill";
 import { Button } from "./ui/Button";
 
@@ -57,6 +58,7 @@ export default function DrillCard({ moment, insights, index, analysisId }: Drill
     if (correct) {
       setStatus("solved");
       setLive("Correct — that is the move you missed.");
+      playSound("brilliant");
     } else {
       setLive("Not the best move. Try again.");
     }

@@ -1,0 +1,1311 @@
+/* -----------------------------------------------------------------------------
+   studies workstream styles.
+   Owned by the studies workstream only - keep it scoped to .studies-* class names and the
+   primitives defined in globals.css (:root tokens, .btn, .pill, .card-shell).
+   Values must match design-ideas/full-design-showcase.html.
+   -------------------------------------------------------------------------- */
+
+/* --- shared bits ---------------------------------------------------------- */
+
+.studies-inline-note {
+  margin: 1rem 0 0;
+  padding: 0.7rem 0.9rem;
+  border-left: 2px solid var(--gold);
+  background: var(--ink-2);
+  border-radius: 0 var(--radius-control) var(--radius-control) 0;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  line-height: 1.55;
+}
+
+.studies-count-pill {
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--gold-bright);
+  background: rgba(201, 153, 63, 0.1);
+  border: 1px solid rgba(201, 153, 63, 0.3);
+  border-radius: 999px;
+  padding: 0.25rem 0.7rem;
+  white-space: nowrap;
+}
+
+.studies-section-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.studies-section-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.studies-section-sub {
+  margin: 0.3rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  max-width: 70ch;
+}
+
+.studies-skeleton {
+  min-height: 168px;
+  border: 1px dashed var(--line-soft);
+  background: linear-gradient(
+    100deg,
+    var(--ink-2) 30%,
+    var(--ink-3) 50%,
+    var(--ink-2) 70%
+  );
+  background-size: 220% 100%;
+  animation: studies-sheen 1.6s ease-in-out infinite;
+}
+
+@keyframes studies-sheen {
+  0% {
+    background-position: 120% 0;
+  }
+  100% {
+    background-position: -20% 0;
+  }
+}
+
+/* --- tactic cards (showcase .tactic-card / .tactics-grid) ----------------- */
+
+.studies-catalog {
+  margin: 2rem 0 0.5rem;
+}
+
+/* The catalog renders inside the article column, where `.legal-page` styles
+   outrank single-class selectors (`.legal-page p`, `.legal-page a`). These
+   scoped restatements keep the instrument panel looking like the showcase
+   instead of inheriting article-prose margins and link colours. */
+.studies-catalog .studies-section-title {
+  margin: 0;
+}
+
+.studies-catalog p {
+  margin: 0 0 0.4rem;
+}
+
+.studies-catalog .studies-tactic-desc,
+.studies-catalog .studies-tactic-aliases,
+.studies-catalog .studies-inline-note {
+  margin: 0;
+}
+
+.studies-catalog .studies-inline-note {
+  margin-top: 1rem;
+}
+
+.studies-catalog a.btn {
+  color: #181c16;
+}
+
+.studies-catalog .studies-tactic-chip-link,
+.studies-catalog .studies-card-link,
+.studies-catalog .studies-share-action,
+.studies-catalog .studies-share-source {
+  color: var(--text-muted);
+}
+
+.studies-tactics-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1.25rem;
+  margin-top: 1.25rem;
+}
+
+.studies-tactic-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  padding: 1.15rem 1.2rem;
+  background: var(--ink-2);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-card);
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+
+.studies-tactic-card:hover {
+  border-color: var(--gold);
+  transform: translateY(-2px);
+}
+
+.studies-tactic-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.studies-tactic-name {
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.25;
+}
+
+.studies-observed-chip {
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  color: var(--gold-bright);
+  background: rgba(226, 182, 95, 0.12);
+  border: 1px solid rgba(226, 182, 95, 0.32);
+  border-radius: 999px;
+  padding: 0.15rem 0.5rem;
+  white-space: nowrap;
+}
+
+.studies-tactic-desc {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.83rem;
+  line-height: 1.5;
+}
+
+.studies-tactic-aliases {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  opacity: 0.85;
+}
+
+.studies-tactic-aliases code {
+  color: var(--cyan);
+}
+
+.studies-tactic-links {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: auto;
+  padding-top: 0.35rem;
+}
+
+.studies-tactic-links-label {
+  font-family: var(--font-mono);
+  font-size: 0.64rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.studies-tactic-chip-link {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  padding: 0.15rem 0.45rem;
+  text-decoration: none;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.studies-tactic-chip-link:hover {
+  border-color: var(--gold);
+  color: var(--text);
+}
+
+.studies-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.65rem;
+}
+
+/* --- share menu ----------------------------------------------------------- */
+
+.studies-share {
+  position: relative;
+  display: inline-flex;
+}
+
+.studies-share-trigger,
+.studies-btn-quiet {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.7rem;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.studies-share-trigger:hover,
+.studies-btn-quiet:hover {
+  border-color: var(--gold);
+  color: var(--text);
+}
+
+.studies-share-panel {
+  position: absolute;
+  top: calc(100% + 0.4rem);
+  right: 0;
+  z-index: 40;
+  width: min(320px, 84vw);
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  padding: 0.9rem;
+  text-align: left;
+  background: var(--ink-3);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-card);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
+}
+
+.studies-share-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  color: var(--text);
+}
+
+.studies-share-sub {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  line-height: 1.45;
+}
+
+.studies-share-field,
+.studies-student-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.studies-share-field select,
+.studies-student-picker select {
+  font-family: var(--font-body);
+  font-size: 0.8rem;
+  letter-spacing: normal;
+  text-transform: none;
+  color: var(--text);
+  background: var(--ink-2);
+  border: 1px solid var(--input-line);
+  border-radius: var(--radius-control);
+  padding: 0.35rem 0.5rem;
+}
+
+.studies-share-create {
+  align-self: flex-start;
+  padding: 0.45rem 0.8rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #181c16;
+  background: var(--gold);
+  border: none;
+  border-radius: var(--radius-control);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.studies-share-create:hover:not(:disabled) {
+  background: var(--gold-bright);
+}
+
+.studies-share-create:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.studies-share-result {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.studies-share-link {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--gold-bright);
+  background: var(--ink-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  padding: 0.4rem 0.5rem;
+  overflow-wrap: anywhere;
+}
+
+.studies-share-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.studies-share-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.2rem 0.5rem;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  cursor: pointer;
+  text-decoration: none;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.studies-share-action:hover:not(:disabled) {
+  border-color: var(--gold);
+  color: var(--text);
+}
+
+.studies-share-action:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.studies-share-revoke {
+  color: var(--red);
+}
+
+.studies-share-views {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  color: var(--text-muted);
+}
+
+.studies-share-note {
+  margin: 0;
+  font-size: 0.72rem;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+
+.studies-share-note a {
+  color: var(--gold-bright);
+}
+
+.studies-share-note-upgrade {
+  color: var(--amber);
+}
+
+.studies-share-note-error {
+  color: var(--red);
+}
+
+.studies-share-source {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  text-decoration: none;
+}
+
+.studies-share-source:hover {
+  color: var(--gold-bright);
+}
+
+.studies-share-history {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding-top: 0.5rem;
+  border-top: 1px dashed var(--line);
+}
+
+.studies-share-history-label {
+  font-family: var(--font-mono);
+  font-size: 0.64rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.studies-share-history-item {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.74rem;
+}
+
+.studies-share-history-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
+}
+
+.studies-share-history-views {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  color: var(--text-muted);
+}
+
+/* --- studies page --------------------------------------------------------- */
+
+.studies-head-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1.25rem;
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.studies-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--gold-bright);
+}
+
+.studies-page-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.9rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+
+.studies-page-sub {
+  margin: 0.4rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  line-height: 1.6;
+  max-width: 72ch;
+}
+
+.studies-head-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.studies-count-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 1.1rem 0 1.25rem;
+}
+
+.studies-count-note {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+
+.studies-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1.25rem;
+}
+
+.studies-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+
+.studies-card:hover {
+  border-color: var(--gold);
+  transform: translateY(-2px);
+}
+
+.studies-card-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.studies-card-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.studies-chapters {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--gold-bright);
+  white-space: nowrap;
+}
+
+.studies-card-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.12rem;
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--text);
+}
+
+.studies-card-reason {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.83rem;
+  line-height: 1.55;
+}
+
+.studies-card-origin {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  opacity: 0.85;
+}
+
+.studies-card-actions .btn,
+.studies-card-primary {
+  align-self: auto;
+}
+
+.studies-card-actions {
+  margin-top: auto;
+  padding-top: 0.6rem;
+  border-top: 1px solid var(--line-soft);
+}
+
+.studies-card-link {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  text-decoration: none;
+}
+
+.studies-card-link:hover {
+  color: var(--gold-bright);
+}
+
+/* --- empty states --------------------------------------------------------- */
+
+.studies-empty {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.studies-empty-block {
+  padding: 2rem 1.5rem;
+  background: var(--ink-2);
+  border: 1px dashed var(--line-soft);
+  border-radius: var(--radius-card);
+}
+
+.studies-empty-glyph {
+  font-size: 1.8rem;
+  color: var(--gold);
+  line-height: 1;
+}
+
+.studies-empty-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.studies-empty-body {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.88rem;
+  line-height: 1.6;
+  max-width: 64ch;
+}
+
+.studies-empty-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.85rem;
+  margin-top: 0.35rem;
+}
+
+.studies-empty-foot {
+  margin: 0.35rem 0 0;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.studies-empty-foot a {
+  color: var(--gold-bright);
+}
+
+/* --- study detail --------------------------------------------------------- */
+
+.studies-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.studies-breadcrumb a {
+  color: var(--text-muted);
+  text-decoration: none;
+}
+
+.studies-breadcrumb a:hover {
+  color: var(--gold-bright);
+}
+
+.studies-detail-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.studies-detail-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.65rem;
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--text);
+}
+
+.studies-detail-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.55rem;
+}
+
+.studies-mono-chip {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  border: 1px solid var(--line-soft);
+  border-radius: 999px;
+  padding: 0.2rem 0.55rem;
+}
+
+.studies-detail-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.studies-detail-grid {
+  display: grid;
+  grid-template-columns: minmax(220px, 260px) minmax(0, 1fr);
+  gap: 1.25rem;
+  align-items: start;
+}
+
+.studies-chapter-rail {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem;
+  background: var(--ink-2);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-card);
+}
+
+.studies-rail-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.studies-rail-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.studies-rail-count {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+
+.studies-rail-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.studies-rail-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  width: 100%;
+  text-align: left;
+  padding: 0.6rem 0.7rem;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-control);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+
+.studies-rail-item:hover {
+  border-color: var(--line-strong);
+  color: var(--text);
+}
+
+.studies-rail-item.is-active {
+  background: var(--ink-3);
+  border-color: var(--gold);
+  color: var(--text);
+}
+
+.studies-rail-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+  font-family: var(--font-mono);
+  font-size: 0.64rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.studies-rail-live {
+  color: var(--gold-bright);
+}
+
+.studies-rail-name {
+  font-family: var(--font-display);
+  font-size: 0.88rem;
+  line-height: 1.3;
+}
+
+.studies-rail-moves {
+  font-family: var(--font-mono);
+  font-size: 0.64rem;
+  color: var(--text-muted);
+}
+
+.studies-rail-foot {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.studies-detail-main {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  min-width: 0;
+}
+
+.studies-dual {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.25rem;
+  align-items: start;
+}
+
+.studies-board-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 1rem;
+  background: var(--ink-2);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-card);
+}
+
+/* The shared drill board is styled for the paper report canvas; on this ink
+   surface it only needs the shell width capped and the border re-toned. */
+.studies-board-panel .drill-board-shell {
+  width: 100%;
+  max-width: 420px;
+  margin: 0;
+}
+
+.studies-board-panel .drill-board {
+  border-color: var(--line);
+  border-radius: var(--radius-control);
+}
+
+.studies-board-panel .drill-attempt-note {
+  text-align: center;
+}
+
+.studies-board-caption {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--gold-bright);
+  text-align: center;
+}
+
+.studies-notes-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.6rem;
+  padding: 1.25rem;
+  background: var(--ink-2);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-card);
+  align-self: stretch;
+}
+
+.studies-notes-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.studies-notes-body {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.88rem;
+  line-height: 1.6;
+}
+
+.studies-notes-fallback {
+  padding-left: 0.6rem;
+  border-left: 2px solid var(--line-strong);
+}
+
+.studies-notes-prompt {
+  margin: 0;
+  font-size: 0.84rem;
+  color: var(--text);
+}
+
+.studies-notes-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+  margin-top: auto;
+  padding-top: 0.5rem;
+}
+
+.studies-move-line {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 1rem;
+  background: var(--ink-2);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-card);
+}
+
+.studies-move-line-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.studies-move-line-label {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.studies-move-line-glyph {
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  color: var(--gold-bright);
+}
+
+.studies-move-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.studies-move {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.45rem;
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  color: var(--text-muted);
+  background: var(--ink-3);
+  border: 1px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.studies-move:hover {
+  border-color: var(--line-strong);
+  color: var(--text);
+}
+
+.studies-move.is-active {
+  color: var(--gold-bright);
+  background: rgba(226, 182, 95, 0.1);
+  border-color: var(--gold);
+}
+
+.studies-move-dot {
+  display: inline-block;
+  width: 4px;
+  height: 4px;
+  margin-left: 0.3rem;
+  border-radius: 50%;
+  background: var(--gold);
+  vertical-align: middle;
+}
+
+.studies-move-text {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 0.76rem;
+  line-height: 1.7;
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+
+/* --- shared study / tactic payload (also used by the /s/{token} portal) ---- */
+
+.studies-shared-item {
+  display: flex;
+  flex-direction: column;
+  gap: 1.35rem;
+  margin-top: 1rem;
+}
+
+.studies-shared-head {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.studies-shared-tags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.studies-shared-views {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.studies-shared-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.7rem;
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--text);
+}
+
+.studies-shared-sub {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.95rem;
+  line-height: 1.6;
+  max-width: 72ch;
+}
+
+.studies-shared-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.35rem;
+}
+
+.studies-shared-circles {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0;
+}
+
+.studies-shared-circles code {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--gold-bright);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  padding: 0.15rem 0.45rem;
+}
+
+.studies-shared-label {
+  font-family: var(--font-mono);
+  font-size: 0.64rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.studies-shared-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  padding: 1.15rem 1.25rem;
+  background: var(--ink-2);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-card);
+}
+
+.studies-shared-h2 {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.studies-shared-count {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  border: 1px solid var(--line-soft);
+  border-radius: 999px;
+  padding: 0.1rem 0.45rem;
+}
+
+.studies-shared-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.studies-shared-chapter {
+  display: grid;
+  grid-template-columns: 2rem minmax(0, 1fr);
+  gap: 0.6rem;
+  align-items: start;
+}
+
+.studies-shared-index {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--gold-bright);
+  padding-top: 0.2rem;
+}
+
+.studies-shared-chapter-title {
+  font-family: var(--font-display);
+  font-size: 0.98rem;
+  color: var(--text);
+}
+
+.studies-shared-moves {
+  margin: 0.3rem 0 0;
+  font-family: var(--font-mono);
+  font-size: 0.76rem;
+  line-height: 1.7;
+  color: var(--gold-bright);
+  overflow-wrap: anywhere;
+}
+
+.studies-shared-note {
+  margin: 0.35rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.84rem;
+  line-height: 1.6;
+}
+
+.studies-shared-note-muted {
+  opacity: 0.85;
+}
+
+.studies-shared-line {
+  display: flex;
+  flex-direction: column;
+}
+
+.studies-shared-foot {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+/* --- responsive ----------------------------------------------------------- */
+
+@media (min-width: 1001px) {
+  /* /tactics lives in the article column (max 720px). The catalog is an
+     instrument panel rather than prose, so it is allowed to breathe slightly
+     wider than the text measure — never wider than `.legal-dashboard`. */
+  .studies-catalog {
+    margin-inline: -1.75rem;
+  }
+}
+
+@media (max-width: 1000px) {
+  .studies-tactics-grid,
+  .studies-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 900px) {
+  .studies-dual,
+  .studies-detail-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .studies-tactics-grid,
+  .studies-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .studies-head-row {
+    flex-direction: column;
+  }
+
+  .studies-page-title {
+    font-size: 1.6rem;
+  }
+
+  .studies-share-panel {
+    right: auto;
+    left: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .studies-tactic-card,
+  .studies-card,
+  .studies-rail-item,
+  .studies-move,
+  .studies-share-trigger {
+    transition: none;
+  }
+
+  .studies-tactic-card:hover,
+  .studies-card:hover {
+    transform: none;
+  }
+
+  .studies-skeleton {
+    animation: none;
+  }
+}
+
+
+/* ---------------------------------------------------------------------------
+   Layout polish: same shell width as the rest of the app, and an empty state
+   that reads as a deliberate panel instead of a full-width void.
+   -------------------------------------------------------------------------- */
+.studies-head-row {
+  align-items: flex-start;
+}
+
+.studies-page-sub {
+  max-width: 78ch;
+}
+
+.studies-count-row {
+  margin: 1.35rem 0 1.1rem;
+  padding-top: 1.1rem;
+  border-top: 1px solid var(--line-soft);
+}
+
+.studies-empty {
+  max-width: 860px;
+  gap: 0.85rem;
+  padding: 1.75rem 1.9rem;
+}
+
+.studies-empty-glyph {
+  font-size: 1.5rem;
+  line-height: 1;
+  color: var(--gold-bright);
+}
+
+.studies-empty-title {
+  font-size: 1.3rem;
+  letter-spacing: -0.01em;
+}
+
+.studies-empty-body {
+  max-width: 62ch;
+}
+
+.studies-empty .studies-empty-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 0.35rem;
+}
+
+.studies-empty-foot {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  max-width: 62ch;
+}
+
+.scout-gate-list {
+  display: grid;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.scout-gate-list li::before {
+  content: "✓";
+  color: var(--gold-bright);
+  margin-right: 0.5rem;
+}

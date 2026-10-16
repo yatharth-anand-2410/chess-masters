@@ -1,33 +1,6 @@
 import type { ReactNode } from "react";
 
-import {
-  BulbIcon,
-  CheckIcon,
-  ClockIcon,
-  PawnIcon,
-  ShieldIcon,
-  SwordsIcon,
-  XIcon,
-} from "./ReportIcons";
 import type { FocusPair } from "./reportParsing";
-
-/** Pick the icon that actually describes the habit, rather than a random glyph. */
-function iconFor(value: string) {
-  const text = value.toLowerCase();
-  if (/\b(clock|time|rush|hurry|seconds|minutes|think|slow)\b/.test(text)) {
-    return ClockIcon;
-  }
-  if (/\b(pawn|structure|isolated|doubled|backward|passed)\b/.test(text)) {
-    return PawnIcon;
-  }
-  if (/\b(defend|defence|defense|prophylaxis|safe|safety|guard|protect|king)\b/.test(text)) {
-    return ShieldIcon;
-  }
-  if (/\b(attack|tactic|fork|pin|skewer|capture|threat|forcing|check|sacrifice)\b/.test(text)) {
-    return SwordsIcon;
-  }
-  return BulbIcon;
-}
 
 type FocusAreasBoardProps = {
   pairs: FocusPair[];
@@ -36,11 +9,11 @@ type FocusAreasBoardProps = {
 };
 
 /**
- * Focus Areas as a contrastive Do / Don't list.
+ * Focus Areas as the showcase's Do / Don't action cards.
  *
- * A binary split is scannable before it is read: the reader sees what to stop
- * and what to start without parsing a paragraph. Rows degrade to a neutral
- * card when a bullet cannot be split cleanly.
+ * Each card is a ranked habit: what to stop on the left, what to start on the
+ * right. Bullets that cannot be split cleanly degrade into a single "Work on"
+ * card rather than losing their text.
  */
 export default function FocusAreasBoard({ pairs, fallback }: FocusAreasBoardProps) {
   if (pairs.length === 0) {
@@ -48,80 +21,42 @@ export default function FocusAreasBoard({ pairs, fallback }: FocusAreasBoardProp
   }
 
   return (
-    <section className="focus-board" aria-label="Focus areas">
+    <section className="review-focus-grid" aria-label="Focus areas">
       {pairs.map((pair, index) => {
-        const isPrimary = index === 0;
-        const rowClass = `focus-row${isPrimary ? " is-primary" : ""}`;
-
-        if (pair.kind === "raw") {
-          const RawIcon = iconFor(pair.raw);
+        if (pair.kind === "pair") {
           return (
-            <article className={`${rowClass} focus-row-raw`} key={pair.raw}>
-              <span className="focus-rank" aria-hidden="true">
+            <article className="review-focus-card" key={`${pair.dontText}-${pair.doText}`}>
+              <span className="review-focus-rank" aria-hidden="true">
                 {index + 1}
               </span>
-              <div className="focus-cell">
-                <span className="focus-tag focus-tag-do">
-                  <RawIcon className="focus-icon" />
-                  Work on
-                </span>
-                <p className="focus-text">{pair.raw}</p>
+              <div className="review-focus-dont">
+                <b>Don&apos;t:</b> {pair.dontText}
+              </div>
+              <div className="review-focus-do">
+                <b>Do:</b> {pair.doText}
               </div>
             </article>
           );
         }
 
-        if (pair.kind === "labelled") {
-          // The shape the coach already writes: a concept, then the tip.
-          const LabelIcon = iconFor(`${pair.label} ${pair.detail}`);
-          return (
-            <article className={`${rowClass} focus-row-raw`} key={`${pair.label}-${pair.detail}`}>
-              <span className="focus-rank" aria-hidden="true">
-                {index + 1}
-              </span>
-              <div className="focus-cell focus-cell-labelled">
-                <span className="focus-label">
-                  <LabelIcon className="focus-label-icon" />
-                  {pair.label}
-                </span>
-                <p className="focus-text">{pair.detail}</p>
-              </div>
-            </article>
-          );
-        }
-
-        const DoIcon = iconFor(pair.doText);
+        const label = pair.kind === "labelled" ? pair.label : "Work on";
+        const detail = pair.kind === "labelled" ? pair.detail : pair.raw;
         return (
-          <article className={rowClass} key={`${pair.dontText}-${pair.doText}`}>
-            <span className="focus-rank" aria-hidden="true">
+          <article className="review-focus-card is-single" key={`${label}-${detail}`}>
+            <span className="review-focus-rank" aria-hidden="true">
               {index + 1}
             </span>
-            <div className="focus-pair">
-              <div className="focus-cell focus-dont">
-                <span className="focus-tag focus-tag-dont">
-                  <XIcon className="focus-icon" />
-                  Don&apos;t
-                </span>
-                <p className="focus-text">{pair.dontText}</p>
-              </div>
-              <div className="focus-cell focus-do">
-                <span className="focus-tag focus-tag-do">
-                  <DoIcon className="focus-icon" />
-                  Do
-                </span>
-                <p className="focus-text">{pair.doText}</p>
-              </div>
+            <div className="review-focus-do">
+              <b>{label}:</b> {detail}
             </div>
           </article>
         );
       })}
 
       {fallback && (
-        <details className="report-details">
-          <summary className="report-details-summary">
-            Read the coach&apos;s full notes
-          </summary>
-          <div className="report-details-body">{fallback}</div>
+        <details className="review-details">
+          <summary>Read the coach&apos;s full notes</summary>
+          <div className="review-details-body">{fallback}</div>
         </details>
       )}
     </section>

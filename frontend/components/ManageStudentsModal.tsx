@@ -14,6 +14,7 @@ import {
   TrendingUp,
   Search,
   Sparkles,
+  Play,
 } from "lucide-react";
 import { createClient } from "../lib/supabase-client";
 import {
@@ -65,6 +66,13 @@ export default function ManageStudentsModal({
       setInternalOpen(false);
     }
   }, [isControlled, controlledOnClose]);
+
+  /** The roster, the progress page and the Dock all listen for this. */
+  const notifyStudentsChanged = useCallback(() => {
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("cm_students_changed"));
+    }
+  }, []);
 
   // Listen for global "open-manage-students" event
   useEffect(() => {
@@ -121,6 +129,7 @@ export default function ManageStudentsModal({
       setNotes("");
       setShowAddForm(false);
       await loadStudents(token);
+      notifyStudentsChanged();
       if (onStudentSelected) {
         onStudentSelected(newStudent);
       }
@@ -137,6 +146,7 @@ export default function ManageStudentsModal({
     try {
       await apiDelete(`/api/coach/students/${studentId}`, token);
       await loadStudents(token);
+      notifyStudentsChanged();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to archive student.");
     }
@@ -198,10 +208,11 @@ export default function ManageStudentsModal({
                 </div>
                 <div>
                   <h2 className="text-base font-semibold text-[var(--text)] font-serif">
-                    Coach Student Profiles
+                    Student Profiles
                   </h2>
                   <p className="text-xs text-[var(--text-muted)]">
-                    Manage student roster, track ratings, and associate game reviews
+                    Master Coach roster — attach a student to a review, open
+                    their progress, and copy their share link
                   </p>
                 </div>
               </div>
@@ -409,7 +420,7 @@ export default function ManageStudentsModal({
                       </div>
 
                       {/* Action buttons */}
-                      <div className="flex items-center gap-1.5 shrink-0">
+                      <div className="flex items-center gap-1.5 shrink-0 flex-wrap justify-end">
                         {/* Select for Analysis / Review */}
                         {onStudentSelected && (
                           <button
@@ -424,6 +435,20 @@ export default function ManageStudentsModal({
                           </button>
                         )}
 
+                        {/* Analyze a game for this student (dossier #analyze) */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            handleClose();
+                            router.push(`/coach/students/${student.id}#analyze`);
+                          }}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg bg-[var(--gold-bright)] hover:opacity-90 text-[#141712] transition-opacity cursor-pointer"
+                          title="Analyze a game for this student"
+                        >
+                          <Play size={13} />
+                          <span>Analyze</span>
+                        </button>
+
                         {/* View Progress */}
                         <button
                           type="button"
@@ -431,10 +456,11 @@ export default function ManageStudentsModal({
                             handleClose();
                             router.push(`/progress?student=${student.id}`);
                           }}
-                          className="p-1.5 rounded-lg text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--ink-3)] border border-[var(--line)] transition-colors cursor-pointer"
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-lg text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--ink-3)] border border-[var(--line)] transition-colors cursor-pointer"
                           title="View Student Progress & Leaks"
                         >
                           <TrendingUp size={14} />
+                          <span>View Progress</span>
                         </button>
 
                         {/* Copy Share Link */}

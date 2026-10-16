@@ -1,7 +1,8 @@
-import { memo } from "react";
+import { memo, type ReactNode } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
+
 import AccuracyChart from "./AccuracyChart";
 import DrillSection from "./DrillSection";
 import FocusAreasBoard from "./FocusAreasBoard";
@@ -9,6 +10,8 @@ import HeroRule from "./HeroRule";
 import LockedPsychologyPreview from "./LockedPsychologyPreview";
 import PsychologyPanel from "./PsychologyPanel";
 import SectionInsightBoards from "./SectionInsightBoards";
+import ChokeCard from "./review/ChokeCard";
+import PhaseMatrix from "./review/PhaseMatrix";
 import {
   isPsychologyProfile,
   type InsightsData,
@@ -16,10 +19,13 @@ import {
 } from "./insights";
 import {
   headingMatches,
+  heroWhy,
   isDrillable,
   parseFocusPairs,
   resolveNextGameRule,
+  resolveVerdict,
   splitSections,
+  type ResolvedVerdict,
   type Section,
 } from "./reportParsing";
 
@@ -31,6 +37,10 @@ type CoachingReportProps = {
   gamesAnalyzed?: number;
   /** Analysis id, forwarded to the drills so moves can be engine-validated. */
   analysisId?: string | null;
+  /** Paper-canvas header (platform pill, title, meta, canvas actions). */
+  header?: ReactNode;
+  /** Stored overall accuracy, rendered as the phase matrix's "Game Overall" pill. */
+  gameAccuracy?: number | null;
 };
 
 const EVALCHART_PATTERN =
@@ -75,6 +85,13 @@ function hideIncompleteChartTag(content: string): string {
   return content;
 }
 
+/** The real phase data renders the matrix, so drop the embedded chart tags. */
+function stripEmbeddedCharts(content: string): string {
+  return content
+    .replace(ACCURACYCHART_PATTERN, "")
+    .replace(EVALCHART_PATTERN, "");
+}
+
 const components = {
   evalchart: ({ node: _node, ...props }: { node?: unknown; data?: string }) => (
     <AccuracyChart {...props} />
@@ -83,29 +100,6 @@ const components = {
     <AccuracyChart {...props} />
   ),
 } as unknown as Components;
-
-/**
- * Sections that are held back until the end of the report.
- *
- * Strength and Weakness are the evidence behind the coaching, not the headline:
- * a reader wants to know what happened and what to do about it first. The rest
- * of the report keeps the order the coach wrote it in.
- */
-const TRAILING_SECTIONS = ["strength", "weakness"];
-
-function orderSections(sections: Section[]): Section[] {
-  const lead: Section[] = [];
-  const trailing: Section[] = [];
-  for (const section of sections) {
-    const heading = section.heading.toLowerCase();
-    if (TRAILING_SECTIONS.some((needle) => heading.includes(needle))) {
-      trailing.push(section);
-    } else {
-      lead.push(section);
-    }
-  }
-  return trailing.length > 0 ? [...lead, ...trailing] : sections;
-}
 
 function renderMarkdown(markdown: string) {
   return (
@@ -164,6 +158,58 @@ function PsychologySlot({
   return null;
 }
 
+/** The personalized one-liner, rendered above the Next Game Rule wedge. */
+function VerdictNote({ verdict }: { verdict: ResolvedVerdict }) {
+  return (
+    <div className="review-verdict" role="note">
+      <span className="review-verdict-kicker">Verdict</span>
+      <p className="review-verdict-line">{verdict.line}</p>
+      {verdict.detail && <p className="review-verdict-detail">{verdict.detail}</p>}
+    </div>
+  );
+}
+
+function isVerdictSection(section: Section): boolean {
+  return headingMatches(section, "verdict");
+}
+
+function isRuleSection(section: Section): boolean {
+  return headingMatches(section, "next game rule", "next-game rule");
+}
+
+function isFocusSection(section: Section): boolean {
+  return headingMatches(section, "focus areas", "focus");
+}
+
+function isResourcesSection(section: Section): boolean {
+  return headingMatches(section, "resources");
+}
+
+function isStrengthSection(section: Section): boolean {
+  return headingMatches(section, "strength");
+}
+
+function isWeaknessSection(section: Section): boolean {
+  return headingMatches(section, "weakness");
+}
+
+function isPsychologySection(section: Section): boolean {
+  return headingMatches(section, "psycholog");
+}
+
+const MOMENT_LIMIT_WEAKNESS = 3;
+const MOMENT_LIMIT_STRENGTH = 2;
+
+/**
+ * The paper editorial canvas.
+ *
+ * Order mirrors the showcase: psychology verdict, personalized verdict + the
+ * Next Game Rule wedge, the phase matrix, the choke verification card, focus
+ * areas, key moments, the replay drill arena and curated resources. Strength
+ * and Weakness stay reachable inside the closing notes disclosure — the moment
+ * cards above already carry their evidence — and the raw Markdown of any
+ * section a micro-component failed to parse is never hidden.
+ */
 export default function CoachingReport({
   content,
   insights,
@@ -171,19 +217,22 @@ export default function CoachingReport({
   psychologyLocked = false,
   gamesAnalyzed = 0,
   analysisId,
+  header,
+  gameAccuracy,
 }: CoachingReportProps) {
   const rawPsychology = insights?.psychology ?? null;
   const psychologyProfile = isPsychologyProfile(rawPsychology)
     ? rawPsychology
     : null;
   const showLockedPsychology = psychologyLocked && !psychologyProfile;
+  const sectionClassName = pending ? "report review-canvas report-pending" : "report review-canvas";
 
   const renderPsychologyHeader = () => {
     if (!psychologyProfile && !showLockedPsychology) {
       return null;
     }
     return (
-      <div className="report-section psychology-top-slot mb-6" data-slot="psychology-header">
+      <div className="review-psych-slot" data-slot="psychology-header">
         <PsychologySlot
           profile={psychologyProfile}
           locked={showLockedPsychology}
@@ -198,10 +247,8 @@ export default function CoachingReport({
       return null;
     }
     return (
-      <section
-        className="report report-pending"
-        aria-label="Generating coaching report"
-      >
+      <section className={sectionClassName} data-surface="paper" aria-label="Generating coaching report">
+        {header && <div className="review-canvas-header">{header}</div>}
         {renderPsychologyHeader()}
         <HeroRule rule={null} pending />
         <div className="report-skeleton" aria-hidden="true">
@@ -214,102 +261,199 @@ export default function CoachingReport({
   }
 
   const normalized = normalizeCharts(hideIncompleteChartTag(content));
-  const sections = orderSections(splitSections(normalized));
-  const sectionClassName = pending ? "report report-pending" : "report";
+  const phaseData = insights?.phase_accuracies ?? null;
+  const hasPhaseData = [phaseData?.opening, phaseData?.middlegame, phaseData?.endgame].some(
+    (value) => typeof value === "number" && Number.isFinite(value)
+  );
+  const source = hasPhaseData ? stripEmbeddedCharts(normalized) : normalized;
+  const sections = splitSections(source);
 
+  const verdict = resolveVerdict(sections, insights);
   const nextRule = resolveNextGameRule(sections, insights);
-  const hasDrills = (insights?.weakness_moments ?? []).some(isDrillable);
-  // The hero card already presents the rule, so drop it from the body to avoid
-  // showing the same sentence twice.
-  const ruleSectionIndex =
-    nextRule?.source === "rule-section"
-      ? sections.findIndex((section) =>
-          headingMatches(section, "next game rule", "next-game rule")
-        )
-      : -1;
+  const weaknessMoments = insights?.weakness_moments ?? [];
+  const strengthMoments = insights?.strength_moments ?? [];
+  // The hero evidence comes from the most costly weakness that actually
+  // carries clock or engine evidence — otherwise the "why" is omitted.
+  const rankedWeakness = [...weaknessMoments].sort(
+    (a, b) => (b.centipawn_loss ?? 0) - (a.centipawn_loss ?? 0)
+  );
+  const hasHeroEvidence = (moment: (typeof rankedWeakness)[number]) =>
+    Boolean(
+      moment.best_move_san ||
+        moment.better_move_idea ||
+        typeof moment.player_clock_remaining === "number" ||
+        typeof moment.clock_remaining === "number"
+    );
+  const topWeakness =
+    rankedWeakness.find((moment) => moment.fen_before && hasHeroEvidence(moment)) ??
+    rankedWeakness[0] ??
+    null;
+  const why = heroWhy(topWeakness);
+  const hasDrills = weaknessMoments.some(isDrillable);
+
+  const focusSection = sections.find(isFocusSection);
+  const resourcesSection = sections.find(isResourcesSection);
+  const strengthSections = sections.filter(isStrengthSection);
+  const weaknessSections = sections.filter(isWeaknessSection);
+  const focusPairs = focusSection ? parseFocusPairs(focusSection.body) : [];
+  const narrativeSections = sections.filter((section) => {
+    if (
+      (isVerdictSection(section) && verdict !== null) ||
+      (isRuleSection(section) && nextRule?.source === "rule-section") ||
+      isFocusSection(section) ||
+      isResourcesSection(section) ||
+      isStrengthSection(section) ||
+      isWeaknessSection(section)
+    ) {
+      // Custom-rendered sections are re-created as micro-components below.
+      return false;
+    }
+    if (psychologyProfile && isPsychologySection(section)) {
+      return false;
+    }
+    return true;
+  });
+
+  const headerSlot = header ? <div className="review-canvas-header">{header}</div> : null;
 
   if (sections.length === 0) {
     return (
       <section className={sectionClassName} data-surface="paper">
+        {headerSlot}
         {renderPsychologyHeader()}
-        <HeroRule rule={nextRule} pending={pending} drillAnchor={hasDrills ? "drills" : null} />
-        <MemoizedMarkdown markdown={normalized} />
+        <div className="review-hero-stack">
+          {verdict ? <VerdictNote verdict={verdict} /> : null}
+          <HeroRule
+            rule={nextRule}
+            pending={pending}
+            drillAnchor={hasDrills ? "drills" : null}
+            why={why}
+          />
+        </div>
+        {hasPhaseData && phaseData && (
+          <PhaseMatrix
+            opening={phaseData.opening ?? null}
+            middlegame={phaseData.middlegame ?? null}
+            endgame={phaseData.endgame ?? null}
+            overall={gameAccuracy ?? null}
+          />
+        )}
+        <ChokeCard insights={insights} />
+        <div className="report-section review-narrative">
+          <MemoizedMarkdown markdown={normalized} />
+        </div>
       </section>
     );
   }
 
+  const verdictSlot = verdict ? <VerdictNote verdict={verdict} /> : null;
+
+  const hasMoments = weaknessMoments.length > 0 || strengthMoments.length > 0;
+
   return (
     <section className={sectionClassName} data-surface="paper">
-      {/* Prominently render Cognitive Psychology at the VERY TOP of the report canvas */}
+      {headerSlot}
+
+      {/* 1. Cognitive psychology card leads the canvas. */}
       {renderPsychologyHeader()}
 
-      <HeroRule rule={nextRule} pending={pending} drillAnchor={hasDrills ? "drills" : null} />
+      {/* 2. Personalized verdict + the Next Game Rule hero wedge. */}
+      <div className="review-hero-stack">
+        {verdictSlot}
+        <HeroRule
+          rule={nextRule}
+          pending={pending}
+          drillAnchor={hasDrills ? "drills" : null}
+          why={why}
+        />
+      </div>
 
-      {sections.map((section, index) => {
-        if (index === ruleSectionIndex) {
-          return null;
-        }
-        const heading = section.heading.toLowerCase();
-        const isFocusAreas = heading.includes("focus areas") || heading.includes("focus");
-        const isResources = heading.includes("resources");
-        const focusPairs = isFocusAreas ? parseFocusPairs(section.body) : [];
+      {/* 3. Phase-by-phase accuracy matrix (real stored data). */}
+      {hasPhaseData && phaseData && (
+        <PhaseMatrix
+          opening={phaseData.opening ?? null}
+          middlegame={phaseData.middlegame ?? null}
+          endgame={phaseData.endgame ?? null}
+          overall={gameAccuracy ?? null}
+        />
+      )}
 
-        // Focus Areas and Resources are rebuilt as visual components. The
-        // original Markdown stays reachable inside a disclosure so a failed
-        // parse can never hide what the coach actually wrote.
-        if (isFocusAreas && focusPairs.length > 0) {
-          return (
-            <div key={`${index}-${section.heading}`} className="report-section">
-              <MemoizedMarkdown markdown={`## ${section.heading}`} />
-              <FocusAreasBoard
-                pairs={focusPairs}
-                fallback={<MemoizedMarkdown markdown={section.body} />}
-              />
-            </div>
-          );
-        }
+      {/* 4. Choke verification — only when a moment carries the evidence. */}
+      <ChokeCard insights={insights} />
 
-        if (isResources) {
-          return (
-            <div key={`${index}-${section.heading}`} className="report-section">
-              <MemoizedMarkdown markdown={`## ${section.heading}`} />
-              {insights ? (
-                <DrillSection
-                  moments={insights.weakness_moments ?? []}
-                  insights={insights}
-                  psychology={psychologyProfile}
-                  analysisId={analysisId}
-                  fallback={<MemoizedMarkdown markdown={section.body} />}
-                />
-              ) : pending ? (
-                <DrillSectionSkeleton />
-              ) : (
-                <MemoizedMarkdown markdown={section.body} />
-              )}
-            </div>
-          );
-        }
+      {/* 5. Remaining narrative the coach wrote (Game Overview and friends). */}
+      {narrativeSections.map((section, index) => (
+        <div key={`${index}-${section.heading}`} className="report-section review-narrative">
+          <MemoizedMarkdown markdown={`## ${section.heading}\n\n${section.body}`} />
+        </div>
+      ))}
 
-        return (
-          <div key={`${index}-${section.heading}`} className="report-section">
-            <MemoizedMarkdown
-              markdown={`## ${section.heading}\n\n${section.body}`}
-            />
-            {heading.includes("strength") &&
-              (insights ? (
-                <SectionInsightBoards moments={insights.strength_moments} />
-              ) : pending ? (
-                <SectionBoardsSkeleton />
-              ) : null)}
-            {heading.includes("weakness") &&
-              (insights ? (
-                <SectionInsightBoards moments={insights.weakness_moments} />
-              ) : pending ? (
-                <SectionBoardsSkeleton />
-              ) : null)}
+      {/* 6. Focus Areas as binary Do / Don't cards. */}
+      {focusPairs.length > 0 && (
+        <div className="report-section review-focus-section">
+          <div className="review-section-head">
+            <h3>Focus Areas · Actionable Habits</h3>
+            <p>Binary behavioural rules to run in your future games</p>
           </div>
-        );
-      })}
+          <FocusAreasBoard
+            pairs={focusPairs}
+            fallback={focusSection ? <MemoizedMarkdown markdown={focusSection.body} /> : undefined}
+          />
+        </div>
+      )}
+
+      {/* 7. Key game moments as mini-board cards. */}
+      {hasMoments ? (
+        <div className="report-section review-moments-section" id="key-moments">
+          <div className="review-section-head">
+            <h3>Key Game Moments</h3>
+            <p>The positions the engine flagged in this game</p>
+          </div>
+          <SectionInsightBoards moments={weaknessMoments} limit={MOMENT_LIMIT_WEAKNESS} />
+          <SectionInsightBoards moments={strengthMoments} limit={MOMENT_LIMIT_STRENGTH} />
+        </div>
+      ) : pending && insights ? (
+        <div className="report-section">
+          <SectionBoardsSkeleton />
+        </div>
+      ) : null}
+
+      {/* 8 + 9. Replay drill arena and curated practice resources. */}
+      {insights ? (
+        <DrillSection
+          moments={weaknessMoments}
+          insights={insights}
+          psychology={psychologyProfile}
+          analysisId={analysisId}
+          fallback={
+            resourcesSection ? <MemoizedMarkdown markdown={resourcesSection.body} /> : undefined
+          }
+        />
+      ) : pending ? (
+        <DrillSectionSkeleton />
+      ) : resourcesSection ? (
+        <div className="report-section review-resources">
+          <div className="review-section-head">
+            <h2>{resourcesSection.heading}</h2>
+          </div>
+          <MemoizedMarkdown markdown={resourcesSection.body} />
+        </div>
+      ) : null}
+
+      {/* The coach's raw strength / weakness notes stay one click away. */}
+      {(weaknessSections.length > 0 || strengthSections.length > 0) && (
+        <details className="review-details review-coach-notes">
+          <summary>The coach&apos;s full strength &amp; weakness notes</summary>
+          <div className="review-details-body">
+            {[...weaknessSections, ...strengthSections].map((section, index) => (
+              <MemoizedMarkdown
+                key={`${index}-${section.heading}`}
+                markdown={`## ${section.heading}\n\n${section.body}`}
+              />
+            ))}
+          </div>
+        </details>
+      )}
     </section>
   );
 }

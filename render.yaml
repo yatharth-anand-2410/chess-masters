@@ -20,6 +20,8 @@ services:
         sync: false
       - key: RAZORPAY_PLAN_ID
         sync: false
+      - key: RAZORPAY_COACH_PLAN_ID
+        sync: false
       - key: RAZORPAY_WEBHOOK_SECRET
         sync: false
       - key: RAZORPAY_TOTAL_COUNT

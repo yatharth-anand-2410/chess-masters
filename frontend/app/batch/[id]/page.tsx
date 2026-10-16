@@ -1,13 +1,14 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { Topbar } from "../../../components/ui/Topbar";
-import { Pill } from "../../../components/ui/Pill";
 import CoachingReport from "../../../components/CoachingReport";
 import GameAnalysisCard from "../../../components/GameAnalysisCard";
+import GameHeader from "../../../components/review/GameHeader";
+import BatchInstrument from "../../../components/review/BatchInstrument";
 import { PSYCHOLOGY_MIN_GAMES } from "../../../components/AnalyzerForm";
+import { isDrillable } from "../../../components/reportParsing";
 import type { InsightsData } from "../../../components/insights";
 import { apiGet, type BatchDetail, type Usage } from "../../../lib/api";
 import { createClient } from "../../../lib/supabase-client";
@@ -87,6 +88,7 @@ export default function BatchDetailPage() {
   const gamesAnalyzed = usage?.total_games_analyzed ?? 0;
   const psychologyLocked =
     usage !== null && gamesAnalyzed < PSYCHOLOGY_MIN_GAMES;
+  const hasDrills = (insights?.weakness_moments ?? []).some(isDrillable);
 
   return (
     <main className="dashboard analysis-dashboard">
@@ -96,41 +98,58 @@ export default function BatchDetailPage() {
         onAuthChange={() => router.push("/")}
       />
 
-      <div className="game-header">
-        <Pill tone="shell" size="sm">{platformLabel}</Pill>
-        <h1 className="game-title">Multi-game report</h1>
-        <p className="game-meta">
-          {completed} of {batch.game_count} games analyzed
-          {`, ${formatDate(batch.created_at)}`}
-        </p>
-      </div>
-
-      {batch.report_markdown ? (
-        <CoachingReport
-          content={batch.report_markdown}
-          insights={insights}
-          psychologyLocked={psychologyLocked}
-          gamesAnalyzed={gamesAnalyzed}
+      <div className="review-workspace">
+        <BatchInstrument
+          games={detail.games}
+          gameCount={batch.game_count}
+          platformLabel={platformLabel}
         />
-      ) : (
-        <div className="error-banner">
-          {batch.error_message ?? "This multi-game report has no report."}
-        </div>
-      )}
 
-      <section className="batch-games">
-        <div className="section-head">
-          <h2>Game-by-game analysis</h2>
+        <div className="review-canvas-column">
+          {batch.report_markdown ? (
+            <CoachingReport
+              content={batch.report_markdown}
+              insights={insights}
+              psychologyLocked={psychologyLocked}
+              gamesAnalyzed={gamesAnalyzed}
+              header={
+                <GameHeader
+                  pill={`${platformLabel} session · ${batch.game_count} games`}
+                  title="Multi-game report"
+                  showDrills={hasDrills}
+                  meta={
+                    <>
+                      {completed} of {batch.game_count} games analysed
+                      {`, ${formatDate(batch.created_at)}`}
+                    </>
+                  }
+                />
+              }
+            />
+          ) : (
+            <div className="error-banner">
+              {batch.error_message ?? "This multi-game report has no report."}
+            </div>
+          )}
+
+          <section className="review-games-overview">
+            <div className="review-section-head">
+              <h2>Games Overview</h2>
+              <p>One card per game in this session</p>
+            </div>
+            <div className="review-games-grid">
+              {detail.games.map((game, index) => (
+                <GameAnalysisCard
+                  key={game.id}
+                  game={game}
+                  index={index}
+                  batchId={batch.id}
+                />
+              ))}
+            </div>
+          </section>
         </div>
-        {detail.games.map((game, index) => (
-          <GameAnalysisCard
-            key={game.id}
-            game={game}
-            index={index}
-            batchId={batch.id}
-          />
-        ))}
-      </section>
+      </div>
     </main>
   );
 }

@@ -55,7 +55,7 @@ export default function PsychologyRadar({
 
   return (
     <svg
-      className="psych-radar"
+      className="psych-radar review-radar"
       viewBox={`0 0 ${SIZE} ${SIZE}`}
       role="img"
       aria-label={`Mental profile radar: ${summary}`}

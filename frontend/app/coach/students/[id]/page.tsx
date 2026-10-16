@@ -13,7 +13,6 @@ import BatchProgress, {
   type BatchGameProgress,
 } from "../../../../components/BatchProgress";
 import CoachingReport from "../../../../components/CoachingReport";
-import UpgradePrompt from "../../../../components/UpgradePrompt";
 import type { InsightsData } from "../../../../components/insights";
 import { Topbar } from "../../../../components/ui/Topbar";
 import { Pill } from "../../../../components/ui/Pill";
@@ -21,10 +20,11 @@ import {
   Crown,
   ArrowRight,
   X,
-  Sparkles,
   Check,
   Share2,
   Lock,
+  Activity,
+  Copy,
 } from "lucide-react";
 import {
   API_BASE,
@@ -38,6 +38,7 @@ import {
   shareUrl,
   type HistoryEntry,
   type ShareStatus,
+  type SharedItem,
   type StudentDetail,
   type Usage,
 } from "../../../../lib/api";
@@ -68,7 +69,7 @@ export default function CoachStudentPage() {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState("");
   const [usage, setUsage] = useState<Usage | null>(null);
-  const [isPaid, setIsPaid] = useState(false);
+  const [hasCoachTier, setHasCoachTier] = useState(false);
   const [detail, setDetail] = useState<StudentDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -95,6 +96,13 @@ export default function CoachStudentPage() {
   const [shareBusy, setShareBusy] = useState(false);
   const [copied, setCopied] = useState(false);
   const [origin, setOrigin] = useState("");
+
+  // Shared study / tactic links for this student (GET .../shares).
+  const [shares, setShares] = useState<SharedItem[]>([]);
+  const [sharesState, setSharesState] = useState<
+    "loading" | "ready" | "unavailable"
+  >("loading");
+  const [copiedToken, setCopiedToken] = useState("");
 
   useEffect(() => {
     setOrigin(window.location.origin);
@@ -140,7 +148,11 @@ export default function CoachStudentPage() {
         setDetail(result);
         if (usageData) {
           setUsage(usageData);
-          setIsPaid(usageData.plan === "paid");
+          // plan_tier is the source of truth; older payloads fall back to plan.
+          const tier =
+            usageData.plan_tier ??
+            (usageData.plan === "paid" ? "coach" : "free");
+          setHasCoachTier(tier === "coach");
         }
         if (savedNotes.current === null) {
           savedNotes.current = result.student.notes ?? "";
@@ -157,6 +169,38 @@ export default function CoachStudentPage() {
     [studentId]
   );
 
+  /** Shared study / tactic links. Owned by the shares workstream: absent or
+   *  empty is a normal state, not an error. */
+  const loadShares = useCallback(
+    async (sessionToken: string) => {
+      try {
+        const rows = await apiGet<SharedItem[]>(
+          `/api/coach/students/${studentId}/shares`,
+          sessionToken
+        );
+        setShares(Array.isArray(rows) ? rows : []);
+        setSharesState("ready");
+      } catch {
+        setShares([]);
+        setSharesState("unavailable");
+      }
+    },
+    [studentId]
+  );
+
+  const copyItemLink = useCallback(async (shareToken: string) => {
+    try {
+      await navigator.clipboard.writeText(shareUrl(`/s/${shareToken}`));
+      setCopiedToken(shareToken);
+      window.setTimeout(
+        () => setCopiedToken((current) => (current === shareToken ? "" : current)),
+        2200
+      );
+    } catch {
+      // Clipboard writes can fail without HTTPS / user activation.
+    }
+  }, []);
+
   useEffect(() => {
     const supabase = createClient();
     supabase.auth.getSession().then(({ data }) => {
@@ -171,8 +215,26 @@ export default function CoachStudentPage() {
 
       setToken(session.access_token);
       loadDetail(session.access_token);
+      loadShares(session.access_token);
     });
-  }, [loadDetail, router]);
+  }, [loadDetail, loadShares, router]);
+
+  // "Analyze game" on the roster deep-links to /coach/students/<id>#analyze —
+  // client-side navigation does not scroll to the hash on its own.
+  useEffect(() => {
+    if (loading || !detail || typeof window === "undefined") {
+      return;
+    }
+    if (window.location.hash !== "#analyze") {
+      return;
+    }
+    const handle = window.requestAnimationFrame(() => {
+      document
+        .getElementById("analyze")
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+    return () => window.cancelAnimationFrame(handle);
+  }, [detail, loading]);
 
   // Debounced notes autosave
   useEffect(() => {
@@ -214,7 +276,7 @@ export default function CoachStudentPage() {
 
   const startAnalysis = useCallback(
     async (request: AnalysisRequest) => {
-      if (!isPaid) {
+      if (!hasCoachTier) {
         setShowUpgradeModal(true);
         return;
       }
@@ -270,12 +332,12 @@ export default function CoachStudentPage() {
         }
       );
     },
-    [flushStreamContent, isPaid, loadDetail, resetStream, scheduleStreamFlush, studentId, token]
+    [flushStreamContent, hasCoachTier, loadDetail, resetStream, scheduleStreamFlush, studentId, token]
   );
 
   const startBatchAnalysis = useCallback(
     async (request: BatchAnalysisRequest) => {
-      if (!isPaid) {
+      if (!hasCoachTier) {
         setShowUpgradeModal(true);
         return;
       }
@@ -350,7 +412,7 @@ export default function CoachStudentPage() {
         }
       );
     },
-    [flushStreamContent, isPaid, loadDetail, resetStream, scheduleStreamFlush, studentId, token]
+    [flushStreamContent, hasCoachTier, loadDetail, resetStream, scheduleStreamFlush, studentId, token]
   );
 
   const copyShareLink = useCallback(async (share: ShareStatus) => {
@@ -368,7 +430,7 @@ export default function CoachStudentPage() {
   }, []);
 
   const enableShare = useCallback(async () => {
-    if (!isPaid) {
+    if (!hasCoachTier) {
       setShowUpgradeModal(true);
       return;
     }
@@ -395,7 +457,7 @@ export default function CoachStudentPage() {
     } finally {
       setShareBusy(false);
     }
-  }, [copyShareLink, isPaid, shareBusy, studentId, token]);
+  }, [copyShareLink, hasCoachTier, shareBusy, studentId, token]);
 
   const stopShare = useCallback(async () => {
     if (!token || shareBusy) {
@@ -479,8 +541,8 @@ export default function CoachStudentPage() {
       />
 
       <div className="max-w-5xl mx-auto px-4 py-6">
-        {/* Upgrade Banner for Free / Preview Accounts */}
-        {!isPaid && (
+        {/* Upgrade Banner for accounts without the Master Coach tier */}
+        {!hasCoachTier && (
           <div className="mb-6 p-4 rounded-xl bg-gradient-to-r from-[var(--ink-2)] via-[rgba(201,153,63,0.12)] to-[var(--ink-2)] border border-[rgba(201,153,63,0.35)] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-lg bg-[rgba(201,153,63,0.15)] border border-[rgba(201,153,63,0.4)] flex items-center justify-center text-[var(--gold-bright)] shrink-0">
@@ -488,21 +550,23 @@ export default function CoachStudentPage() {
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="font-semibold text-sm text-[var(--text)]">Coach Pro Preview</span>
-                  <Pill tone="caution" size="sm">Free Tier</Pill>
+                  <span className="font-semibold text-sm text-[var(--text)]">Master Coach Preview</span>
+                  <Pill tone="caution" size="sm">
+                    {usage?.plan_tier === "student" ? "Student plan" : "Free tier"}
+                  </Pill>
                 </div>
                 <p className="text-xs text-[var(--text-muted)] mt-0.5">
-                  Upgrade to Coach Pro (₹399/mo) to analyze games on behalf of {student.display_name} and generate shareable links.
+                  Upgrade to the Master Coach tier (&#8377;1,999/mo) to analyze games on behalf of {student.display_name} and generate shareable links.
                 </p>
               </div>
             </div>
             <div className="flex items-center gap-2 shrink-0">
               <Link
                 href="/subscription"
-                className="btn btn-sm inline-flex items-center gap-1.5 whitespace-nowrap bg-gradient-to-r from-[#c9993f] to-[#e2b65f] text-[#141712] font-semibold"
+                className="students-btn-gold whitespace-nowrap"
               >
                 <Crown size={14} />
-                <span>Upgrade for ₹399/mo</span>
+                <span>Upgrade to Coach Tier</span>
                 <ArrowRight size={13} />
               </Link>
             </div>
@@ -519,9 +583,9 @@ export default function CoachStudentPage() {
             <div>
               <div className="flex items-center gap-2.5 mb-1">
                 <h1 className="game-title text-2xl font-bold font-serif m-0">{student.display_name}</h1>
-                {isPaid ? (
+                {hasCoachTier ? (
                   <Pill tone="shell" size="sm" icon={<Crown size={12} className="text-[var(--gold-bright)]" />}>
-                    Coach Pro Active
+                    Master Coach
                   </Pill>
                 ) : (
                   <Pill tone="neutral" size="sm">
@@ -551,10 +615,11 @@ export default function CoachStudentPage() {
 
             <div className="flex items-center gap-2">
               <Link
-                href="/progress"
-                className="btn btn-sm btn-ghost inline-flex items-center gap-1.5"
+                href={`/progress?student=${encodeURIComponent(studentId)}`}
+                className="btn btn-sm inline-flex items-center gap-1.5"
               >
-                <span>View Progress Matrix</span>
+                <Activity size={14} />
+                <span>View progress</span>
                 <ArrowRight size={13} />
               </Link>
             </div>
@@ -616,10 +681,90 @@ export default function CoachStudentPage() {
                 onClick={enableShare}
                 disabled={shareBusy}
               >
-                {!isPaid && <Lock size={13} className="text-[var(--gold-bright)]" />}
+                {!hasCoachTier && <Lock size={13} className="text-[var(--gold-bright)]" />}
                 <span>{shareBusy ? "Creating..." : "Create share link"}</span>
               </button>
             </div>
+          )}
+        </section>
+
+        {/* Shared studies / tactics for this student (coach-tier share items) */}
+        <section className="students-shares mb-6" aria-label="Shared links">
+          <div className="students-shares-head">
+            <h2 className="students-shares-title">
+              <Share2 size={14} className="inline-block mr-1.5 align-[-2px]" />
+              Shared links
+            </h2>
+            <span className="students-shares-note">
+              {sharesState === "loading"
+                ? "Loading…"
+                : sharesState === "unavailable"
+                  ? "Unavailable right now"
+                  : `${shares.length} ${
+                      shares.length === 1 ? "item" : "items"
+                    } shared with ${student.display_name}`}
+            </span>
+          </div>
+
+          {sharesState === "loading" ? (
+            <p className="students-shares-empty">Loading shared links…</p>
+          ) : sharesState === "unavailable" ? (
+            <p className="students-shares-empty">
+              Shared links could not be loaded right now — existing{" "}
+              <span className="students-mono">/s/…</span> links keep working.
+            </p>
+          ) : shares.length === 0 ? (
+            <p className="students-shares-empty">
+              No shared studies or tactics yet. Assign homework by sharing an
+              item from the studies page — it will show up here with its view
+              count.
+            </p>
+          ) : (
+            <ul className="students-shares-list">
+              {shares.map((item) => (
+                <li
+                  key={item.token}
+                  className="students-shares-item"
+                  title={item.subtitle ?? undefined}
+                >
+                  <div className="students-shares-main">
+                    <span className="students-shares-name">{item.title}</span>
+                    <span className="students-shares-sub">
+                      {item.kind === "study" ? "Study" : "Tactic"} ·{" "}
+                      {item.view_count}{" "}
+                      {item.view_count === 1 ? "view" : "views"}
+                      {item.created_at
+                        ? ` · shared ${formatDate(item.created_at)}`
+                        : ""}
+                    </span>
+                  </div>
+                  <div className="students-shares-side">
+                    <a
+                      href={`/s/${item.token}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="students-btn-ghost"
+                    >
+                      Open
+                    </a>
+                    <button
+                      type="button"
+                      className="students-btn-ghost"
+                      onClick={() => copyItemLink(item.token)}
+                    >
+                      {copiedToken === item.token ? (
+                        <Check size={13} className="text-[var(--green-bright)]" />
+                      ) : (
+                        <Copy size={13} />
+                      )}
+                      <span>
+                        {copiedToken === item.token ? "Copied" : "Copy"}
+                      </span>
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
           )}
         </section>
 
@@ -635,15 +780,18 @@ export default function CoachStudentPage() {
           />
         </section>
 
-        {/* Analyze Games for Student */}
-        <section className="student-analyze-card mb-8 p-5 rounded-xl bg-[var(--ink-2)] border border-[var(--line)] shadow-sm">
+        {/* Analyze Games for Student — the roster's "Analyze game" action lands here */}
+        <section
+          id="analyze"
+          className="student-analyze-card students-analyze-card mb-8 p-5 rounded-xl bg-[var(--ink-2)] border border-[var(--line)] shadow-sm"
+        >
           <div className="section-head coach-section-head mb-4 flex items-center justify-between">
             <h2 className="text-base font-semibold text-[var(--text)] m-0">
               Analyze a game for {student.display_name}
             </h2>
-            {!isPaid && (
+            {!hasCoachTier && (
               <Pill tone="caution" size="sm">
-                Pro Required
+                Master Coach required
               </Pill>
             )}
           </div>
@@ -679,7 +827,7 @@ export default function CoachStudentPage() {
         </section>
       </div>
 
-      {/* Subscription Upgrade Modal */}
+      {/* Master Coach upgrade modal */}
       {showUpgradeModal && (
         <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="relative w-full max-w-lg rounded-2xl bg-[var(--ink-2)] border border-[rgba(201,153,63,0.4)] shadow-2xl p-6 overflow-hidden">
@@ -694,22 +842,22 @@ export default function CoachStudentPage() {
 
             <div className="inline-flex items-center gap-2 mb-3">
               <Pill tone="shell" size="sm" icon={<Crown size={12} className="text-[var(--gold-bright)]" />}>
-                Coach Pro Subscription
+                Master Coach tier
               </Pill>
             </div>
 
             <h2 className="text-xl font-bold font-serif text-[var(--text)] mb-2">
-              Upgrade to Coach Pro
+              Upgrade to Coach Tier
             </h2>
 
             <p className="text-xs text-[var(--text-muted)] leading-relaxed mb-4">
-              To analyze live games on behalf of {student.display_name}, run 5-game batch audits, and share private web links with parents, upgrade to Coach Pro.
+              To analyze live games on behalf of {student.display_name}, run 5-game batch audits, and share private web links with parents, upgrade to the Master Coach tier.
             </p>
 
             <div className="p-3.5 rounded-xl bg-[var(--ink-3)]/70 border border-[var(--line-soft)] mb-5">
               <div className="flex items-baseline justify-between mb-2">
-                <span className="text-xs font-mono font-semibold text-[var(--gold-bright)]">Coach Pro Plan</span>
-                <span className="text-sm font-bold text-[var(--text)]">₹399 / mo</span>
+                <span className="text-xs font-mono font-semibold text-[var(--gold-bright)]">Master Coach</span>
+                <span className="text-sm font-bold text-[var(--text)]">&#8377;1,999 / mo</span>
               </div>
               <ul className="text-xs text-[var(--text-muted)] space-y-1.5">
                 <li className="flex items-center gap-2">
@@ -718,7 +866,7 @@ export default function CoachStudentPage() {
                 </li>
                 <li className="flex items-center gap-2">
                   <Check size={13} className="text-emerald-400 shrink-0" />
-                  <span>100 AI game analyses per month</span>
+                  <span>Game analyses on behalf of every student</span>
                 </li>
                 <li className="flex items-center gap-2">
                   <Check size={13} className="text-emerald-400 shrink-0" />
@@ -734,10 +882,10 @@ export default function CoachStudentPage() {
             <div className="flex items-center gap-3">
               <Link
                 href="/subscription"
-                className="btn flex-1 inline-flex items-center justify-center gap-2 py-2.5 bg-gradient-to-r from-[#c9993f] to-[#e2b65f] text-[#141712] font-bold shadow-md hover:shadow-lg transition-all"
+                className="students-btn-gold flex-1 py-2.5 justify-center text-sm"
               >
                 <Crown size={15} />
-                <span>Upgrade to Pro (₹399/mo)</span>
+                <span>Upgrade to Coach Tier</span>
               </Link>
               <button
                 type="button"

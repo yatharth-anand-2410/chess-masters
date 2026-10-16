@@ -60,6 +60,19 @@ function confidenceLabel(confidence?: string | null): string {
   return confidence === "medium" ? "clear lean" : "early lean";
 }
 
+function capitalise(value: string): string {
+  return value ? value.charAt(0).toUpperCase() + value.slice(1) : value;
+}
+
+/** Compact type name for the header badge: the key first, the long label second. */
+function playerTypeName(profile: PsychologyProfile): string | null {
+  if (profile.player_type) {
+    return capitalise(profile.player_type);
+  }
+  const label = profile.player_type_label?.split("—")[0]?.trim();
+  return label || null;
+}
+
 function resultClass(score?: number | null): string {
   if (score === 1) {
     return "win";
@@ -78,7 +91,7 @@ function FormChart({ points }: { points: PsychologyFormPoint[] }) {
     return null;
   }
   const width = 560;
-  const height = 170;
+  const height = 150;
   const padX = 30;
   const padTop = 26;
   const padBottom = 30;
@@ -94,7 +107,7 @@ function FormChart({ points }: { points: PsychologyFormPoint[] }) {
 
   return (
     <svg
-      className="psych-form-chart"
+      className="review-form-svg"
       viewBox={`0 0 ${width} ${height}`}
       role="img"
       aria-label={`Per-game accuracy from ${Math.min(
@@ -102,14 +115,14 @@ function FormChart({ points }: { points: PsychologyFormPoint[] }) {
       ).toFixed(0)} to ${Math.max(...values).toFixed(0)}`}
     >
       <line
-        className="psych-form-avg"
+        className="review-form-avg"
         x1={padX}
         y1={yAt(average)}
         x2={width - padX}
         y2={yAt(average)}
       />
       <polyline
-        className="psych-form-line"
+        className="review-form-line"
         points={points
           .map(
             (point, index) =>
@@ -121,7 +134,7 @@ function FormChart({ points }: { points: PsychologyFormPoint[] }) {
         <g key={`${point.label ?? "game"}-${index}`}>
           {point.after_loss && (
             <polygon
-              className="psych-form-tilt"
+              className="review-form-tilt"
               points={`${xAt(index)},${yAt(point.accuracy) - 12} ${
                 xAt(index) - 5
               },${yAt(point.accuracy) - 21} ${xAt(index) + 5},${
@@ -130,13 +143,13 @@ function FormChart({ points }: { points: PsychologyFormPoint[] }) {
             />
           )}
           <circle
-            className={`psych-form-dot result-${resultClass(point.score)}`}
+            className={`review-form-dot is-${resultClass(point.score)}`}
             cx={xAt(index)}
             cy={yAt(point.accuracy)}
             r={4.5}
           />
           <text
-            className="psych-form-value"
+            className="review-form-value"
             x={xAt(index)}
             y={yAt(point.accuracy) + 19}
             textAnchor="middle"
@@ -144,7 +157,7 @@ function FormChart({ points }: { points: PsychologyFormPoint[] }) {
             {Math.round(point.accuracy)}
           </text>
           <text
-            className="psych-form-label"
+            className="review-form-label"
             x={xAt(index)}
             y={height - 6}
             textAnchor="middle"
@@ -167,27 +180,27 @@ function TimePressure({ buckets }: { buckets: PsychologyPressureBucket[] }) {
   );
   const maxRate = Math.max(...buckets.map((bucket) => bucket.rate), 0.01);
   return (
-    <div className="psych-pressure">
+    <div className="review-pressure">
       {buckets.map((bucket) => (
         <div
           key={bucket.bucket}
-          className={`psych-pressure-row${
+          className={`review-pressure-row${
             bucket.bucket === worst.bucket ? " is-worst" : ""
           }`}
         >
-          <span className="psych-pressure-label">{bucket.bucket}</span>
-          <span className="psych-pressure-track">
+          <span className="review-pressure-label">{bucket.bucket}</span>
+          <span className="review-pressure-track">
             <span
-              className="psych-pressure-fill"
+              className="review-pressure-fill"
               style={{ width: `${(bucket.rate / maxRate) * 100}%` }}
             />
           </span>
-          <span className="psych-pressure-meta">
+          <span className="review-pressure-meta">
             {bucket.blunders}/{bucket.moves} blunders
           </span>
         </div>
       ))}
-      <p className="psych-note">
+      <p className="review-psych-note">
         Blunders per move at each remaining-clock level.
       </p>
     </div>
@@ -200,26 +213,26 @@ function SpeedProfile({ buckets }: { buckets: PsychologySpeedBucket[] }) {
     return null;
   }
   return (
-    <div className="psych-speed">
-      <div className="psych-speed-track">
+    <div className="review-speed">
+      <div className="review-speed-track">
         {buckets.map((bucket, index) => (
           <span
             key={bucket.bucket}
-            className={`psych-speed-seg seg-${index}`}
+            className={`review-speed-seg seg-${index}`}
             style={{ width: `${(bucket.moves / total) * 100}%` }}
             title={`${bucket.bucket}: ${bucket.moves} moves`}
           />
         ))}
       </div>
-      <div className="psych-speed-legend">
+      <div className="review-speed-legend">
         {buckets.map((bucket, index) => (
-          <span key={bucket.bucket} className="psych-speed-legend-item">
-            <span className={`psych-speed-swatch seg-${index}`} />
-            {bucket.bucket} &middot; {Math.round((bucket.moves / total) * 100)}%
+          <span key={bucket.bucket} className="review-speed-legend-item">
+            <span className={`review-speed-swatch seg-${index}`} />
+            {bucket.bucket} · {Math.round((bucket.moves / total) * 100)}%
           </span>
         ))}
       </div>
-      <p className="psych-note">How long you think before most moves.</p>
+      <p className="review-psych-note">How long you think before most moves.</p>
     </div>
   );
 }
@@ -228,6 +241,14 @@ type PsychologyPanelProps = {
   profile?: PsychologyProfile | null;
 };
 
+/**
+ * The cognitive psychology card from the showcase.
+ *
+ * Content is unchanged from the stored profile — dimension scores, evidence,
+ * form, clock buckets and think-time distribution — but the fix protocol now
+ * sits on the dimension row it belongs to instead of a separate list, and the
+ * whole card is restyled as the showcase's `psych-card-shell`.
+ */
 export default function PsychologyPanel({ profile }: PsychologyPanelProps) {
   if (!profile) {
     return null;
@@ -243,109 +264,156 @@ export default function PsychologyPanel({ profile }: PsychologyPanelProps) {
     score: typeScores[entry.key] ?? 0,
   }));
 
+  const leakKey = (key?: string | null, label?: string | null) =>
+    (key ?? label ?? "").trim().toLowerCase();
+  const leaksByKey = new Map<string, (typeof leaks)[number]>();
+  for (const leak of leaks) {
+    leaksByKey.set(leakKey(leak.key, leak.label), leak);
+  }
+  const usedLeakKeys = new Set<string>();
+  const dimensionRows = dimensions.map((dimension) => {
+    const match = leaksByKey.get(leakKey(dimension.key, dimension.label)) ?? null;
+    if (match) {
+      usedLeakKeys.add(leakKey(match.key, match.label));
+    }
+    return {
+      dimension,
+      tag: resolveTag(dimension),
+      fix: match?.fix ?? null,
+    };
+  });
+  const remainingLeaks = leaks.filter(
+    (leak) => !usedLeakKeys.has(leakKey(leak.key, leak.label))
+  );
+  const hasTiltMarker = form.some((point) => point.after_loss);
+
   return (
-    <div className="psych-card">
-      <div className="psych-head">
-        <span className="psych-kicker">Mental profile</span>
-        {profile.player_type_label && (
-          <span className="psych-type">{profile.player_type_label}</span>
-        )}
-        <span className="psych-confidence">
-          {confidenceLabel(profile.player_type_confidence)} &middot; from{" "}
+    <section className="review-psych">
+      <div className="review-psych-head">
+        <div>
+          <span className="review-psych-kicker">
+            🧠 Cognitive psychology verdict (lead analysis)
+          </span>
+          <h3 className="review-psych-title">Mental Toughness &amp; Cognitive Biases</h3>
+        </div>
+        <span
+          className="review-psych-badge"
+          title={profile.player_type_label ?? undefined}
+        >
+          {playerTypeName(profile) ?? "Player type"} ·{" "}
+          {confidenceLabel(profile.player_type_confidence)} · from{" "}
           {profile.sample_size} games
         </span>
       </div>
 
-      {profile.headline && <p className="psych-headline">{profile.headline}</p>}
+      {profile.headline && (
+        <p className="review-psych-diagnosis">
+          <b>Coach psychological diagnosis:</b> {profile.headline}
+        </p>
+      )}
 
       {dimensions.length > 0 && (
-        <div className="psych-grid">
+        <div className="review-psych-radar-layout">
           {dimensions.length >= 3 && (
-            <div className="psych-radar-wrap">
+            <div className="review-psych-radar-wrap">
               <PsychologyRadar dimensions={dimensions} />
             </div>
           )}
-          <ul className="psych-table">
-            {dimensions.map((dimension) => {
-              const tag = resolveTag(dimension);
-              return (
-                <li key={dimension.key} className="psych-row">
-                  <span className="psych-row-head">
-                    <span className="psych-row-label">{dimension.label}</span>
-                    <span className={`psych-tag tag-${tag}`}>
-                      {TAG_LABELS[tag] ?? tag}
-                    </span>
-                    <span className="psych-row-score">{dimension.score}</span>
+          <ul className="review-psych-table">
+            {dimensionRows.map(({ dimension, tag, fix }) => (
+              <li key={dimension.key} className="review-psych-row">
+                <div className="review-psych-row-top">
+                  <b className="review-psych-row-label">{dimension.label}</b>
+                  <span className={`review-psych-tag is-${tag}`}>
+                    {TAG_LABELS[tag] ?? tag} · {dimension.score}
                   </span>
-                  <span className="psych-row-evidence">{dimension.evidence}</span>
-                </li>
-              );
-            })}
+                </div>
+                <p className="review-psych-row-evidence">{dimension.evidence}</p>
+                {fix && (
+                  <p className="review-psych-row-fix">
+                    <b>Protocol:</b> {fix}
+                  </p>
+                )}
+              </li>
+            ))}
           </ul>
         </div>
       )}
 
-      {tags.some((tag) => tag.score > 0) && (
-        <div className="psych-section">
-          <h3 className="psych-section-title">Playing style</h3>
-          <div className="psych-spectrum">
-            {tags.map((tag) => (
-              <div
-                key={tag.key}
-                className={`psych-spectrum-row${
-                  profile.player_type === tag.key ? " is-leaning" : ""
-                }`}
-              >
-                <span className="psych-spectrum-label">{tag.label}</span>
-                <span className="psych-spectrum-track">
-                  <span
-                    className="psych-spectrum-fill"
-                    style={{ width: `${Math.min(100, tag.score)}%` }}
-                  />
-                </span>
-                <span className="psych-spectrum-score">{tag.score}</span>
-              </div>
-            ))}
-          </div>
-          {profile.type_evidence && profile.type_evidence.length > 0 && (
-            <p className="psych-note">{profile.type_evidence.join(" ")}</p>
-          )}
-        </div>
-      )}
-
       {form.length >= 2 && (
-        <div className="psych-section">
-          <h3 className="psych-section-title">Form across the session</h3>
+        <div className="review-form-box">
+          <div className="review-form-head">
+            <b>Per-game accuracy form timeline</b>
+            <div className="review-form-legend">
+              <span className="is-win">● Win</span>
+              <span className="is-loss">● Loss</span>
+              {hasTiltMarker && <span className="is-tilt">▲ Tilt (post-loss game)</span>}
+            </div>
+          </div>
           <FormChart points={form} />
         </div>
       )}
 
       {(pressure.length > 0 || speed.length > 0) && (
-        <div className="psych-section">
-          <h3 className="psych-section-title">Under the clock</h3>
-          <div className="psych-clock-grid">
-            <TimePressure buckets={pressure} />
-            <SpeedProfile buckets={speed} />
-          </div>
+        <div className="review-pressure-grid">
+          {pressure.length > 0 && (
+            <div className="review-pressure-card">
+              <b className="review-pressure-title">Blunder frequency by clock level</b>
+              <TimePressure buckets={pressure} />
+            </div>
+          )}
+          {speed.length > 0 && (
+            <div className="review-pressure-card">
+              <b className="review-pressure-title">Move think-time distribution</b>
+              <SpeedProfile buckets={speed} />
+            </div>
+          )}
         </div>
       )}
 
-      {leaks.length > 0 && (
-        <div className="psych-section">
-          <h3 className="psych-section-title">What to fix first</h3>
-          <div className="psych-leaks">
-            {leaks.map((leak) => (
-              <div key={leak.key ?? leak.label} className="psych-leak">
-                <div className="psych-leak-head">
-                  <span className="psych-leak-label">{leak.label}</span>
-                  <span className={`psych-leak-severity sev-${leak.severity}`}>
+      {tags.some((tag) => tag.score > 0) && (
+        <div className="review-psych-block">
+          <h4 className="review-psych-block-title">Playing style</h4>
+          <div className="review-spectrum">
+            {tags.map((tag) => (
+              <div
+                key={tag.key}
+                className={`review-spectrum-row${
+                  profile.player_type === tag.key ? " is-leaning" : ""
+                }`}
+              >
+                <span className="review-spectrum-label">{tag.label}</span>
+                <span className="review-spectrum-track">
+                  <span
+                    className="review-spectrum-fill"
+                    style={{ width: `${Math.min(100, tag.score)}%` }}
+                  />
+                </span>
+                <span className="review-spectrum-score">{tag.score}</span>
+              </div>
+            ))}
+          </div>
+          {profile.type_evidence && profile.type_evidence.length > 0 && (
+            <p className="review-psych-note">{profile.type_evidence.join(" ")}</p>
+          )}
+        </div>
+      )}
+
+      {remainingLeaks.length > 0 && (
+        <div className="review-psych-block">
+          <h4 className="review-psych-block-title">What to fix first</h4>
+          <div className="review-psych-leaks">
+            {remainingLeaks.map((leak) => (
+              <div key={leakKey(leak.key, leak.label)} className="review-psych-leak">
+                <div className="review-psych-leak-head">
+                  <span className="review-psych-leak-label">{leak.label}</span>
+                  <span className={`review-psych-tag is-${leak.severity === "high" ? "weak" : "develop"}`}>
                     {leak.severity === "high" ? "High impact" : "Medium impact"}
                   </span>
                 </div>
-                <p className="psych-leak-evidence">{leak.evidence}</p>
-                <p className="psych-leak-fix">
-                  <span className="psych-leak-fix-label">Fix protocol</span>
-                  {leak.fix}
+                <p className="review-psych-row-evidence">{leak.evidence}</p>
+                <p className="review-psych-row-fix">
+                  <b>Fix protocol:</b> {leak.fix}
                 </p>
               </div>
             ))}
@@ -354,8 +422,8 @@ export default function PsychologyPanel({ profile }: PsychologyPanelProps) {
       )}
 
       {profile.caveats && profile.caveats.length > 0 && (
-        <p className="psych-caveats">{profile.caveats.join(" ")}</p>
+        <p className="review-psych-caveats">{profile.caveats.join(" ")}</p>
       )}
-    </div>
+    </section>
   );
 }

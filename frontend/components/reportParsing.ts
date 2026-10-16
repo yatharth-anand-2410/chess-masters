@@ -385,3 +385,122 @@ export function findResourceForMoment(
     return candidate === target || (san.length >= 2 && candidate.endsWith(san));
   });
 }
+
+/* -------------------------------------------------------------------------- */
+/* Verdict + hero evidence                                                     */
+/* -------------------------------------------------------------------------- */
+
+export type ResolvedVerdict = {
+  line: string;
+  detail: string | null;
+  /** `insights` means the structured payload won; `report` means the section. */
+  source: "insights" | "report";
+};
+
+/**
+ * The personalized verdict line.
+ *
+ * New reports carry `insights.verdict`; older Markdown-only reports may still
+ * have a `## Verdict` section. When neither exists this returns null so the
+ * report renders nothing extra rather than an invented sentence.
+ */
+export function resolveVerdict(
+  sections: Section[],
+  insights?: InsightsData | null
+): ResolvedVerdict | null {
+  const raw = insights?.verdict ?? null;
+  if (raw && typeof raw.line === "string") {
+    const line = stripMarkdown(raw.line);
+    if (line.length >= MIN_HALF_LENGTH) {
+      return {
+        line,
+        detail: raw.detail ? stripMarkdown(raw.detail) : null,
+        source: "insights",
+      };
+    }
+  }
+
+  const section = sections.find((candidate) => headingMatches(candidate, "verdict"));
+  if (!section) {
+    return null;
+  }
+  const bullet = extractBullets(section.body)[0];
+  const line = firstSentence(bullet ?? section.body);
+  if (line.length < MIN_HALF_LENGTH) {
+    return null;
+  }
+  return { line, detail: null, source: "report" };
+}
+
+/** The conventional annotation suffix for a played move. */
+export function qualitySuffix(quality?: string | null): string {
+  switch (quality) {
+    case "blunder":
+      return "??";
+    case "mistake":
+      return "?";
+    case "inaccuracy":
+      return "?!";
+    case "brilliant":
+      return "!!";
+    case "strong":
+      return "!";
+    default:
+      return "";
+  }
+}
+
+/** `28...Re8??` — move number, side separator, SAN and the quality mark. */
+export function signedMoveLabel(moment: InsightMoment): string {
+  return `${moveLabel(moment)}${qualitySuffix(moment.quality)}`;
+}
+
+/** `3:42`-style clock from a seconds value, or null when the value is unusable. */
+export function formatClockSeconds(value?: number | null): string | null {
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
+    return null;
+  }
+  const total = Math.floor(value);
+  const minutes = Math.floor(total / 60);
+  const seconds = String(total % 60).padStart(2, "0");
+  return `${minutes}:${seconds}`;
+}
+
+/**
+ * The concrete "why" paragraph behind the next-game rule.
+ *
+ * Assembled only from evidence the moment actually carried — move number,
+ * clock remaining, the move played and the engine's stronger idea. Returns null
+ * when there is nothing beyond the move itself, so the hero card omits the
+ * paragraph instead of padding it out.
+ */
+export function heroWhy(moment?: InsightMoment | null): string | null {
+  if (!moment) {
+    return null;
+  }
+  const clock = formatClockSeconds(
+    moment.player_clock_remaining ?? moment.clock_remaining
+  );
+  const best = moment.best_move_san?.trim() || null;
+  const idea = moment.better_move_idea?.trim() || null;
+
+  if (!clock && !best && !idea) {
+    return null;
+  }
+
+  const played = signedMoveLabel(moment);
+  const first = `You played ${played} on move ${moment.move_number}${
+    clock ? `, with ${clock} left on your clock` : ""
+  }.`;
+
+  const parts = [first];
+  if (best) {
+    parts.push(
+      `The engine's stronger idea was ${best}${idea ? ` — ${stripMarkdown(idea)}` : "."}`
+    );
+  } else if (idea) {
+    parts.push(stripMarkdown(idea));
+  }
+  return parts.join(" ");
+}
+

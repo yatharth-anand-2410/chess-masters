@@ -1,13 +1,19 @@
 import type { Metadata } from "next";
-import { DM_Sans, Fraunces } from "next/font/google";
+import { DM_Mono, DM_Sans, Fraunces } from "next/font/google";
 import "@lichess-org/chessground/assets/chessground.base.css";
 import "@lichess-org/chessground/assets/chessground.brown.css";
 import "@lichess-org/chessground/assets/chessground.cburnett.css";
 import "./globals.css";
+import "./styles/review.css";
+import "./styles/progress.css";
+import "./styles/students.css";
+import "./styles/subscription.css";
+import "./styles/studies.css";
 import JsonLd from "../components/JsonLd";
 import SiteFooter from "../components/SiteFooter";
 import AICoachDrawer from "../components/AICoachDrawer";
 import ManageStudentsModal from "../components/ManageStudentsModal";
+import Dock from "../components/ui/Dock";
 import {
   ORGANIZATION_SCHEMA,
   schemaGraph,
@@ -25,6 +31,13 @@ const body = DM_Sans({
   subsets: ["latin"],
   display: "swap",
   variable: "--font-body",
+});
+
+const mono = DM_Mono({
+  subsets: ["latin"],
+  weight: ["400", "500"],
+  display: "swap",
+  variable: "--font-mono",
 });
 
 export const metadata: Metadata = {
@@ -67,12 +80,13 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
-      <body className={`${display.variable} ${body.variable}`}>
+      <body className={`${display.variable} ${body.variable} ${mono.variable} has-dock`}>
         <JsonLd data={schemaGraph([ORGANIZATION_SCHEMA, WEBSITE_SCHEMA])} />
         {children}
         <AICoachDrawer />
         <ManageStudentsModal />
         <SiteFooter />
+        <Dock />
       </body>
     </html>
   );
