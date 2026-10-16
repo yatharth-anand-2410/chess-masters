@@ -8,7 +8,8 @@ import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import ShareMenu from "@/components/studies/ShareMenu";
 import { useStudySession } from "@/components/studies/useStudySession";
-import { apiGet, type CuratedStudy } from "@/lib/api";
+import { type CuratedStudy } from "@/lib/api";
+import { apiGetCached, CACHE_TTL } from "@/lib/api-cache";
 import { warmBackend } from "@/lib/backend-wake";
 
 type LoadState = "loading" | "ready" | "unavailable";
@@ -50,9 +51,10 @@ export default function StudiesPage() {
     let cancelled = false;
     setLoadState("loading");
     const query = studentId ? `?student_id=${encodeURIComponent(studentId)}` : "";
-    apiGet<CuratedStudy[]>(
+    apiGetCached<CuratedStudy[]>(
       `/api/studies/curated${query}`,
-      session.token || undefined
+      session.token || undefined,
+      { ttlMs: CACHE_TTL.data }
     )
       .then((list) => {
         if (cancelled) {

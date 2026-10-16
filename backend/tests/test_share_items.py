@@ -102,7 +102,7 @@ def test_create_share_item_posts_the_row(monkeypatch: pytest.MonkeyPatch):
         sent.update({"url": url, "json": json})
         return _fake_response([{"token": "tok-1", **json}])
 
-    monkeypatch.setattr(db.requests, "post", fake_post)
+    monkeypatch.setattr(db, "_post", fake_post)
     row = db.create_share_item(
         "coach-1",
         {
@@ -130,7 +130,7 @@ def test_list_share_items_filters(monkeypatch: pytest.MonkeyPatch):
         seen.append(dict(params))
         return _fake_response([])
 
-    monkeypatch.setattr(db.requests, "get", fake_get)
+    monkeypatch.setattr(db, "_get", fake_get)
 
     db.list_share_items("coach-1", "student-9")
     assert seen[-1]["student_id"] == "eq.student-9"
@@ -149,7 +149,7 @@ def test_get_share_item_returns_none_for_unknown_tokens(monkeypatch: pytest.Monk
     monkeypatch.setenv("SUPABASE_URL", "https://example.supabase.co")
     monkeypatch.setenv("SUPABASE_SERVICE_ROLE_KEY", "service")
     monkeypatch.setattr(
-        db.requests, "get", lambda *args, **kwargs: _fake_response([])
+        db, "_get", lambda *args, **kwargs: _fake_response([])
     )
     assert db.get_share_item(str(uuid.uuid4())) is None
 
@@ -163,7 +163,7 @@ def test_revoke_share_item_reports_whether_it_closed(monkeypatch: pytest.MonkeyP
         seen.update({"params": dict(params), "json": dict(json)})
         return _fake_response([{"token": "tok-1"}])
 
-    monkeypatch.setattr(db.requests, "patch", fake_patch)
+    monkeypatch.setattr(db, "_patch", fake_patch)
     assert db.revoke_share_item("coach-1", "tok-1") is True
     assert seen["params"]["coach_id"] == "eq.coach-1"
     assert seen["params"]["revoked_at"] == "is.null"
@@ -171,7 +171,7 @@ def test_revoke_share_item_reports_whether_it_closed(monkeypatch: pytest.MonkeyP
 
     # Already-revoked (or another coach's) row: nothing matches, still fine.
     monkeypatch.setattr(
-        db.requests, "patch", lambda *args, **kwargs: _fake_response([])
+        db, "_patch", lambda *args, **kwargs: _fake_response([])
     )
     assert db.revoke_share_item("coach-1", "tok-1") is False
 
@@ -193,7 +193,7 @@ def test_touch_share_item_increments(monkeypatch: pytest.MonkeyPatch):
         patched.update({"params": dict(params), "json": dict(json)})
         return _fake_response([])
 
-    monkeypatch.setattr(db.requests, "patch", fake_patch)
+    monkeypatch.setattr(db, "_patch", fake_patch)
     assert db.touch_share_item(token) == 4
     assert patched["json"]["view_count"] == 4
     assert patched["json"]["last_viewed_at"]
@@ -204,7 +204,7 @@ def test_missing_share_items_table_reads_as_a_setup_hint(monkeypatch: pytest.Mon
     monkeypatch.setenv("SUPABASE_URL", "https://example.supabase.co")
     monkeypatch.setenv("SUPABASE_SERVICE_ROLE_KEY", "service")
     monkeypatch.setattr(
-        db.requests, "get", lambda *args, **kwargs: _fake_response({}, status_code=404)
+        db, "_get", lambda *args, **kwargs: _fake_response({}, status_code=404)
     )
     with pytest.raises(db.AuthError) as excinfo:
         db.get_share_item(str(uuid.uuid4()))
@@ -707,7 +707,7 @@ def test_tactics_endpoint_personalizes_for_a_signed_in_user(as_user, monkeypatch
     monkeypatch.setattr(db, "configured", lambda: True)
     calls: Dict[str, Any] = {}
 
-    def fake_list(user_id: str, limit: int = 50):
+    def fake_list(user_id: str, limit: int = 50, **kwargs):
         calls.update({"user_id": user_id, "limit": limit})
         return [
             {"insights": {"weakness_moments": [{"motif": "Pin"}, {"motif": "Pin"}]}}
@@ -726,7 +726,7 @@ def test_tactics_endpoint_degrades_when_the_database_fails(as_user, monkeypatch)
     as_user()
     monkeypatch.setattr(db, "configured", lambda: True)
 
-    def explode(user_id: str, limit: int = 50):
+    def explode(user_id: str, limit: int = 50, **kwargs):
         raise RuntimeError("database unavailable")
 
     monkeypatch.setattr(db, "list_analyses", explode)
@@ -891,7 +891,7 @@ def test_curated_studies_endpoint_personalizes(as_user, monkeypatch):
     as_user()
     calls: Dict[str, Any] = {}
 
-    def fake_list(user_id: str, limit: int = 50):
+    def fake_list(user_id: str, limit: int = 50, **kwargs):
         calls.update({"user_id": user_id, "limit": limit})
         return [
             _analysis_row(

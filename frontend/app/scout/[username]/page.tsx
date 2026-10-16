@@ -14,6 +14,7 @@ import {
   type ScoutOpeningNode,
   type Usage,
 } from "@/lib/api";
+import { apiGetCached, CACHE_TTL } from "@/lib/api-cache";
 import { createClient } from "@/lib/supabase-client";
 
 interface ScoutDossierProps {
@@ -66,7 +67,9 @@ export default function ScoutPlayerDossier({ params }: ScoutDossierProps) {
           if (!cancelled) setGate("signed-out");
           return;
         }
-        const usage = await apiGet<Usage>("/api/account/usage", token).catch(() => null);
+        const usage = await apiGetCached<Usage>("/api/account/usage", token, {
+          ttlMs: CACHE_TTL.account,
+        }).catch(() => null);
         if (!cancelled) setGate(usage?.plan === "paid" ? "unlocked" : "locked");
       } catch {
         if (!cancelled) setGate("signed-out");

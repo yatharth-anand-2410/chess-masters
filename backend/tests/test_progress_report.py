@@ -168,8 +168,12 @@ class FakeDb:
             progress.db, "list_analyses_by_student", self._list_by_student
         )
 
-    def _list_analyses(self, user_id: str, limit: int = 50) -> List[Dict[str, Any]]:
-        self.user_calls.append({"user_id": user_id, "limit": limit})
+    def _list_analyses(
+        self, user_id: str, limit: int = 50, **kwargs: Any
+    ) -> List[Dict[str, Any]]:
+        self.user_calls.append(
+            {"user_id": user_id, "limit": limit, "columns": kwargs.get("columns")}
+        )
         return list(self.rows)
 
     def _list_by_student(

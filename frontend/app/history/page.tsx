@@ -5,12 +5,12 @@ import { useRouter } from "next/navigation";
 import { Topbar } from "../../components/ui/Topbar";
 import AnalysisHistory from "../../components/AnalysisHistory";
 import {
-  apiGet,
   mergeHistoryEntries,
   type AnalysisSummary,
   type BatchSummary,
   type HistoryEntry,
 } from "../../lib/api";
+import { apiGetCached, CACHE_TTL } from "../../lib/api-cache";
 import { createClient } from "../../lib/supabase-client";
 import type { User } from "@supabase/supabase-js";
 
@@ -35,11 +35,14 @@ export default function HistoryPage() {
       if (session) {
         try {
           const [list, batchList] = await Promise.all([
-            apiGet<AnalysisSummary[]>(
+            apiGetCached<AnalysisSummary[]>(
               "/api/analyses?standalone=true",
-              session.access_token
+              session.access_token,
+              { ttlMs: CACHE_TTL.data }
             ),
-            apiGet<BatchSummary[]>("/api/batches", session.access_token),
+            apiGetCached<BatchSummary[]>("/api/batches", session.access_token, {
+              ttlMs: CACHE_TTL.data,
+            }),
           ]);
           setEntries(mergeHistoryEntries(list, batchList));
         } catch (err) {

@@ -18,12 +18,12 @@ import {
 } from "lucide-react";
 import { createClient } from "../lib/supabase-client";
 import {
-  apiGet,
   apiPost,
   apiDelete,
   type StudentSummary,
   type Usage,
 } from "../lib/api";
+import { apiGetCached, CACHE_TTL } from "../lib/api-cache";
 import { Button } from "./ui/Button";
 
 export type ManageStudentsModalProps = {
@@ -88,7 +88,10 @@ export default function ManageStudentsModal({
     setLoading(true);
     setError(null);
     try {
-      const list = await apiGet<StudentSummary[]>("/api/coach/students", currentToken);
+      const list = await apiGetCached<StudentSummary[]>("/api/coach/students", currentToken, {
+        ttlMs: CACHE_TTL.account,
+        force: true,
+      });
       setStudents(list || []);
       if (onStudentsChanged) onStudentsChanged();
     } catch (err) {

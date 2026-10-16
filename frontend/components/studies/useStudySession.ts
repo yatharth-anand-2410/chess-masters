@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { apiGet, type StudentSummary, type Usage } from "../../lib/api";
+import { type StudentSummary, type Usage } from "../../lib/api";
+import { apiGetCached, CACHE_TTL } from "../../lib/api-cache";
 import { createClient } from "../../lib/supabase-client";
 
 export type StudySession = {
@@ -54,17 +55,18 @@ export function useStudySession(options?: { students?: boolean }): StudySession 
     const supabase = client;
 
     async function load(accessToken: string) {
-      const usage = await apiGet<Usage>("/api/account/usage", accessToken).catch(
-        () => null
-      );
+      // Usage and the roster are read by several surfaces; the cache keeps a
+      // page load to a single request each instead of one per component.
+      const usage = await apiGetCached<Usage>("/api/account/usage", accessToken, {
+        ttlMs: CACHE_TTL.account,
+      }).catch(() => null);
       const tier = usage?.plan_tier ?? (usage?.plan === "paid" ? "student" : "free");
       const isCoach = tier === "coach";
       let students: StudentSummary[] = [];
       if (isCoach && wantsStudents) {
-        students = await apiGet<StudentSummary[]>(
-          "/api/coach/students",
-          accessToken
-        ).catch(() => []);
+        students = await apiGetCached<StudentSummary[]>("/api/coach/students", accessToken, {
+          ttlMs: CACHE_TTL.account,
+        }).catch(() => []);
       }
       if (cancelled) {
         return;

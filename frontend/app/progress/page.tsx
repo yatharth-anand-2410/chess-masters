@@ -24,8 +24,8 @@ import { Topbar } from "../../components/ui/Topbar";
 import { Button } from "../../components/ui/Button";
 import { Pill } from "../../components/ui/Pill";
 import { createClient } from "../../lib/supabase-client";
+import { apiGetCached, invalidateApiCache, CACHE_TTL } from "../../lib/api-cache";
 import {
-  apiGet,
   apiPost,
   shareUrl,
   type ProgressReport,
@@ -129,9 +129,9 @@ function ProgressPageContent() {
           return;
         }
         setToken(session.access_token);
-        const usageRes = await apiGet<Usage>("/api/account/usage", session.access_token).catch(
-          () => null
-        );
+        const usageRes = await apiGetCached<Usage>("/api/account/usage", session.access_token, {
+          ttlMs: CACHE_TTL.account,
+        }).catch(() => null);
         if (cancelled) return;
         setUsage(usageRes);
 
@@ -139,9 +139,11 @@ function ProgressPageContent() {
           usageRes?.plan_tier === "coach" ||
           (usageRes?.plan_tier == null && usageRes?.plan === "paid");
         if (declaredCoach) {
-          const roster = await apiGet<StudentSummary[]>("/api/coach/students", session.access_token).catch(
-            () => null
-          );
+          const roster = await apiGetCached<StudentSummary[]>(
+            "/api/coach/students",
+            session.access_token,
+            { ttlMs: CACHE_TTL.account }
+          ).catch(() => null);
           if (cancelled) return;
           if (roster) {
             setIsCoach(true);
@@ -168,7 +170,9 @@ function ProgressPageContent() {
     if (!token || !isCoach) return;
     const handleStudentsChange = async () => {
       try {
-        const list = await apiGet<StudentSummary[]>("/api/coach/students", token);
+        const list = await apiGetCached<StudentSummary[]>("/api/coach/students", token, {
+          force: true,
+        });
         setCoachStudents(list || []);
       } catch {
         // roster refresh is best-effort
@@ -280,7 +284,7 @@ function ProgressPageContent() {
       : `/api/progress${query}`;
     setReportLoading(true);
     setReportError(null);
-    apiGet<ProgressReport>(path, token)
+    apiGetCached<ProgressReport>(path, token, { ttlMs: CACHE_TTL.data })
       .then((data) => {
         if (!cancelled) setReportState({ key: requestKey, data });
       })
@@ -489,7 +493,12 @@ function ProgressPageContent() {
             <Button
               variant="primary"
               size="sm"
-              onClick={() => setReloadKey((value) => value + 1)}
+              onClick={() => {
+                // An explicit retry must not be answered from the cache.
+                invalidateApiCache("/api/progress");
+                invalidateApiCache("/api/coach/students/");
+                setReloadKey((value) => value + 1);
+              }}
               iconStart={<RefreshCw size={14} />}
             >
               Retry

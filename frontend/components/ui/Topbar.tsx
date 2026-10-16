@@ -7,6 +7,7 @@ import type { User } from "@supabase/supabase-js";
 import { Menu, X, ChevronDown, Check, AlertCircle, Sparkles } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { apiGet } from "../../lib/api";
+import { apiGetCached, CACHE_TTL } from "../../lib/api-cache";
 import type { Usage, UserProfile } from "../../lib/api";
 import { createClient } from "../../lib/supabase-client";
 import { Pill } from "./Pill";
@@ -112,7 +113,9 @@ export function Topbar({
           }
           return;
         }
-        const profile = await apiGet<UserProfile>("/api/account/profile", token).catch(() => null);
+        const profile = await apiGetCached<UserProfile>("/api/account/profile", token, {
+          ttlMs: CACHE_TTL.account,
+        }).catch(() => null);
         if (!cancelled) {
           setInternalRole(profile?.role ?? null);
         }

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { createClient } from "../../lib/supabase-client";
-import { apiGet } from "../../lib/api";
+import { apiGetCached, CACHE_TTL } from "../../lib/api-cache";
 import type { UserProfile } from "../../lib/api";
 import { playSound } from "../../lib/sound";
 import SoundToggle from "./SoundToggle";
@@ -48,7 +48,9 @@ export default function Dock() {
         setRole(null);
         return;
       }
-      const profile = await apiGet<UserProfile>("/api/account/profile", token).catch(() => null);
+      const profile = await apiGetCached<UserProfile>("/api/account/profile", token, {
+        ttlMs: CACHE_TTL.account,
+      }).catch(() => null);
       setRole(profile?.role ?? null);
     } catch {
       setRole(null);

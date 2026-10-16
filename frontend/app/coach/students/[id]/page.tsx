@@ -42,6 +42,7 @@ import {
   type StudentDetail,
   type Usage,
 } from "../../../../lib/api";
+import { apiGetCached, CACHE_TTL } from "../../../../lib/api-cache";
 import { streamPost } from "../../../../lib/stream";
 import { createClient } from "../../../../lib/supabase-client";
 import type { User } from "@supabase/supabase-js";
@@ -143,7 +144,9 @@ export default function CoachStudentPage() {
       try {
         const [result, usageData] = await Promise.all([
           apiGet<StudentDetail>(`/api/coach/students/${studentId}`, sessionToken),
-          apiGet<Usage>("/api/account/usage", sessionToken).catch(() => null),
+          apiGetCached<Usage>("/api/account/usage", sessionToken, {
+          ttlMs: CACHE_TTL.account,
+        }).catch(() => null),
         ]);
         setDetail(result);
         if (usageData) {

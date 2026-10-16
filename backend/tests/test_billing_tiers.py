@@ -504,7 +504,7 @@ def test_set_paid_access_payload_keeps_the_tier_history(monkeypatch):
         response.text = ""
         return response
 
-    monkeypatch.setattr(db.requests, "post", fake_post)
+    monkeypatch.setattr(db, "_post", fake_post)
     db.set_paid_access(
         "user-1", True, "authenticated", None, plan_tier="coach", paid_analysis_limit=500
     )

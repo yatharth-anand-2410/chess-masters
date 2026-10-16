@@ -1525,7 +1525,11 @@ def _load_rows(
     if coach_id:
         rows = db.list_analyses_by_student(coach_id, student_id)
     else:
-        rows = db.list_analyses(user_id=student_id, limit=100)
+        rows = db.list_analyses(
+            user_id=student_id,
+            limit=100,
+            columns=db.ANALYSIS_TELEMETRY_COLUMNS,
+        )
     return [row for row in rows if isinstance(row, dict)]
 
 

@@ -3,17 +3,86 @@
 The backend authenticates the caller by validating their access token against
 the GoTrue endpoint, then uses the service-role secret to read/write the
 user's own rows. Ownership is always enforced with ``user_id`` filters.
+
+Two things keep this module fast enough to sit on every page load:
+
+* Every call goes through a thread-local ``requests.Session``. Supabase lives in
+  a different region than this service, so a fresh TCP+TLS handshake per query
+  used to cost ~200ms on its own; reusing the connection removes it.
+* ``get_user_from_token`` caches a verified token for a short TTL, so the 5-9
+  authenticated requests a page fires do not each pay for a GoTrue round trip.
 """
 
 from __future__ import annotations
 
+import hashlib
 import os
+import threading
+import time
+from collections import OrderedDict
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 TIMEOUT = 12
+
+_local = threading.local()
+
+#: A pooled connection older than this is dropped before reuse. Supabase's edge
+#: closes idle keep-alives, and a request sent down a dead socket surfaces as a
+#: connection error; reconnecting costs one handshake, failing costs the page.
+SESSION_IDLE_RESET_SECONDS = 45.0
+
+
+def _session(fresh: bool = False) -> requests.Session:
+    """One keep-alive session per worker thread (``requests`` is not reentrant).
+
+    ``fresh=True`` closes the pooled connection first: writes use it so a retry
+    can never be needed on a non-idempotent request.
+    """
+    session: Optional[requests.Session] = getattr(_local, "session", None)
+    last_used = float(getattr(_local, "last_used", 0.0))
+    if (
+        session is None
+        or fresh
+        or (time.monotonic() - last_used) > SESSION_IDLE_RESET_SECONDS
+    ):
+        if session is not None:
+            session.close()
+        session = requests.Session()
+        session.headers["User-Agent"] = "AI-Chess-Game-Analyzer/1.0 (backend)"
+        # Reads may be repeated safely; writes keep the default (no) retries so a
+        # lost response can never double-charge a credit or duplicate a row.
+        retry = Retry(
+            total=2,
+            connect=2,
+            read=2,
+            status=0,
+            backoff_factor=0.15,
+            raise_on_status=False,
+        )
+        adapter = HTTPAdapter(max_retries=retry, pool_connections=4, pool_maxsize=8)
+        session.mount("https://", adapter)
+        session.mount("http://", adapter)
+        _local.session = session
+    _local.last_used = time.monotonic()
+    return session
+
+
+def _get(url: str, **kwargs: Any) -> requests.Response:
+    return _session().get(url, **kwargs)
+
+
+def _post(url: str, **kwargs: Any) -> requests.Response:
+    return _session(fresh=True).post(url, **kwargs)
+
+
+def _patch(url: str, **kwargs: Any) -> requests.Response:
+    return _session(fresh=True).patch(url, **kwargs)
+
 
 FREE_ANALYSIS_LIMIT = 5
 PAID_ANALYSIS_LIMIT = 100
@@ -28,22 +97,35 @@ PLAN_TIER_STUDENT = "student"
 PLAN_TIER_COACH = "coach"
 PLAN_TIERS = (PLAN_TIER_FREE, PLAN_TIER_STUDENT, PLAN_TIER_COACH)
 
-# History/list reads must stay light: the `pgn` and `replay` payloads are only
-# fetched when a caller opens one game. `replay_available` (generated in
-# 0014_game_telemetry.sql) tells the UI whether the replay endpoint can serve
-# the row, and the detail read keeps `pgn` so old games stay playable.
+# History/list reads must stay light: the `pgn`, `replay`, `report_markdown` and
+# `insights` payloads are only fetched when a caller actually reads one game.
+# `replay_available` (generated in 0014_game_telemetry.sql) tells the UI whether
+# the replay endpoint can serve the row, and the detail read keeps `pgn` so old
+# games stay playable.
+#: Metadata only — what the history list, the home "recent analyses" rail and the
+#: batch list render. A full coaching report is 5-15 KB, so selecting it for 50
+#: rows used to move megabytes just to show dates and openings.
 ANALYSIS_LIST_COLUMNS = (
     "id,user_id,platform,game_url,game_id,username,player_color,player_name,"
-    "opening_name,eco,result,report_markdown,insights,status,error_message,"
-    "created_at,completed_at,batch_id,student_id,game_summary,replay_available,"
-    "student:students(display_name)"
+    "opening_name,eco,result,status,error_message,created_at,completed_at,"
+    "batch_id,student_id,replay_available,student:students(display_name)"
 )
+
+#: Derived views (progress, curated studies, tactics) read the stored telemetry
+#: but never the rendered report.
+ANALYSIS_TELEMETRY_COLUMNS = ANALYSIS_LIST_COLUMNS + ",insights,game_summary"
 
 ANALYSIS_DETAIL_COLUMNS = (
     "id,user_id,platform,game_url,game_id,username,player_color,player_name,pgn,"
     "opening_name,eco,result,report_markdown,insights,status,error_message,"
     "created_at,completed_at,batch_id,student_id,game_summary,replay_available,"
     "student:students(display_name)"
+)
+
+#: Batch list rows: the batch report body is only read on /batch/{id}.
+BATCH_LIST_COLUMNS = (
+    "id,user_id,platform,username,game_count,status,error_message,created_at,"
+    "completed_at,student_id"
 )
 
 
@@ -131,14 +213,70 @@ def _plan_tier_check(response: requests.Response) -> None:
     response.raise_for_status()
 
 
+#: Verified tokens are cached for this long. A page load makes 5-9 authenticated
+#: calls with the same bearer token; without the cache each one paid a ~200ms
+#: GoTrue round trip. The TTL bounds how long a revoked token keeps working.
+AUTH_CACHE_TTL_SECONDS = float(os.environ.get("AUTH_CACHE_TTL_SECONDS", "90"))
+AUTH_CACHE_MAX_ENTRIES = 512
+
+_auth_cache: "OrderedDict[str, Tuple[float, Dict[str, Any]]]" = OrderedDict()
+_auth_cache_lock = threading.Lock()
+
+
+def _auth_cache_key(token: str) -> str:
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+def _cached_user(token: str) -> Optional[Dict[str, Any]]:
+    if AUTH_CACHE_TTL_SECONDS <= 0:
+        return None
+    key = _auth_cache_key(token)
+    now = time.monotonic()
+    with _auth_cache_lock:
+        entry = _auth_cache.get(key)
+        if entry is None:
+            return None
+        expires_at, user = entry
+        if expires_at <= now:
+            _auth_cache.pop(key, None)
+            return None
+        _auth_cache.move_to_end(key)
+        return user
+
+
+def _remember_user(token: str, user: Dict[str, Any]) -> None:
+    if AUTH_CACHE_TTL_SECONDS <= 0:
+        return
+    key = _auth_cache_key(token)
+    with _auth_cache_lock:
+        _auth_cache[key] = (time.monotonic() + AUTH_CACHE_TTL_SECONDS, user)
+        _auth_cache.move_to_end(key)
+        while len(_auth_cache) > AUTH_CACHE_MAX_ENTRIES:
+            _auth_cache.popitem(last=False)
+
+
+def forget_token(token: str) -> None:
+    """Drop one cached verification (used when upstream rejects the token)."""
+    with _auth_cache_lock:
+        _auth_cache.pop(_auth_cache_key(token), None)
+
+
 def get_user_from_token(token: str) -> Dict[str, Any]:
+    """Resolve the caller from their bearer token, with a short-lived cache.
+
+    Cache misses still hit GoTrue; invalid or expired tokens are never cached,
+    so revocation is honoured as soon as the entry's TTL lapses.
+    """
     url, _key = _config()
     if not token:
         raise AuthError("Missing authentication token.")
     if not configured():
         raise AuthError("Supabase is not configured on the server.")
+    cached = _cached_user(token)
+    if cached is not None:
+        return cached
     try:
-        response = requests.get(
+        response = _get(
             f"{url}/auth/v1/user",
             headers=_user_headers(token),
             timeout=TIMEOUT,
@@ -146,17 +284,19 @@ def get_user_from_token(token: str) -> Dict[str, Any]:
     except requests.RequestException as exc:
         raise AuthError(f"Could not reach the auth service: {exc}") from exc
     if response.status_code != 200:
+        forget_token(token)
         raise AuthError("Invalid or expired authentication token.")
     user = response.json()
     if not user.get("id"):
         raise AuthError("Invalid authentication token.")
+    _remember_user(token, user)
     return user
 
 
 def create_analysis(user_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
     url, _key = _config()
     payload = {"user_id": user_id, **data}
-    response = requests.post(
+    response = _post(
         f"{url}/rest/v1/analyses",
         json=payload,
         headers={**_service_headers(), "Prefer": "return=representation"},
@@ -169,7 +309,7 @@ def create_analysis(user_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
 
 def update_analysis(user_id: str, analysis_id: str, updates: Dict[str, Any]) -> None:
     url, _key = _config()
-    response = requests.patch(
+    response = _patch(
         f"{url}/rest/v1/analyses",
         params={"id": f"eq.{analysis_id}", "user_id": f"eq.{user_id}"},
         json=updates,
@@ -183,7 +323,7 @@ def get_analysis(user_id: str, analysis_id: str) -> Optional[Dict[str, Any]]:
     """One full report row: keeps ``pgn`` (old games stay playable) but never
     the heavy ``replay`` payload — that has its own endpoint."""
     url, _key = _config()
-    response = requests.get(
+    response = _get(
         f"{url}/rest/v1/analyses",
         params={
             "select": ANALYSIS_DETAIL_COLUMNS,
@@ -208,7 +348,7 @@ def get_analysis_replay(
     the move-by-move JSON.
     """
     url, _key = _config()
-    response = requests.get(
+    response = _get(
         f"{url}/rest/v1/analyses",
         params={
             "select": "id,replay,replay_available",
@@ -225,11 +365,22 @@ def get_analysis_replay(
 
 
 def list_analyses(
-    user_id: str, limit: int = 50, standalone: bool = False, mine: bool = False
+    user_id: str,
+    limit: int = 50,
+    standalone: bool = False,
+    mine: bool = False,
+    columns: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
+    """List one account's analyses.
+
+    ``columns`` defaults to :data:`ANALYSIS_LIST_COLUMNS` (metadata only). The
+    derived views that need the stored telemetry pass
+    :data:`ANALYSIS_TELEMETRY_COLUMNS`; nothing here ever selects the rendered
+    report body.
+    """
     url, _key = _config()
     params = {
-        "select": ANALYSIS_LIST_COLUMNS,
+        "select": columns or ANALYSIS_LIST_COLUMNS,
         "user_id": f"eq.{user_id}",
         "status": "neq.failed",
         "order": "created_at.desc",
@@ -240,7 +391,7 @@ def list_analyses(
     if mine:
         # The coach's own games: analyses that are not tagged to a student.
         params["student_id"] = "is.null"
-    response = requests.get(
+    response = _get(
         f"{url}/rest/v1/analyses",
         params=params,
         headers=_service_headers(),
@@ -250,10 +401,39 @@ def list_analyses(
     return response.json()
 
 
+#: The lifetime analysed-game count drives the psychology unlock badge. It only
+#: changes when an analysis completes (which forgets the entry below), so the
+#: extra PostgREST round trip per usage read is unnecessary.
+_LIFETIME_COUNT_TTL_SECONDS = 300.0
+_lifetime_counts: Dict[str, Tuple[float, int]] = {}
+_lifetime_counts_lock = threading.Lock()
+
+
 def count_completed_analyses(user_id: str) -> int:
     """Lifetime count of successfully analyzed games (standalone + batch)."""
+    now = time.monotonic()
+    with _lifetime_counts_lock:
+        cached = _lifetime_counts.get(user_id)
+        if cached is not None and cached[0] > now:
+            return cached[1]
+
+    count = _fetch_completed_analyses_count(user_id)
+    with _lifetime_counts_lock:
+        _lifetime_counts[user_id] = (time.monotonic() + _LIFETIME_COUNT_TTL_SECONDS, count)
+        while len(_lifetime_counts) > AUTH_CACHE_MAX_ENTRIES:
+            _lifetime_counts.pop(next(iter(_lifetime_counts)))
+    return count
+
+
+def forget_lifetime_count(user_id: str) -> None:
+    """Called when an analysis completes so the badge moves immediately."""
+    with _lifetime_counts_lock:
+        _lifetime_counts.pop(user_id, None)
+
+
+def _fetch_completed_analyses_count(user_id: str) -> int:
     url, _key = _config()
-    response = requests.get(
+    response = _get(
         f"{url}/rest/v1/analyses",
         params={
             "select": "id",
@@ -279,7 +459,7 @@ def count_completed_analyses(user_id: str) -> int:
 
 def create_batch(user_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
     url, _key = _config()
-    response = requests.post(
+    response = _post(
         f"{url}/rest/v1/analysis_batches",
         json={"user_id": user_id, **data},
         headers={**_service_headers(), "Prefer": "return=representation"},
@@ -292,7 +472,7 @@ def create_batch(user_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
 
 def update_batch(user_id: str, batch_id: str, updates: Dict[str, Any]) -> None:
     url, _key = _config()
-    response = requests.patch(
+    response = _patch(
         f"{url}/rest/v1/analysis_batches",
         params={"id": f"eq.{batch_id}", "user_id": f"eq.{user_id}"},
         json=updates,
@@ -304,7 +484,7 @@ def update_batch(user_id: str, batch_id: str, updates: Dict[str, Any]) -> None:
 
 def get_batch(user_id: str, batch_id: str) -> Optional[Dict[str, Any]]:
     url, _key = _config()
-    response = requests.get(
+    response = _get(
         f"{url}/rest/v1/analysis_batches",
         params={
             "select": "*",
@@ -320,11 +500,12 @@ def get_batch(user_id: str, batch_id: str) -> Optional[Dict[str, Any]]:
 
 
 def list_batches(user_id: str, limit: int = 50) -> List[Dict[str, Any]]:
+    """Batch summaries for the history rails — never the batch report body."""
     url, _key = _config()
-    response = requests.get(
+    response = _get(
         f"{url}/rest/v1/analysis_batches",
         params={
-            "select": "*",
+            "select": BATCH_LIST_COLUMNS,
             "user_id": f"eq.{user_id}",
             "status": "neq.failed",
             "order": "created_at.desc",
@@ -339,7 +520,7 @@ def list_batches(user_id: str, limit: int = 50) -> List[Dict[str, Any]]:
 
 def list_analyses_by_batch(user_id: str, batch_id: str) -> List[Dict[str, Any]]:
     url, _key = _config()
-    response = requests.get(
+    response = _get(
         f"{url}/rest/v1/analyses",
         params={
             "select": "*",
@@ -362,7 +543,7 @@ def add_message(user_id: str, analysis_id: str, role: str, content: str) -> Dict
         "role": role,
         "content": content,
     }
-    response = requests.post(
+    response = _post(
         f"{url}/rest/v1/analysis_messages",
         json=payload,
         headers={**_service_headers(), "Prefer": "return=representation"},
@@ -375,7 +556,7 @@ def add_message(user_id: str, analysis_id: str, role: str, content: str) -> Dict
 
 def list_messages(analysis_id: str) -> List[Dict[str, Any]]:
     url, _key = _config()
-    response = requests.get(
+    response = _get(
         f"{url}/rest/v1/analysis_messages",
         params={
             "select": "*",
@@ -396,7 +577,7 @@ def upsert_review(
     display_name: Optional[str],
 ) -> Dict[str, Any]:
     url, _key = _config()
-    response = requests.post(
+    response = _post(
         f"{url}/rest/v1/reviews",
         params={"on_conflict": "user_id"},
         json={
@@ -419,7 +600,7 @@ def upsert_review(
 
 def list_reviews(limit: int = 200) -> List[Dict[str, Any]]:
     url, _key = _config()
-    response = requests.get(
+    response = _get(
         f"{url}/rest/v1/reviews",
         params={
             "select": "id,user_id,rating,comment,display_name,created_at,updated_at",
@@ -435,7 +616,7 @@ def list_reviews(limit: int = 200) -> List[Dict[str, Any]]:
 
 def get_user_review(user_id: str) -> Optional[Dict[str, Any]]:
     url, _key = _config()
-    response = requests.get(
+    response = _get(
         f"{url}/rest/v1/reviews",
         params={"select": "*", "user_id": f"eq.{user_id}", "limit": "1"},
         headers=_service_headers(),
@@ -448,7 +629,7 @@ def get_user_review(user_id: str) -> Optional[Dict[str, Any]]:
 
 def get_review_stats() -> Dict[str, Any]:
     url, _key = _config()
-    response = requests.get(
+    response = _get(
         f"{url}/rest/v1/review_stats",
         params={"select": "*"},
         headers=_service_headers(),
@@ -465,7 +646,7 @@ def get_usage(user_id: str) -> Dict[str, Any]:
     url, _key = _config()
     if not configured():
         raise AuthError("Supabase is not configured on the server.")
-    response = requests.get(
+    response = _get(
         f"{url}/rest/v1/account_usage",
         params={"select": "*", "user_id": f"eq.{user_id}"},
         headers=_service_headers(),
@@ -518,7 +699,7 @@ def is_coach_plan(user_id: str) -> bool:
 
 def get_current_subscription(user_id: str) -> Optional[Dict[str, Any]]:
     url, _key = _config()
-    response = requests.get(
+    response = _get(
         f"{url}/rest/v1/billing_subscriptions",
         params={
             "select": "*",
@@ -537,7 +718,7 @@ def get_current_subscription(user_id: str) -> Optional[Dict[str, Any]]:
 
 def get_subscription_by_customer_id(customer_id: str) -> Optional[Dict[str, Any]]:
     url, _key = _config()
-    response = requests.get(
+    response = _get(
         f"{url}/rest/v1/billing_subscriptions",
         params={
             "select": "*",
@@ -555,7 +736,7 @@ def get_subscription_by_customer_id(customer_id: str) -> Optional[Dict[str, Any]
 
 def create_subscription(user_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
     url, _key = _config()
-    response = requests.post(
+    response = _post(
         f"{url}/rest/v1/billing_subscriptions",
         json={"user_id": user_id, **data},
         headers={**_service_headers(), "Prefer": "return=representation"},
@@ -568,7 +749,7 @@ def create_subscription(user_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
 
 def get_subscription(user_id: str, subscription_id: str) -> Optional[Dict[str, Any]]:
     url, _key = _config()
-    response = requests.get(
+    response = _get(
         f"{url}/rest/v1/billing_subscriptions",
         params={
             "select": "*",
@@ -586,7 +767,7 @@ def get_subscription(user_id: str, subscription_id: str) -> Optional[Dict[str, A
 
 def get_subscription_by_razorpay_id(subscription_id: str) -> Optional[Dict[str, Any]]:
     url, _key = _config()
-    response = requests.get(
+    response = _get(
         f"{url}/rest/v1/billing_subscriptions",
         params={"select": "*", "razorpay_subscription_id": f"eq.{subscription_id}", "limit": "1"},
         headers=_service_headers(),
@@ -599,7 +780,7 @@ def get_subscription_by_razorpay_id(subscription_id: str) -> Optional[Dict[str, 
 
 def get_latest_subscription(user_id: str) -> Optional[Dict[str, Any]]:
     url, _key = _config()
-    response = requests.get(
+    response = _get(
         f"{url}/rest/v1/billing_subscriptions",
         params={
             "select": "*",
@@ -617,7 +798,7 @@ def get_latest_subscription(user_id: str) -> Optional[Dict[str, Any]]:
 
 def update_subscription(subscription_id: str, updates: Dict[str, Any]) -> None:
     url, _key = _config()
-    response = requests.patch(
+    response = _patch(
         f"{url}/rest/v1/billing_subscriptions",
         params={"razorpay_subscription_id": f"eq.{subscription_id}"},
         json=updates,
@@ -655,7 +836,7 @@ def set_paid_access(
         payload["plan_tier"] = plan_tier
     if paid_analysis_limit is not None:
         payload["paid_analysis_limit"] = int(paid_analysis_limit)
-    response = requests.post(
+    response = _post(
         f"{url}/rest/v1/account_usage",
         params={"on_conflict": "user_id"},
         json=payload,
@@ -668,7 +849,7 @@ def set_paid_access(
 def reset_analysis_usage(user_id: str) -> None:
     """Start a fresh counting period, e.g. right after a paid upgrade."""
     url, _key = _config()
-    response = requests.patch(
+    response = _patch(
         f"{url}/rest/v1/account_usage",
         params={"user_id": f"eq.{user_id}"},
         json={"analyses_used": 0, "updated_at": datetime.now(timezone.utc).isoformat()},
@@ -680,7 +861,7 @@ def reset_analysis_usage(user_id: str) -> None:
 
 def record_invoice(user_id: str, data: Dict[str, Any]) -> bool:
     url, _key = _config()
-    response = requests.post(
+    response = _post(
         f"{url}/rest/v1/billing_invoices",
         json={"user_id": user_id, **data},
         headers={**_service_headers(), "Prefer": "return=minimal"},
@@ -694,7 +875,7 @@ def record_invoice(user_id: str, data: Dict[str, Any]) -> bool:
 
 def list_invoices_db(user_id: str, limit: int = 12) -> List[Dict[str, Any]]:
     url, _key = _config()
-    response = requests.get(
+    response = _get(
         f"{url}/rest/v1/billing_invoices",
         params={
             "select": "razorpay_invoice_id,status,amount,currency,paid_at,short_url",
@@ -721,7 +902,7 @@ def list_invoices_db(user_id: str, limit: int = 12) -> List[Dict[str, Any]]:
 
 def record_webhook_event(event_id: str, event_type: str, payload: Dict[str, Any]) -> bool:
     url, _key = _config()
-    response = requests.post(
+    response = _post(
         f"{url}/rest/v1/billing_webhook_events",
         json={"razorpay_event_id": event_id, "event_type": event_type, "payload": payload},
         headers={**_service_headers(), "Prefer": "return=minimal"},
@@ -745,7 +926,7 @@ def consume_analysis_credit(user_id: str) -> Dict[str, Any]:
     url, _key = _config()
     if not configured():
         raise AuthError("Supabase is not configured on the server.")
-    response = requests.post(
+    response = _post(
         f"{url}/rest/v1/rpc/consume_analysis_credit",
         json={"p_user_id": user_id},
         headers=_service_headers(),
@@ -775,7 +956,7 @@ def consume_guest_analysis(
         raise AuthError("Supabase is not configured on the server.")
     if not ip:
         return {"allowed": False, "analyses_used": 0, "limit": daily_limit}
-    response = requests.post(
+    response = _post(
         f"{url}/rest/v1/rpc/consume_guest_analysis",
         json={"p_ip": ip, "p_daily_limit": daily_limit},
         headers=_service_headers(),
@@ -799,7 +980,7 @@ def claim_guest_trial(user_id: str) -> Dict[str, Any]:
     url, _key = _config()
     if not configured():
         raise AuthError("Supabase is not configured on the server.")
-    response = requests.post(
+    response = _post(
         f"{url}/rest/v1/rpc/claim_guest_trial",
         json={"p_user_id": user_id},
         headers=_service_headers(),
@@ -823,7 +1004,7 @@ def consume_analysis_credits(user_id: str, count: int) -> Dict[str, Any]:
     url, _key = _config()
     if not configured():
         raise AuthError("Supabase is not configured on the server.")
-    response = requests.post(
+    response = _post(
         f"{url}/rest/v1/rpc/consume_analysis_credits",
         json={"p_user_id": user_id, "p_count": count},
         headers=_service_headers(),
@@ -847,7 +1028,7 @@ def refund_analysis_credits(user_id: str, count: int = 1) -> Dict[str, Any]:
     url, _key = _config()
     if not configured():
         raise AuthError("Supabase is not configured on the server.")
-    response = requests.post(
+    response = _post(
         f"{url}/rest/v1/rpc/refund_analysis_credits",
         json={"p_user_id": user_id, "p_count": count},
         headers=_service_headers(),
@@ -886,7 +1067,7 @@ def _coach_check(response: requests.Response) -> None:
 
 def get_user_profile(user_id: str) -> Optional[Dict[str, Any]]:
     url, _key = _config()
-    response = requests.get(
+    response = _get(
         f"{url}/rest/v1/user_profiles",
         params={"select": "*", "user_id": f"eq.{user_id}", "limit": "1"},
         headers=_service_headers(),
@@ -899,7 +1080,7 @@ def get_user_profile(user_id: str) -> Optional[Dict[str, Any]]:
 
 def upsert_user_profile(user_id: str, role: str) -> Dict[str, Any]:
     url, _key = _config()
-    response = requests.post(
+    response = _post(
         f"{url}/rest/v1/user_profiles",
         params={"on_conflict": "user_id"},
         json={
@@ -920,7 +1101,7 @@ def upsert_user_profile(user_id: str, role: str) -> Dict[str, Any]:
 
 def create_student(coach_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
     url, _key = _config()
-    response = requests.post(
+    response = _post(
         f"{url}/rest/v1/students",
         json={"coach_id": coach_id, **data},
         headers={**_service_headers(), "Prefer": "return=representation"},
@@ -940,7 +1121,7 @@ def list_students(coach_id: str, include_archived: bool = False) -> List[Dict[st
     }
     if not include_archived:
         params["archived_at"] = "is.null"
-    response = requests.get(
+    response = _get(
         f"{url}/rest/v1/students",
         params=params,
         headers=_service_headers(),
@@ -952,7 +1133,7 @@ def list_students(coach_id: str, include_archived: bool = False) -> List[Dict[st
 
 def get_student(coach_id: str, student_id: str) -> Optional[Dict[str, Any]]:
     url, _key = _config()
-    response = requests.get(
+    response = _get(
         f"{url}/rest/v1/students",
         params={
             "select": "*",
@@ -971,7 +1152,7 @@ def get_student(coach_id: str, student_id: str) -> Optional[Dict[str, Any]]:
 def update_student(coach_id: str, student_id: str, updates: Dict[str, Any]) -> None:
     url, _key = _config()
     payload = {**updates, "updated_at": datetime.now(timezone.utc).isoformat()}
-    response = requests.patch(
+    response = _patch(
         f"{url}/rest/v1/students",
         params={"id": f"eq.{student_id}", "coach_id": f"eq.{coach_id}"},
         json=payload,
@@ -995,7 +1176,7 @@ def list_analyses_by_student(
     light.
     """
     url, _key = _config()
-    response = requests.get(
+    response = _get(
         f"{url}/rest/v1/analyses",
         params={
             "select": (
@@ -1021,7 +1202,7 @@ def list_batches_by_student(
 ) -> List[Dict[str, Any]]:
     """Multi-game reports the coach ran for one student, newest first."""
     url, _key = _config()
-    response = requests.get(
+    response = _get(
         f"{url}/rest/v1/analysis_batches",
         params={
             "select": (
@@ -1044,7 +1225,7 @@ def list_batches_by_student(
 def list_public_batches(student_id: str, limit: int = 100) -> List[Dict[str, Any]]:
     """Completed multi-game reports for a share page listing."""
     url, _key = _config()
-    response = requests.get(
+    response = _get(
         f"{url}/rest/v1/analysis_batches",
         params={
             "select": "id,platform,game_count,created_at",
@@ -1070,7 +1251,7 @@ def get_batch_for_student(
     valid share token that resolves to ``student_id``.
     """
     url, _key = _config()
-    response = requests.get(
+    response = _get(
         f"{url}/rest/v1/analysis_batches",
         params={
             "select": "*",
@@ -1096,7 +1277,7 @@ def list_student_activity(coach_id: str, student_ids: List[str]) -> List[Dict[st
         return []
     url, _key = _config()
     ids = ",".join(student_ids)
-    response = requests.get(
+    response = _get(
         f"{url}/rest/v1/analyses",
         params={
             "select": "student_id,created_at,result",
@@ -1121,7 +1302,7 @@ def get_analysis_for_student(
     analysis from another student.
     """
     url, _key = _config()
-    response = requests.get(
+    response = _get(
         f"{url}/rest/v1/analyses",
         params={
             "select": "*",
@@ -1140,7 +1321,7 @@ def get_analysis_for_student(
 def get_student_by_id(student_id: str) -> Optional[Dict[str, Any]]:
     """Service-side student lookup (public endpoints hold no coach id)."""
     url, _key = _config()
-    response = requests.get(
+    response = _get(
         f"{url}/rest/v1/students",
         params={"select": "*", "id": f"eq.{student_id}", "limit": "1"},
         headers=_service_headers(),
@@ -1158,7 +1339,7 @@ def list_public_analyses(student_id: str, limit: int = 100) -> List[Dict[str, An
     filtered out here — every row on the shared page is readable.
     """
     url, _key = _config()
-    response = requests.get(
+    response = _get(
         f"{url}/rest/v1/analyses",
         params={
             "select": (
@@ -1180,7 +1361,7 @@ def list_public_analyses(student_id: str, limit: int = 100) -> List[Dict[str, An
 
 def create_share_link(coach_id: str, student_id: str) -> Dict[str, Any]:
     url, _key = _config()
-    response = requests.post(
+    response = _post(
         f"{url}/rest/v1/share_links",
         json={"coach_id": coach_id, "student_id": student_id},
         headers={**_service_headers(), "Prefer": "return=representation"},
@@ -1193,7 +1374,7 @@ def create_share_link(coach_id: str, student_id: str) -> Dict[str, Any]:
 
 def get_active_share_link(coach_id: str, student_id: str) -> Optional[Dict[str, Any]]:
     url, _key = _config()
-    response = requests.get(
+    response = _get(
         f"{url}/rest/v1/share_links",
         params={
             "select": "*",
@@ -1213,7 +1394,7 @@ def get_active_share_link(coach_id: str, student_id: str) -> Optional[Dict[str, 
 
 def revoke_share_links(coach_id: str, student_id: str) -> None:
     url, _key = _config()
-    response = requests.patch(
+    response = _patch(
         f"{url}/rest/v1/share_links",
         params={
             "coach_id": f"eq.{coach_id}",
@@ -1230,7 +1411,7 @@ def revoke_share_links(coach_id: str, student_id: str) -> None:
 def get_share_link(token: str) -> Optional[Dict[str, Any]]:
     """Service-side lookup for public share endpoints."""
     url, _key = _config()
-    response = requests.get(
+    response = _get(
         f"{url}/rest/v1/share_links",
         params={"select": "*", "token": f"eq.{token}", "limit": "1"},
         headers=_service_headers(),
@@ -1247,7 +1428,7 @@ def touch_share_link(token: str) -> None:
     existing = get_share_link(token)
     if not existing:
         return
-    response = requests.patch(
+    response = _patch(
         f"{url}/rest/v1/share_links",
         params={"token": f"eq.{token}"},
         json={
@@ -1285,7 +1466,7 @@ def _share_items_check(response: requests.Response) -> None:
 def create_share_item(coach_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
     """Store one coach-authored share: a study or a tactic theme."""
     url, _key = _config()
-    response = requests.post(
+    response = _post(
         f"{url}/rest/v1/share_items",
         json={"coach_id": coach_id, **data},
         headers={**_service_headers(), "Prefer": "return=representation"},
@@ -1317,7 +1498,7 @@ def list_share_items(
         params["student_id"] = f"eq.{student_id}"
     if not include_revoked:
         params["revoked_at"] = "is.null"
-    response = requests.get(
+    response = _get(
         f"{url}/rest/v1/share_items",
         params=params,
         headers=_service_headers(),
@@ -1330,7 +1511,7 @@ def list_share_items(
 def get_share_item(token: str) -> Optional[Dict[str, Any]]:
     """Service-side lookup for the public share endpoint."""
     url, _key = _config()
-    response = requests.get(
+    response = _get(
         f"{url}/rest/v1/share_items",
         params={
             "select": SHARE_ITEM_COLUMNS,
@@ -1351,7 +1532,7 @@ def revoke_share_item(coach_id: str, token: str) -> bool:
     Returns ``True`` when this call closed a still-active link.
     """
     url, _key = _config()
-    response = requests.patch(
+    response = _patch(
         f"{url}/rest/v1/share_items",
         params={
             "coach_id": f"eq.{coach_id}",
@@ -1374,7 +1555,7 @@ def touch_share_item(token: str) -> Optional[int]:
     if not existing:
         return None
     view_count = int(existing.get("view_count", 0) or 0) + 1
-    response = requests.patch(
+    response = _patch(
         f"{url}/rest/v1/share_items",
         params={"token": f"eq.{token}"},
         json={

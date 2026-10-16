@@ -4,12 +4,12 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  apiGet,
   apiPut,
   type Usage,
   type UserProfile,
   type UserRole,
 } from "../lib/api";
+import { apiGetCached, CACHE_TTL } from "../lib/api-cache";
 import { createClient } from "../lib/supabase-client";
 import { Topbar } from "./ui/Topbar";
 import { Pill } from "./ui/Pill";
@@ -82,8 +82,12 @@ export default function CoachGate({ children }: CoachGateProps) {
         setToken(session.access_token);
         try {
           const [profile, usageData] = await Promise.all([
-            apiGet<UserProfile>("/api/account/profile", session.access_token),
-            apiGet<Usage>("/api/account/usage", session.access_token).catch(() => null),
+            apiGetCached<UserProfile>("/api/account/profile", session.access_token, {
+              ttlMs: CACHE_TTL.account,
+            }),
+            apiGetCached<Usage>("/api/account/usage", session.access_token, {
+              ttlMs: CACHE_TTL.account,
+            }).catch(() => null),
           ]);
 
           if (profile.role === null) {

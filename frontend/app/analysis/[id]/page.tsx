@@ -14,6 +14,7 @@ import { PSYCHOLOGY_MIN_GAMES } from "../../../components/AnalyzerForm";
 import type { InsightsData } from "../../../components/insights";
 import { isDrillable } from "../../../components/reportParsing";
 import { apiGet, externalGameUrl } from "../../../lib/api";
+import { apiGetCached, CACHE_TTL } from "../../../lib/api-cache";
 import type { GameSummary, Usage } from "../../../lib/api";
 import { warmBackend } from "../../../lib/backend-wake";
 import { createClient } from "../../../lib/supabase-client";
@@ -89,16 +90,18 @@ export default function AnalysisDetailPage() {
       }
       setToken(session.access_token);
       try {
-        const result = await apiGet<AnalysisDetail>(
-          `/api/analyses/${analysisId}`,
-          session.access_token
-        );
+        // Both reads are independent; the report should not wait on the usage
+        // pill, and a usage failure must not hide a perfectly good report.
+        const [result, usageResult] = await Promise.all([
+          apiGet<AnalysisDetail>(`/api/analyses/${analysisId}`, session.access_token),
+          apiGetCached<Usage>("/api/account/usage", session.access_token, {
+            ttlMs: CACHE_TTL.account,
+          }).catch(() => null),
+        ]);
         setDetail(result);
-        const usageResult = await apiGet<Usage>(
-          "/api/account/usage",
-          session.access_token
-        );
-        setUsage(usageResult);
+        if (usageResult) {
+          setUsage(usageResult);
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load analysis.");
       }

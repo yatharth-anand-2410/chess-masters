@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "next lint",
     "check:drill-board": "node scripts/drill-board-turn-check.mjs",
-    "check:backend-wake": "node scripts/backend-wake-check.mjs"
+    "check:backend-wake": "node scripts/backend-wake-check.mjs",
+    "check:api-cache": "node scripts/api-cache-check.mjs"
   },
   "dependencies": {
     "@lichess-org/chessground": "^10.4.0",

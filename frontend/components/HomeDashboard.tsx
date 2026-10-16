@@ -31,7 +31,6 @@ import { initAnalytics, trackEvent } from "../lib/analytics";
 import { warmBackend } from "../lib/backend-wake";
 import {
   API_BASE,
-  apiGet,
   apiPost,
   apiPut,
   mergeHistoryEntries,
@@ -43,6 +42,7 @@ import {
   type UserRole,
 } from "../lib/api";
 import { streamPost } from "../lib/stream";
+import { apiGetCached, invalidateApiCache, writeApiCache, CACHE_TTL } from "../lib/api-cache";
 import { createClient } from "../lib/supabase-client";
 
 const GUEST_TRIAL_KEY = "cm_guest_trial";
@@ -107,23 +107,32 @@ export default function HomePage() {
   }, []);
 
 
-  const refreshUsage = useCallback(async (sessionToken: string) => {
+  const refreshUsage = useCallback(async (sessionToken: string, options?: { force?: boolean }) => {
     try {
-      const data = await apiGet<Usage>("/api/account/usage", sessionToken);
+      const data = await apiGetCached<Usage>("/api/account/usage", sessionToken, {
+        ttlMs: CACHE_TTL.account,
+        force: options?.force ?? false,
+      });
       setUsage(data);
     } catch (err) {
       console.error("Failed to load usage:", err);
     }
   }, []);
 
-  const refreshCoachStudents = useCallback(async (sessionToken: string) => {
-    try {
-      const list = await apiGet<StudentSummary[]>("/api/coach/students", sessionToken);
-      setCoachStudents(list || []);
-    } catch {
-      // not a coach or offline
-    }
-  }, []);
+  const refreshCoachStudents = useCallback(
+    async (sessionToken: string, options?: { force?: boolean }) => {
+      try {
+        const list = await apiGetCached<StudentSummary[]>("/api/coach/students", sessionToken, {
+          ttlMs: CACHE_TTL.account,
+          force: options?.force ?? false,
+        });
+        setCoachStudents(list || []);
+      } catch {
+        // not a coach or offline
+      }
+    },
+    []
+  );
 
   /**
    * The role decides the default experience. A first-time account has no role
@@ -133,9 +142,10 @@ export default function HomePage() {
   const loadProfile = useCallback(
     async (sessionToken: string) => {
       try {
-        const data = await apiGet<UserProfile>(
+        const data = await apiGetCached<UserProfile>(
           "/api/account/profile",
-          sessionToken
+          sessionToken,
+          { ttlMs: CACHE_TTL.account }
         );
         setProfile(data);
         if (data.role === null) {
@@ -181,7 +191,9 @@ export default function HomePage() {
       return;
     }
     try {
-      const current = await apiGet<Usage>("/api/account/usage", sessionToken);
+      const current = await apiGetCached<Usage>("/api/account/usage", sessionToken, {
+        ttlMs: CACHE_TTL.account,
+      });
       if (current.plan === "paid" || current.analyses_used > 0) {
         window.localStorage.removeItem(GUEST_TRIAL_KEY);
         return;
@@ -192,6 +204,7 @@ export default function HomePage() {
         {}
       );
       window.localStorage.removeItem(GUEST_TRIAL_KEY);
+      writeApiCache("/api/account/usage", sessionToken, updated);
       setUsage(updated);
     } catch (err) {
       console.error("Failed to claim guest trial:", err);
@@ -206,24 +219,31 @@ export default function HomePage() {
     }
   }, []);
 
-  const refreshHistory = useCallback(async (sessionToken: string) => {
-    setLoadingHistory(true);
-    try {
-      const [list, batchList] = await Promise.all([
-        apiGet<AnalysisSummary[]>(
-          "/api/analyses?standalone=true&mine=true",
-          sessionToken
-        ),
-        apiGet<BatchSummary[]>("/api/batches", sessionToken),
-      ]);
-      setAnalyses(list);
-      setBatches(batchList);
-    } catch (err) {
-      console.error("Failed to load history:", err);
-    } finally {
-      setLoadingHistory(false);
-    }
-  }, []);
+  const refreshHistory = useCallback(
+    async (sessionToken: string, options?: { force?: boolean }) => {
+      setLoadingHistory(true);
+      try {
+        const [list, batchList] = await Promise.all([
+          apiGetCached<AnalysisSummary[]>(
+            "/api/analyses?standalone=true&mine=true",
+            sessionToken,
+            { ttlMs: CACHE_TTL.data, force: options?.force ?? false }
+          ),
+          apiGetCached<BatchSummary[]>("/api/batches", sessionToken, {
+            ttlMs: CACHE_TTL.data,
+            force: options?.force ?? false,
+          }),
+        ]);
+        setAnalyses(list);
+        setBatches(batchList);
+      } catch (err) {
+        console.error("Failed to load history:", err);
+      } finally {
+        setLoadingHistory(false);
+      }
+    },
+    []
+  );
 
   /**
    * Wake the deployed backend as early as possible: on the free tier it takes
@@ -380,8 +400,9 @@ export default function HomePage() {
                 setUsage(payload.usage);
               }
               if (accessToken) {
-                refreshUsage(accessToken);
-                refreshHistory(accessToken);
+                invalidateApiCache("/api/progress");
+                refreshUsage(accessToken, { force: true });
+                refreshHistory(accessToken, { force: true });
               } else {
                 try {
                   window.localStorage.setItem(GUEST_TRIAL_KEY, "1");
@@ -408,7 +429,7 @@ export default function HomePage() {
               setStatus("");
               setIsAnalyzing(false);
               if (accessToken) {
-                refreshUsage(accessToken);
+                refreshUsage(accessToken, { force: true });
               }
             }
           },
@@ -431,7 +452,7 @@ export default function HomePage() {
                 signedIn: Boolean(accessToken),
               });
               if (accessToken) {
-                refreshUsage(accessToken);
+                refreshUsage(accessToken, { force: true });
               }
               setStatus("");
               setIsAnalyzing(false);
@@ -445,7 +466,7 @@ export default function HomePage() {
               });
               setError(message);
               if (accessToken) {
-                refreshUsage(accessToken);
+                refreshUsage(accessToken, { force: true });
               }
               setStatus("");
               setIsAnalyzing(false);
@@ -612,15 +633,19 @@ export default function HomePage() {
               if (payload.usage) {
                 setUsage(payload.usage);
               }
-              refreshUsage(token);
-              refreshHistory(token);
+              // A finished analysis changes the credit count, the history list
+              // and every derived report: drop those entries instead of letting
+              // the cache serve the pre-analysis view back to the user.
+              invalidateApiCache("/api/progress");
+              refreshUsage(token, { force: true });
+              refreshHistory(token, { force: true });
             } else if (eventName === "error") {
               flushStreamContent();
               trackCompletion(false);
               setError(payload.message ?? "Analysis failed.");
               setStatus("");
               setIsAnalyzing(false);
-              refreshUsage(token);
+              refreshUsage(token, { force: true });
             }
           },
           onError: (message, code, _feature) => {
@@ -630,7 +655,7 @@ export default function HomePage() {
                 isBatch: true,
                 signedIn: Boolean(token),
               });
-              refreshUsage(token);
+              refreshUsage(token, { force: true });
               setStatus("");
               setIsAnalyzing(false);
               return;
@@ -642,7 +667,7 @@ export default function HomePage() {
                 signedIn: Boolean(token),
               });
               setError(message);
-              refreshUsage(token);
+              refreshUsage(token, { force: true });
               setStatus("");
               setIsAnalyzing(false);
               return;

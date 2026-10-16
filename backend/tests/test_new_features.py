@@ -77,7 +77,7 @@ def _patch_progress_db(rows: List[Dict[str, Any]]):
         configured=lambda: True,
         get_student_by_id=lambda student_id: None,
         get_user_profile=lambda user_id: None,
-        list_analyses=lambda user_id, limit=50: list(rows),
+        list_analyses=lambda user_id, limit=50, **kwargs: list(rows),
         list_analyses_by_student=lambda user_id, student_id, limit=100: list(rows),
     )
 

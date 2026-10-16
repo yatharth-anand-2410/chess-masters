@@ -7,7 +7,8 @@ import { Pill } from "@/components/ui/Pill";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import ScoutGateCard from "@/components/scout/ScoutGateCard";
-import { apiGet, type Usage } from "@/lib/api";
+import { type Usage } from "@/lib/api";
+import { apiGetCached, CACHE_TTL } from "@/lib/api-cache";
 import { createClient } from "@/lib/supabase-client";
 
 type Gate = "loading" | "signed-out" | "locked" | "unlocked";
@@ -35,7 +36,9 @@ export default function ScoutHubPage() {
           if (!cancelled) setGate("signed-out");
           return;
         }
-        const usage = await apiGet<Usage>("/api/account/usage", token).catch(() => null);
+        const usage = await apiGetCached<Usage>("/api/account/usage", token, {
+          ttlMs: CACHE_TTL.account,
+        }).catch(() => null);
         if (!cancelled) {
           setGate(usage?.plan === "paid" ? "unlocked" : "locked");
         }

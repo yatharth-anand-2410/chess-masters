@@ -5,13 +5,13 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   apiDelete,
-  apiGet,
   apiPost,
   apiPut,
   isUpgradeError,
   type StudentSummary,
   type Usage,
 } from "../../lib/api";
+import { apiGetCached, CACHE_TTL } from "../../lib/api-cache";
 import { createClient } from "../../lib/supabase-client";
 import { Topbar } from "../../components/ui/Topbar";
 import { Pill } from "../../components/ui/Pill";
@@ -208,10 +208,12 @@ export default function CoachRosterPage() {
         setToken(session.access_token);
         try {
           const [rows, usageData] = await Promise.all([
-            apiGet<RosterStudent[]>("/api/coach/students", session.access_token),
-            apiGet<Usage>("/api/account/usage", session.access_token).catch(
-              () => null
-            ),
+            apiGetCached<RosterStudent[]>("/api/coach/students", session.access_token, {
+              ttlMs: CACHE_TTL.account,
+            }),
+            apiGetCached<Usage>("/api/account/usage", session.access_token, {
+              ttlMs: CACHE_TTL.account,
+            }).catch(() => null),
           ]);
           setStudents(rows);
           if (usageData) {

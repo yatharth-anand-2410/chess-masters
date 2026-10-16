@@ -174,6 +174,32 @@ def _limit_reached_detail(
 
 MAX_BATCH_GAMES = 5
 
+#: Stockfish runs on one vCPU per container, and every analysis opens its own
+#: engine. Allowing a burst of analyses onto the same instance made all of them
+#: slow *and* starved the read endpoints the rest of the UI needs, so engine work
+#: is serialised per instance while the (I/O-bound) reads keep flowing.
+ENGINE_CONCURRENCY = max(1, int(os.environ.get("MAX_CONCURRENT_ENGINE_RUNS", "1")))
+
+_engine_slots = asyncio.Semaphore(ENGINE_CONCURRENCY)
+
+
+async def _acquire_engine_slot() -> None:
+    """Wait for a free engine slot.
+
+    The semaphore is per process, so a second Cloud Run instance serves the next
+    player in parallel; only requests landing on the same container queue.
+    Callers announce the queue over SSE before awaiting.
+    """
+    await _engine_slots.acquire()
+
+
+def _release_engine_slot() -> None:
+    try:
+        _engine_slots.release()
+    except ValueError:  # pragma: no cover - release without acquire
+        pass
+
+
 # Attempt-a-move validation runs Stockfish for every legal attempt, so signed-in
 # players are throttled per account. The window is deliberately generous: a
 # person drilling a position makes a handful of tries a minute, not hundreds.
@@ -334,7 +360,9 @@ async def get_current_user(request: Request) -> Dict[str, object]:
     authorization = request.headers.get("Authorization", "")
     token = authorization.removeprefix("Bearer ").strip() if authorization else ""
     try:
-        user = db.get_user_from_token(token)
+        # Off the event loop: token verification is a network call on a cache
+        # miss, and doing it inline stalled every other request on the instance.
+        user = await asyncio.to_thread(db.get_user_from_token, token)
     except db.AuthError as exc:
         raise HTTPException(status_code=401, detail=str(exc)) from exc
     return {"id": user["id"], "email": user.get("email"), "user_metadata": user.get("user_metadata")}
@@ -351,7 +379,7 @@ async def get_optional_user(request: Request) -> Optional[Dict[str, object]]:
     if not token:
         return None
     try:
-        user = db.get_user_from_token(token)
+        user = await asyncio.to_thread(db.get_user_from_token, token)
     except db.AuthError:
         return None
     return {"id": user["id"], "email": user.get("email"), "user_metadata": user.get("user_metadata")}
@@ -610,20 +638,34 @@ async def stream_analysis(
                 "status_update",
                 {"message": "Running Stockfish engine evaluation..."},
             )
-            pool = await asyncio.to_thread(engine.EnginePool.create)
-            analysis = await asyncio.to_thread(analyze_game, game, pool)
+            if _engine_slots.locked():
+                yield sse_event(
+                    "status_update",
+                    {
+                        "message": (
+                            "Engine busy with another game — this analysis starts "
+                            "as soon as it frees up..."
+                        )
+                    },
+                )
+            await _acquire_engine_slot()
+            try:
+                pool = await asyncio.to_thread(engine.EnginePool.create)
+                analysis = await asyncio.to_thread(analyze_game, game, pool)
 
-            if create_task is not None:
-                analysis_row = await create_task
-                analysis_id = str(analysis_row["id"])
+                if create_task is not None:
+                    analysis_row = await create_task
+                    analysis_id = str(analysis_row["id"])
 
-            yield sse_event(
-                "status_update",
-                {"message": "Detecting motifs and building recommendations..."},
-            )
-            engine_data = await asyncio.to_thread(
-                recommendations.build_insights, analysis, pool
-            )
+                yield sse_event(
+                    "status_update",
+                    {"message": "Detecting motifs and building recommendations..."},
+                )
+                engine_data = await asyncio.to_thread(
+                    recommendations.build_insights, analysis, pool
+                )
+            finally:
+                _release_engine_slot()
 
             description_task = asyncio.create_task(
                 analyzer.describe_moments(get_client(), engine_data)
@@ -686,6 +728,9 @@ async def stream_analysis(
                         "completed_at": _now_value(),
                     },
                 )
+                # The lifetime count feeds the psychology unlock badge: the next
+                # usage read must see this game, not a cached total.
+                db.forget_lifetime_count(user_id)
 
             yield sse_event("insights", insights_payload)
             yield sse_event(
@@ -811,6 +856,7 @@ async def stream_batch_analysis(
         game_error_messages: list[str] = []
         pool: Optional[engine.EnginePool] = None
         extract_tasks: list[asyncio.Task] = []
+        engine_slot_held = False
         try:
             batch_row = await asyncio.to_thread(
                 db.create_batch,
@@ -825,7 +871,7 @@ async def stream_batch_analysis(
             )
             batch_id = str(batch_row["id"])
             client = get_client()
-            pool = await asyncio.to_thread(engine.EnginePool.create)
+            # Network-bound extraction overlaps the wait for a free engine slot.
             extract_tasks = [
                 asyncio.create_task(
                     asyncio.to_thread(
@@ -846,6 +892,19 @@ async def stream_batch_analysis(
                     "games": [{"game_url": game.game_url} for game in games],
                 },
             )
+            if _engine_slots.locked():
+                yield sse_event(
+                    "batch_status",
+                    {
+                        "message": (
+                            "Engine busy with another game — this batch starts as "
+                            "soon as it frees up..."
+                        )
+                    },
+                )
+            await _acquire_engine_slot()
+            engine_slot_held = True
+            pool = await asyncio.to_thread(engine.EnginePool.create)
 
             for index, game_input in enumerate(games):
                 label = f"Game {index + 1}"
@@ -932,6 +991,7 @@ async def stream_batch_analysis(
                             "completed_at": _now_value(),
                         },
                     )
+                    db.forget_lifetime_count(user_id)
 
                     description_task = asyncio.create_task(
                         analyzer.describe_moments(client, engine_data)
@@ -1115,8 +1175,14 @@ async def stream_batch_analysis(
                 description_task = entry.get("description_task")
                 if isinstance(description_task, asyncio.Task) and not description_task.done():
                     description_task.cancel()
-            if pool is not None:
-                await asyncio.to_thread(pool.close)
+            try:
+                if pool is not None:
+                    await asyncio.to_thread(pool.close)
+            finally:
+                # Always hand the engine slot back, even if closing failed:
+                # a leaked slot would block every later analysis on this instance.
+                if engine_slot_held:
+                    _release_engine_slot()
 
     return StreamingResponse(
         event_generator(),
@@ -2337,7 +2403,10 @@ async def tactics_catalog(
     if user and db.configured():
         try:
             rows = await asyncio.to_thread(
-                db.list_analyses, str(user["id"]), TACTICS_SCAN_LIMIT
+                db.list_analyses,
+                str(user["id"]),
+                limit=TACTICS_SCAN_LIMIT,
+                columns=db.ANALYSIS_TELEMETRY_COLUMNS,
             )
         except Exception as exc:
             logger.warning("Tactics catalog: could not read recent analyses: %s", exc)
@@ -2374,7 +2443,10 @@ async def curated_studies(
             )
         else:
             rows = await asyncio.to_thread(
-                db.list_analyses, user_id, CURATED_SCAN_LIMIT
+                db.list_analyses,
+                user_id,
+                limit=CURATED_SCAN_LIMIT,
+                columns=db.ANALYSIS_TELEMETRY_COLUMNS,
             )
         return await asyncio.to_thread(studies.build_curated_studies, rows)
     except db.AuthError:

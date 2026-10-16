@@ -293,7 +293,7 @@ def test_client_ip_falls_back_to_client_host():
 
 def test_consume_guest_analysis_refuses_missing_ip():
     with unittest.mock.patch.object(db, "configured", return_value=True), \
-            unittest.mock.patch.object(db.requests, "post") as post:
+            unittest.mock.patch.object(db, "_post") as post:
         result = db.consume_guest_analysis("")
     assert result["allowed"] is False
     post.assert_not_called()
@@ -304,7 +304,7 @@ def test_consume_guest_analysis_posts_rpc():
     response.status_code = 200
     response.json.return_value = {"allowed": True, "analyses_used": 1, "limit": 1}
     with unittest.mock.patch.object(db, "configured", return_value=True), \
-            unittest.mock.patch.object(db.requests, "post", return_value=response) as post:
+            unittest.mock.patch.object(db, "_post", return_value=response) as post:
         result = db.consume_guest_analysis("203.0.113.5")
     assert result["allowed"] is True
     args, kwargs = post.call_args
@@ -317,7 +317,7 @@ def test_claim_guest_trial_posts_rpc():
     response.status_code = 200
     response.json.return_value = {"claimed": True, "analyses_used": 1}
     with unittest.mock.patch.object(db, "configured", return_value=True), \
-            unittest.mock.patch.object(db.requests, "post", return_value=response) as post:
+            unittest.mock.patch.object(db, "_post", return_value=response) as post:
         result = db.claim_guest_trial("user-1")
     assert result["claimed"] is True
     args, kwargs = post.call_args
