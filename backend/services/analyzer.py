@@ -711,14 +711,12 @@ async def stream_batch_coaching_report(
     client: genai.Client,
     batch: Dict[str, object],
 ) -> AsyncIterator[str]:
-    stream = await _open_stream(
+    async for text in _stream_with_fallback(
         client,
         _build_batch_contents(batch),
         system_instruction=BATCH_SYSTEM_INSTRUCTION,
-    )
-    async for chunk in stream:
-        if chunk.text:
-            yield chunk.text
+    ):
+        yield text
 
 
 QA_SYSTEM_INSTRUCTION = """You are a practical chess coach answering a student's questions about their analyzed game.
