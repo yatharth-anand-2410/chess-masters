@@ -9,12 +9,23 @@ import AnalyzerForm, {
 } from "../../../../components/AnalyzerForm";
 import AnalysisHistory from "../../../../components/AnalysisHistory";
 import AnalysisStatus from "../../../../components/AnalysisStatus";
-import AuthButton from "../../../../components/AuthButton";
 import BatchProgress, {
   type BatchGameProgress,
 } from "../../../../components/BatchProgress";
 import CoachingReport from "../../../../components/CoachingReport";
+import UpgradePrompt from "../../../../components/UpgradePrompt";
 import type { InsightsData } from "../../../../components/insights";
+import { Topbar } from "../../../../components/ui/Topbar";
+import { Pill } from "../../../../components/ui/Pill";
+import {
+  Crown,
+  ArrowRight,
+  X,
+  Sparkles,
+  Check,
+  Share2,
+  Lock,
+} from "lucide-react";
 import {
   API_BASE,
   apiDelete,
@@ -22,11 +33,13 @@ import {
   apiPatch,
   apiPost,
   apiPut,
+  isUpgradeError,
   mergeHistoryEntries,
   shareUrl,
   type HistoryEntry,
   type ShareStatus,
   type StudentDetail,
+  type Usage,
 } from "../../../../lib/api";
 import { streamPost } from "../../../../lib/stream";
 import { createClient } from "../../../../lib/supabase-client";
@@ -54,9 +67,12 @@ export default function CoachStudentPage() {
 
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState("");
+  const [usage, setUsage] = useState<Usage | null>(null);
+  const [isPaid, setIsPaid] = useState(false);
   const [detail, setDetail] = useState<StudentDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
   // Streaming state (same event contract as the home analyzer).
   const [status, setStatus] = useState("");
@@ -117,11 +133,15 @@ export default function CoachStudentPage() {
   const loadDetail = useCallback(
     async (sessionToken: string) => {
       try {
-        const result = await apiGet<StudentDetail>(
-          `/api/coach/students/${studentId}`,
-          sessionToken
-        );
+        const [result, usageData] = await Promise.all([
+          apiGet<StudentDetail>(`/api/coach/students/${studentId}`, sessionToken),
+          apiGet<Usage>("/api/account/usage", sessionToken).catch(() => null),
+        ]);
         setDetail(result);
+        if (usageData) {
+          setUsage(usageData);
+          setIsPaid(usageData.plan === "paid");
+        }
         if (savedNotes.current === null) {
           savedNotes.current = result.student.notes ?? "";
           setNotes(result.student.notes ?? "");
@@ -141,18 +161,20 @@ export default function CoachStudentPage() {
     const supabase = createClient();
     supabase.auth.getSession().then(({ data }) => {
       const session = data.session;
-      setUser(session?.user ?? null);
-      if (!session) {
+      const activeUser = session?.user ?? null;
+      setUser(activeUser);
+
+      if (!activeUser || !session) {
         router.replace("/");
         return;
       }
+
       setToken(session.access_token);
       loadDetail(session.access_token);
     });
   }, [loadDetail, router]);
 
-  // Debounced notes autosave; the initial load sets `savedNotes` first so the
-  // untouched value is never written back.
+  // Debounced notes autosave
   useEffect(() => {
     if (!token || !studentId || savedNotes.current === null) {
       return;
@@ -192,6 +214,10 @@ export default function CoachStudentPage() {
 
   const startAnalysis = useCallback(
     async (request: AnalysisRequest) => {
+      if (!isPaid) {
+        setShowUpgradeModal(true);
+        return;
+      }
       if (!token) {
         return;
       }
@@ -237,15 +263,22 @@ export default function CoachStudentPage() {
             setStreamError(message);
             setStatus("");
             setIsAnalyzing(false);
+            if (message.toLowerCase().includes("upgrade")) {
+              setShowUpgradeModal(true);
+            }
           },
         }
       );
     },
-    [flushStreamContent, loadDetail, resetStream, scheduleStreamFlush, studentId, token]
+    [flushStreamContent, isPaid, loadDetail, resetStream, scheduleStreamFlush, studentId, token]
   );
 
   const startBatchAnalysis = useCallback(
     async (request: BatchAnalysisRequest) => {
+      if (!isPaid) {
+        setShowUpgradeModal(true);
+        return;
+      }
       if (!token) {
         return;
       }
@@ -263,10 +296,10 @@ export default function CoachStudentPage() {
         token,
         {
           platform: request.platform,
-          username: request.username,
-          games: request.games.map((game) => ({
-            game_url: game.gameUrl,
-            player_color: game.playerColor,
+          games: request.games.map((g) => ({
+            game_url: g.gameUrl,
+            username: request.username || undefined,
+            player_color: g.playerColor || undefined,
           })),
           student_id: studentId,
         },
@@ -275,76 +308,33 @@ export default function CoachStudentPage() {
             const payload = data as {
               message?: string;
               text?: string;
-              index?: number;
-              analysis_id?: string;
-              opening_name?: string | null;
-              result?: string | null;
+              game_url?: string;
+              state?: BatchGameProgress["state"];
+              insights?: InsightsData;
             };
-            if (eventName === "status_update" && payload.message) {
+            if (eventName === "batch_progress" && payload.game_url && payload.state) {
+              setBatchGames((current) =>
+                current.map((item) =>
+                  item.gameUrl === payload.game_url
+                    ? { ...item, state: payload.state! }
+                    : item
+                )
+              );
+            } else if (eventName === "status_update" && payload.message) {
               setStatus(payload.message);
-            } else if (eventName === "batch_started") {
-              setStatus("Analyzing the games...");
-            } else if (
-              eventName === "game_status" &&
-              typeof payload.index === "number"
-            ) {
-              const index = payload.index;
-              setBatchGames((prev) =>
-                prev.map((game, position) =>
-                  position === index
-                    ? { ...game, state: "active", message: payload.message }
-                    : game
-                )
-              );
-            } else if (
-              eventName === "game_done" &&
-              typeof payload.index === "number"
-            ) {
-              const index = payload.index;
-              setBatchGames((prev) =>
-                prev.map((game, position) =>
-                  position === index
-                    ? {
-                        ...game,
-                        state: "done",
-                        openingName: payload.opening_name ?? null,
-                        result: payload.result ?? null,
-                      }
-                    : game
-                )
-              );
-            } else if (
-              eventName === "game_error" &&
-              typeof payload.index === "number"
-            ) {
-              const index = payload.index;
-              setBatchGames((prev) =>
-                prev.map((game, position) =>
-                  position === index
-                    ? {
-                        ...game,
-                        state: "failed",
-                        message:
-                          payload.message ?? "This game could not be analyzed.",
-                      }
-                    : game
-                )
-              );
-            } else if (eventName === "batch_status") {
-              setStatus(payload.message ?? "AI generating the overall report...");
             } else if (eventName === "content_chunk" && payload.text) {
               pendingChunks.current += payload.text;
               scheduleStreamFlush();
-            } else if (eventName === "insights") {
-              setInsights(payload as unknown as InsightsData);
+            } else if (eventName === "insights" && payload.insights) {
+              setInsights(payload.insights);
             } else if (eventName === "done") {
               flushStreamContent();
-              setStatus("Analysis complete");
+              setStatus("Batch analysis complete");
               setIsAnalyzing(false);
               loadDetail(token);
             } else if (eventName === "error") {
               flushStreamContent();
-              setStreamError(payload.message ?? "Analysis failed.");
+              setStreamError(payload.message ?? "Batch analysis failed.");
               setStatus("");
               setIsAnalyzing(false);
             }
@@ -353,27 +343,35 @@ export default function CoachStudentPage() {
             setStreamError(message);
             setStatus("");
             setIsAnalyzing(false);
+            if (message.toLowerCase().includes("upgrade")) {
+              setShowUpgradeModal(true);
+            }
           },
         }
       );
     },
-    [flushStreamContent, loadDetail, resetStream, scheduleStreamFlush, studentId, token]
+    [flushStreamContent, isPaid, loadDetail, resetStream, scheduleStreamFlush, studentId, token]
   );
 
   const copyShareLink = useCallback(async (share: ShareStatus) => {
     if (!share.url_path) {
       return;
     }
+    const full = shareUrl(share.url_path);
     try {
-      await navigator.clipboard.writeText(shareUrl(share.url_path));
+      await navigator.clipboard.writeText(full);
       setCopied(true);
-      window.setTimeout(() => setCopied(false), 2000);
+      window.setTimeout(() => setCopied(false), 2400);
     } catch {
-      // Clipboard permission denied: the link is visible in the input.
+      // Clipboard write can fail without HTTPS/user activation
     }
   }, []);
 
   const enableShare = useCallback(async () => {
+    if (!isPaid) {
+      setShowUpgradeModal(true);
+      return;
+    }
     if (!token || shareBusy) {
       return;
     }
@@ -387,13 +385,17 @@ export default function CoachStudentPage() {
       setDetail((prev) => (prev ? { ...prev, share } : prev));
       await copyShareLink(share);
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Could not create the share link."
-      );
+      if (isUpgradeError(err) || (err instanceof Error && err.message.toLowerCase().includes("upgrade"))) {
+        setShowUpgradeModal(true);
+      } else {
+        setError(
+          err instanceof Error ? err.message : "Could not create the share link."
+        );
+      }
     } finally {
       setShareBusy(false);
     }
-  }, [copyShareLink, shareBusy, studentId, token]);
+  }, [copyShareLink, isPaid, shareBusy, studentId, token]);
 
   const stopShare = useCallback(async () => {
     if (!token || shareBusy) {
@@ -434,7 +436,10 @@ export default function CoachStudentPage() {
   if (loading) {
     return (
       <main className="dashboard">
-        <p className="history-empty">Loading student...</p>
+        <Topbar user={user} onAuthChange={() => router.push("/")} />
+        <div className="max-w-xl mx-auto mt-16 text-center">
+          <p className="history-empty">Loading student dossier...</p>
+        </div>
       </main>
     );
   }
@@ -442,10 +447,13 @@ export default function CoachStudentPage() {
   if (!detail) {
     return (
       <main className="dashboard">
-        <div className="error-banner">{error || "Student not found."}</div>
-        <Link href="/coach" className="btn btn-ghost">
-          Back to students
-        </Link>
+        <Topbar user={user} onAuthChange={() => router.push("/")} />
+        <div className="max-w-xl mx-auto mt-8 px-4">
+          <div className="error-banner">{error || "Student not found."}</div>
+          <Link href="/coach" className="btn btn-ghost mt-4">
+            Back to students
+          </Link>
+        </div>
       </main>
     );
   }
@@ -462,185 +470,286 @@ export default function CoachStudentPage() {
 
   return (
     <main className="dashboard">
-      <header className="topbar">
-        <Link href="/" className="wordmark">
-          <span className="wordmark-glyph" aria-hidden="true">
-            ♜
-          </span>
-          Chessmasters
-        </Link>
-        <div className="topbar-actions">
-          <Link href="/coach" className="nav-link">
-            All students
-          </Link>
-          <Link href="/" className="nav-link">
-            My games
-          </Link>
-          <AuthButton
-            user={user}
-            onAuthChange={() => router.push("/")}
-            role="coach"
-            onToggleRole={switchToPlayer}
-          />
-        </div>
-      </header>
+      <Topbar
+        user={user}
+        usage={usage}
+        role="coach"
+        onAuthChange={() => router.push("/")}
+        onToggleRole={switchToPlayer}
+      />
 
-      <div className="game-header">
-        <p className="game-meta">
-          <Link href="/coach" className="nav-link">
-            ← All students
-          </Link>
-        </p>
-        <h1 className="game-title">{student.display_name}</h1>
-        <p className="game-meta">
-          {student.lichess_username || student.chesscom_username ? (
+      <div className="max-w-5xl mx-auto px-4 py-6">
+        {/* Upgrade Banner for Free / Preview Accounts */}
+        {!isPaid && (
+          <div className="mb-6 p-4 rounded-xl bg-gradient-to-r from-[var(--ink-2)] via-[rgba(201,153,63,0.12)] to-[var(--ink-2)] border border-[rgba(201,153,63,0.35)] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-[rgba(201,153,63,0.15)] border border-[rgba(201,153,63,0.4)] flex items-center justify-center text-[var(--gold-bright)] shrink-0">
+                <Crown size={20} />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold text-sm text-[var(--text)]">Coach Pro Preview</span>
+                  <Pill tone="caution" size="sm">Free Tier</Pill>
+                </div>
+                <p className="text-xs text-[var(--text-muted)] mt-0.5">
+                  Upgrade to Coach Pro (₹399/mo) to analyze games on behalf of {student.display_name} and generate shareable links.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <Link
+                href="/subscription"
+                className="btn btn-sm inline-flex items-center gap-1.5 whitespace-nowrap bg-gradient-to-r from-[#c9993f] to-[#e2b65f] text-[#141712] font-semibold"
+              >
+                <Crown size={14} />
+                <span>Upgrade for ₹399/mo</span>
+                <ArrowRight size={13} />
+              </Link>
+            </div>
+          </div>
+        )}
+
+        <div className="game-header mb-6">
+          <p className="game-meta mb-2">
+            <Link href="/coach" className="nav-link inline-flex items-center gap-1 text-xs text-[var(--text-muted)] hover:text-[var(--gold-bright)]">
+              ← All students
+            </Link>
+          </p>
+          <div className="flex items-center justify-between flex-wrap gap-4">
+            <div>
+              <div className="flex items-center gap-2.5 mb-1">
+                <h1 className="game-title text-2xl font-bold font-serif m-0">{student.display_name}</h1>
+                {isPaid ? (
+                  <Pill tone="shell" size="sm" icon={<Crown size={12} className="text-[var(--gold-bright)]" />}>
+                    Coach Pro Active
+                  </Pill>
+                ) : (
+                  <Pill tone="neutral" size="sm">
+                    Preview Dossier
+                  </Pill>
+                )}
+              </div>
+              <p className="game-meta text-xs text-[var(--text-muted)] m-0">
+                {student.lichess_username || student.chesscom_username ? (
+                  <span className="flex items-center gap-2 flex-wrap">
+                    {student.lichess_username && (
+                      <span className="px-2 py-0.5 rounded text-[11px] font-mono bg-[var(--ink-2)] text-[var(--teal-light)] border border-[rgba(87,164,150,0.25)]">
+                        Lichess · {student.lichess_username}
+                      </span>
+                    )}
+                    {student.chesscom_username && (
+                      <span className="px-2 py-0.5 rounded text-[11px] font-mono bg-[var(--ink-2)] text-[var(--green)] border border-[rgba(111,163,131,0.25)]">
+                        Chess.com · {student.chesscom_username}
+                      </span>
+                    )}
+                  </span>
+                ) : (
+                  "No usernames saved yet"
+                )}
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Link
+                href="/progress"
+                className="btn btn-sm btn-ghost inline-flex items-center gap-1.5"
+              >
+                <span>View Progress Matrix</span>
+                <ArrowRight size={13} />
+              </Link>
+            </div>
+          </div>
+        </div>
+
+        {error && <div className="error-banner mb-6">{error}</div>}
+
+        {/* Share Link Management */}
+        <section className="share-panel mb-6 p-5 rounded-xl bg-[var(--ink-2)] border border-[var(--line)] shadow-sm" aria-label="Share link">
+          <div className="share-head flex items-center justify-between mb-2">
+            <h2 className="text-base font-semibold text-[var(--text)] m-0">Student Share Portal</h2>
+            <span className="share-hint text-xs text-[var(--text-muted)] font-mono">
+              {notesStatus === "saving" && "Saving notes..."}
+              {notesStatus === "saved" && "Notes saved"}
+              {notesStatus === "error" && "Could not save notes"}
+            </span>
+          </div>
+
+          {detail.share.active && linkValue ? (
             <>
-              {student.lichess_username && (
-                <span className="student-username">
-                  Lichess · {student.lichess_username}
-                </span>
-              )}
-              {student.chesscom_username && (
-                <span className="student-username">
-                  Chess.com · {student.chesscom_username}
-                </span>
-              )}
+              <div className="share-row flex items-center gap-2 flex-wrap mt-2">
+                <input
+                  type="text"
+                  readOnly
+                  value={linkValue}
+                  className="share-input flex-1 min-w-[200px] text-xs font-mono px-3 py-2 rounded-lg bg-[var(--ink-3)] border border-[var(--line)] text-[var(--text)]"
+                  aria-label="Student progress share link"
+                />
+                <button
+                  type="button"
+                  className="btn btn-sm"
+                  onClick={() => copyShareLink(detail.share)}
+                >
+                  {copied ? "Copied" : "Copy link"}
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  onClick={stopShare}
+                  disabled={shareBusy}
+                >
+                  Stop sharing
+                </button>
+              </div>
+              <p className="share-note text-xs text-[var(--text-muted)] mt-2">
+                Anyone with this link can read {student.display_name}&apos;s
+                reports. Your private notes stay hidden.
+              </p>
             </>
           ) : (
-            "No usernames saved yet"
-          )}
-        </p>
-      </div>
-
-      {error && <div className="error-banner">{error}</div>}
-
-      <section className="share-panel" aria-label="Share link">
-        <div className="share-head">
-          <h2>Share link</h2>
-          <span className="share-hint">
-            {detail.share.active
-              ? `${detail.share.view_count ?? 0} views${
-                  detail.share.last_viewed_at
-                    ? ` · last ${formatDate(detail.share.last_viewed_at)}`
-                    : ""
-                }`
-              : "Off"}
-          </span>
-        </div>
-        {detail.share.active ? (
-          <>
-            <div className="share-row">
-              <input
-                className="share-link-input"
-                readOnly
-                value={linkValue}
-                onFocus={(event) => event.target.select()}
-                aria-label="Share link"
-              />
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mt-2">
+              <p className="share-note text-xs text-[var(--text-muted)] m-0">
+                Create a read-only portal so a parent or student can see reports and eval trends — no account required.
+              </p>
               <button
                 type="button"
-                className="btn btn-sm"
-                onClick={() => copyShareLink(detail.share)}
-              >
-                {copied ? "Copied" : "Copy"}
-              </button>
-              <button
-                type="button"
-                className="btn btn-ghost btn-sm"
-                onClick={stopShare}
+                className="btn btn-sm inline-flex items-center gap-1.5 shrink-0"
+                onClick={enableShare}
                 disabled={shareBusy}
               >
-                Stop sharing
+                {!isPaid && <Lock size={13} className="text-[var(--gold-bright)]" />}
+                <span>{shareBusy ? "Creating..." : "Create share link"}</span>
               </button>
             </div>
-            <p className="share-note">
-              Anyone with this link can read {student.display_name}&apos;s
-              reports. Your notes stay private.
-            </p>
-          </>
-        ) : (
-          <>
-            <p className="share-note">
-              Create a read-only link so a parent or student can see the reports
-              — no account needed.
-            </p>
+          )}
+        </section>
+
+        {/* Private Coaching Notes */}
+        <section className="mb-6 p-5 rounded-xl bg-[var(--ink-2)] border border-[var(--line)] shadow-sm">
+          <h2 className="text-base font-semibold text-[var(--text)] mb-2">Private Coach Notes</h2>
+          <textarea
+            className="field-textarea w-full text-xs p-3 rounded-lg bg-[var(--ink-3)] border border-[var(--line)] text-[var(--text)] focus:border-[var(--gold)] focus:outline-hidden"
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="Document tactical blindspots, opening homework, or tournament goals for this student..."
+            rows={3}
+          />
+        </section>
+
+        {/* Analyze Games for Student */}
+        <section className="student-analyze-card mb-8 p-5 rounded-xl bg-[var(--ink-2)] border border-[var(--line)] shadow-sm">
+          <div className="section-head coach-section-head mb-4 flex items-center justify-between">
+            <h2 className="text-base font-semibold text-[var(--text)] m-0">
+              Analyze a game for {student.display_name}
+            </h2>
+            {!isPaid && (
+              <Pill tone="caution" size="sm">
+                Pro Required
+              </Pill>
+            )}
+          </div>
+          <AnalyzerForm
+            disabled={isAnalyzing}
+            defaultUsername={student.chesscom_username ?? ""}
+            studentId={student.id}
+            onSubmit={startAnalysis}
+            onSubmitBatch={startBatchAnalysis}
+          />
+          <div className="status-slot mt-3">
+            <AnalysisStatus status={status} isAnalyzing={isAnalyzing} />
+          </div>
+          {batchGames.length > 0 && <BatchProgress games={batchGames} />}
+          {streamError && <div className="error-banner mt-3">{streamError}</div>}
+        </section>
+
+        {(isAnalyzing || markdown) && (
+          <div className="mb-8">
+            <CoachingReport
+              content={markdown}
+              insights={insights}
+              pending={isAnalyzing}
+            />
+          </div>
+        )}
+
+        <section className="history-panel p-5 rounded-xl bg-[var(--ink-2)] border border-[var(--line)] shadow-sm">
+          <div className="section-head mb-4">
+            <h2 className="text-base font-semibold text-[var(--text)] m-0">Student Game History</h2>
+          </div>
+          <AnalysisHistory entries={entries} />
+        </section>
+      </div>
+
+      {/* Subscription Upgrade Modal */}
+      {showUpgradeModal && (
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="relative w-full max-w-lg rounded-2xl bg-[var(--ink-2)] border border-[rgba(201,153,63,0.4)] shadow-2xl p-6 overflow-hidden">
             <button
               type="button"
-              className="btn btn-sm"
-              onClick={enableShare}
-              disabled={shareBusy}
+              onClick={() => setShowUpgradeModal(false)}
+              className="absolute top-4 right-4 text-[var(--text-muted)] hover:text-[var(--text)] p-1 rounded-lg hover:bg-[var(--ink-3)] transition-colors"
+              aria-label="Close modal"
             >
-              {shareBusy ? "Creating..." : "Create share link"}
+              <X size={18} />
             </button>
-          </>
-        )}
-      </section>
 
-      <section className="student-analyze-card">
-        <div className="section-head coach-section-head">
-          <h2>Analyze a game for {student.display_name}</h2>
-        </div>
-        <AnalyzerForm
-          disabled={isAnalyzing}
-          defaultUsername={student.chesscom_username ?? ""}
-          studentId={student.id}
-          onSubmit={startAnalysis}
-          onSubmitBatch={startBatchAnalysis}
-        />
-        <div className="status-slot">
-          <AnalysisStatus status={status} isAnalyzing={isAnalyzing} />
-        </div>
-        {batchGames.length > 0 && <BatchProgress games={batchGames} />}
-        {streamError && <div className="error-banner">{streamError}</div>}
-      </section>
+            <div className="inline-flex items-center gap-2 mb-3">
+              <Pill tone="shell" size="sm" icon={<Crown size={12} className="text-[var(--gold-bright)]" />}>
+                Coach Pro Subscription
+              </Pill>
+            </div>
 
-      {(isAnalyzing || markdown) && (
-        <CoachingReport
-          content={markdown}
-          insights={insights}
-          pending={isAnalyzing}
-        />
+            <h2 className="text-xl font-bold font-serif text-[var(--text)] mb-2">
+              Upgrade to Coach Pro
+            </h2>
+
+            <p className="text-xs text-[var(--text-muted)] leading-relaxed mb-4">
+              To analyze live games on behalf of {student.display_name}, run 5-game batch audits, and share private web links with parents, upgrade to Coach Pro.
+            </p>
+
+            <div className="p-3.5 rounded-xl bg-[var(--ink-3)]/70 border border-[var(--line-soft)] mb-5">
+              <div className="flex items-baseline justify-between mb-2">
+                <span className="text-xs font-mono font-semibold text-[var(--gold-bright)]">Coach Pro Plan</span>
+                <span className="text-sm font-bold text-[var(--text)]">₹399 / mo</span>
+              </div>
+              <ul className="text-xs text-[var(--text-muted)] space-y-1.5">
+                <li className="flex items-center gap-2">
+                  <Check size={13} className="text-emerald-400 shrink-0" />
+                  <span>Unlimited live student profiles &amp; notes</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <Check size={13} className="text-emerald-400 shrink-0" />
+                  <span>100 AI game analyses per month</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <Check size={13} className="text-emerald-400 shrink-0" />
+                  <span>5-game batch audits on behalf of students</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <Check size={13} className="text-emerald-400 shrink-0" />
+                  <span>Branded shareable progress links for parents</span>
+                </li>
+              </ul>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <Link
+                href="/subscription"
+                className="btn flex-1 inline-flex items-center justify-center gap-2 py-2.5 bg-gradient-to-r from-[#c9993f] to-[#e2b65f] text-[#141712] font-bold shadow-md hover:shadow-lg transition-all"
+              >
+                <Crown size={15} />
+                <span>Upgrade to Pro (₹399/mo)</span>
+              </Link>
+              <button
+                type="button"
+                onClick={() => setShowUpgradeModal(false)}
+                className="btn btn-ghost text-xs text-[var(--text-muted)]"
+              >
+                Continue Preview
+              </button>
+            </div>
+          </div>
+        </div>
       )}
-
-      <section className="notes-card">
-        <div className="section-head coach-section-head">
-          <h2>Coach notes</h2>
-          <span className="notes-status" aria-live="polite">
-            {notesStatus === "saving" && "Saving..."}
-            {notesStatus === "saved" && "Saved"}
-            {notesStatus === "error" && "Could not save — try again"}
-            {notesStatus === "idle" && "Private to you"}
-          </span>
-        </div>
-        <label className="field">
-          <span className="sr-only">Coach notes about {student.display_name}</span>
-          <textarea
-            className="field-textarea"
-            value={notes}
-            onChange={(event) => setNotes(event.target.value)}
-            placeholder="What is this student working on? What did you cover in the last lesson?"
-            rows={5}
-          />
-        </label>
-      </section>
-
-      <section className="history-panel">
-        <div className="section-head">
-          <h2>Analyses ({entries.length})</h2>
-        </div>
-        {entries.length === 0 ? (
-          <p className="history-empty">
-            No analyses yet. Paste one of {student.display_name}&apos;s game
-            links above and it will appear here.
-          </p>
-        ) : (
-          <AnalysisHistory
-            entries={entries}
-            onOpen={(id) => router.push(`/analysis/${id}`)}
-            onOpenBatch={(id) => router.push(`/batch/${id}`)}
-          />
-        )}
-      </section>
     </main>
   );
 }

@@ -1,0 +1,3394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chessmasters · AI Chess Game Analyzer · Complete Design System</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,400;0,500;1,400&family=DM+Sans:ital,opsz,wght@0,9..40,400..700;1,9..40,400..700&family=Fraunces:ital,opsz,wght@0,9..144,400..800;1,9..144,400..700&display=swap" rel="stylesheet">
+<style>
+/* ─────────────────────────────────────────────────────────────────────────────
+   CHESSMASTERS GOOGLE STITCH DESIGN TOKENS (DUAL-WORLD CONTRACT)
+   ──────────────────────────────────────────────────────────────────────────── */
+:root {
+  /* THE INK WORLD (Shell, Navigation, Cockpits, Dark Telemetry) */
+  --ink-0: #040708;
+  --ink-1: #080c0e;
+  --ink-2: #0f1518;
+  --ink-3: #151f24;
+  --ink-4: #1d2b32;
+  --text: #f0f4f5;
+  --text-muted: #8fa0a8;
+  --line: rgba(255, 255, 255, 0.08);
+  --line-strong: rgba(255, 255, 255, 0.16);
+
+  /* Gold Tournament Accents (STRICTLY SHELL / INK ONLY) */
+  --gold: #c9993f;
+  --gold-bright: #e2b65f;
+  --gold-glow: rgba(226, 182, 95, 0.15);
+
+  /* THE PAPER WORLD (Coaching Narrative & Editorial Canvas) */
+  --paper: #f4eee2;
+  --paper-2: #eae3d2;
+  --paper-inset: #ded6c1;
+  --paper-text: #1c1712;
+  --paper-muted: #5a5247;
+  --paper-line: rgba(28, 23, 18, 0.12);
+
+  /* ACCESSIBLE FUNCTIONAL ACCENTS */
+  --accent: #2f6b62;       /* Teal for Paper buttons/links (5.3:1 WCAG AAA) */
+  --alert: #7d3527;        /* Oxblood for Paper blunders (7.4:1 WCAG AAA) */
+  --red: #ef4444;          /* Ink blunder indicator */
+  --green: #22c55e;        /* Ink gain / win */
+  --green-paper: #15803d;  /* Paper win / brilliant */
+  --warn: #f59e0b;         /* Ink warning */
+  --cyan: #06b6d4;         /* Stockfish telemetry vector */
+
+  /* CHESSBOARD PALETTE (Classical Tournament Wood) */
+  --sq-light: #e0d0b0;
+  --sq-dark: #8c6a46;
+  --sq-hl: rgba(226, 182, 95, 0.5);
+  --sq-blunder: rgba(239, 68, 68, 0.55);
+
+  /* TYPOGRAPHY */
+  --font-display: 'Fraunces', Georgia, serif;
+  --font-body: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: 'DM Mono', monospace;
+
+  --radius: 12px;
+  --radius-ctl: 8px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  background: var(--ink-1);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow-x: hidden;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   GLOBAL APP HEADER (OBSIDIAN CHROME WITH GOOGLE SIGN-IN & SUBSCRIBE HOOK)
+   ──────────────────────────────────────────────────────────────────────────── */
+.app-header {
+  height: 56px;
+  background: rgba(8, 12, 14, 0.95);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--line);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  padding: 0 1.25rem;
+}
+.header-container {
+  width: 100%;
+  max-width: 1440px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+.brand-lockup {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  text-decoration: none;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.brand-name {
+  font-family: var(--font-display);
+  font-size: 1.22rem;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -0.02em;
+}
+.brand-name span { color: var(--gold-bright); }
+.pro-pill {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  padding: 0.12rem 0.45rem;
+  border-radius: 999px;
+  background: rgba(226, 182, 95, 0.12);
+  border: 1px solid rgba(226, 182, 95, 0.3);
+  color: var(--gold-bright);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.primary-nav {
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+  overflow-x: auto;
+}
+.nav-item {
+  padding: 0.38rem 0.68rem;
+  border: none;
+  border-radius: var(--radius-ctl);
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+.nav-item:hover { color: var(--text); background: rgba(255,255,255,0.04); }
+.nav-item.active { color: var(--text); background: rgba(255,255,255,0.09); font-weight: 600; }
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  flex-shrink: 0;
+}
+.search-pill {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.32rem 0.65rem;
+  background: var(--ink-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-ctl);
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+}
+.search-pill:hover { border-color: var(--line-strong); color: var(--text); }
+.search-pill kbd {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  background: var(--ink-3);
+  padding: 0.1rem 0.3rem;
+  border-radius: 3px;
+  border: 1px solid var(--line);
+}
+.pages-menu-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.65rem;
+  background: rgba(226, 182, 95, 0.1);
+  border: 1px solid rgba(226, 182, 95, 0.3);
+  border-radius: var(--radius-ctl);
+  color: var(--gold-bright);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.pages-menu-btn:hover { background: rgba(226, 182, 95, 0.18); }
+
+.google-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.32rem 0.65rem;
+  background: #ffffff;
+  color: #3c4043;
+  border: 1px solid #dadce0;
+  border-radius: var(--radius-ctl);
+  font-size: 0.76rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+.google-btn:hover { background: #f8f9fa; box-shadow: 0 1px 3px rgba(60,64,67,0.2); }
+.google-icon { width: 14px; height: 14px; }
+
+.subscribe-hook-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.75rem;
+  background: linear-gradient(135deg, #c9993f 0%, #e2b65f 100%);
+  color: #141712;
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: var(--radius-ctl);
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(201, 153, 63, 0.25);
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+.subscribe-hook-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(226, 182, 95, 0.4); }
+
+.avatar-badge {
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  background: var(--line-strong);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.72rem;
+  color: var(--gold-bright);
+  border: 1px solid var(--line);
+  cursor: pointer;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   CONTEXTUAL SLIDE-OVER DRAWER (CRUCIAL FIX: FIXED POSITION OFF-SCREEN)
+   ──────────────────────────────────────────────────────────────────────────── */
+.slide-drawer {
+  position: fixed;
+  top: 56px;
+  bottom: 0;
+  right: -460px;
+  width: 440px;
+  max-width: 92vw;
+  background: var(--ink-2);
+  border-left: 1px solid var(--line-strong);
+  box-shadow: -16px 0 48px rgba(0, 0, 0, 0.7);
+  z-index: 250;
+  transition: right 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+  display: flex;
+  flex-direction: column;
+}
+.slide-drawer.open { right: 0; }
+
+.drawer-header {
+  padding: 1.1rem 1.35rem;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--ink-3);
+}
+.drawer-body {
+  padding: 1.25rem;
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1.15rem;
+}
+
+.ai-query-chips {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+.query-chip {
+  padding: 0.55rem 0.85rem;
+  background: var(--ink-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-ctl);
+  color: var(--text);
+  font-size: 0.82rem;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.query-chip:hover {
+  border-color: var(--gold);
+  background: var(--ink-4);
+  color: var(--gold-bright);
+}
+
+.chat-bubble-ai {
+  background: var(--ink-3);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--gold);
+  border-radius: var(--radius-ctl);
+  padding: 0.85rem 1rem;
+  font-size: 0.85rem;
+  line-height: 1.55;
+  color: var(--text);
+}
+.chat-bubble-user {
+  background: var(--ink-4);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-ctl);
+  padding: 0.65rem 0.85rem;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  align-self: flex-end;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   STITCH MEGA DIRECTORY MODAL (ALL PAGES IN 1 CLICK)
+   ──────────────────────────────────────────────────────────────────────────── */
+.pages-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(8px);
+  z-index: 300;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+}
+.pages-modal-overlay.open { display: flex; }
+.pages-modal {
+  width: 100%;
+  max-width: 960px;
+  max-height: 85vh;
+  background: var(--ink-2);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  box-shadow: 0 32px 80px rgba(0, 0, 0, 0.8);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.modal-header {
+  padding: 1.15rem 1.5rem;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.modal-title {
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.modal-body {
+  padding: 1.5rem;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+.modal-grid-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.section-tag {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--gold-bright);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.modal-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 0.75rem;
+}
+.modal-page-card {
+  padding: 0.85rem 1rem;
+  background: var(--ink-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-ctl);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  text-decoration: none;
+}
+.modal-page-card:hover {
+  border-color: var(--gold);
+  background: var(--ink-4);
+  transform: translateY(-1px);
+}
+.modal-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.modal-page-name {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--text);
+}
+.modal-page-route {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  color: var(--gold-bright);
+}
+.modal-page-desc {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   SHOWCASE DOCK (STICKY QUICK SWITCHER AT BOTTOM)
+   ──────────────────────────────────────────────────────────────────────────── */
+.showcase-dock {
+  position: fixed;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  background: rgba(12, 17, 20, 0.96);
+  backdrop-filter: blur(24px);
+  padding: 0.35rem 0.55rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.75);
+  max-width: 96vw;
+  overflow-x: auto;
+}
+.dock-label {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  color: var(--gold-bright);
+  font-weight: 700;
+  padding: 0 0.35rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+.dock-btn {
+  padding: 0.28rem 0.6rem;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+.dock-btn:hover { color: var(--text); background: rgba(255,255,255,0.06); }
+.dock-btn.active { background: var(--gold); color: #141712; font-weight: 700; }
+.dock-divider { width: 1px; height: 16px; background: var(--line); margin: 0 0.15rem; flex-shrink: 0; }
+.sound-toggle-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.28rem 0.55rem;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   SHARED UI ELEMENTS (BUTTONS, PILLS, CARDS)
+   ──────────────────────────────────────────────────────────────────────────── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  padding: 0.55rem 1.15rem;
+  border-radius: var(--radius-ctl);
+  font-family: var(--font-body);
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-decoration: none;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.btn-gold {
+  background: var(--gold);
+  color: #141712;
+  border-color: rgba(255,255,255,0.15);
+}
+.btn-gold:hover { background: var(--gold-bright); transform: translateY(-1px); }
+.btn-outline {
+  background: transparent;
+  color: var(--text);
+  border-color: var(--line-strong);
+}
+.btn-outline:hover { background: rgba(255,255,255,0.05); }
+.btn-sm { padding: 0.32rem 0.75rem; font-size: 0.78rem; }
+.btn-paper {
+  background: var(--accent);
+  color: #f4eee2;
+}
+.btn-paper:hover { background: #23544d; color: #fff; }
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+.pill-gold { background: rgba(226, 182, 95, 0.12); color: var(--gold-bright); border: 1px solid rgba(226, 182, 95, 0.3); }
+.pill-green { background: rgba(34, 197, 94, 0.12); color: var(--green); border: 1px solid rgba(34, 197, 94, 0.3); }
+.pill-red { background: rgba(239, 68, 68, 0.12); color: var(--red); border: 1px solid rgba(239, 68, 68, 0.3); }
+.pill-paper { background: var(--paper-inset); color: var(--paper-text); border: 1px solid var(--paper-line); }
+
+.card-shell {
+  background: var(--ink-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 1.5rem;
+}
+.card-shell-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.25rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--line);
+}
+.card-title {
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   VIEW PANELS CONTROLLER
+   ──────────────────────────────────────────────────────────────────────────── */
+.page-wrapper {
+  flex: 1;
+  width: 100%;
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 1.5rem 1.25rem 6.5rem;
+}
+.view-panel { display: none; }
+.view-panel.active { display: block; animation: fadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   VIEW 1: DUAL-PANE ANALYSIS WORKSPACE
+   ──────────────────────────────────────────────────────────────────────────── */
+.dual-workspace {
+  display: grid;
+  grid-template-columns: 480px 1fr;
+  gap: 1.75rem;
+  align-items: start;
+}
+@media (max-width: 1080px) {
+  .dual-workspace { grid-template-columns: 1fr; }
+}
+
+/* STICKY BOARD INSTRUMENT (LEFT COLUMN) */
+.board-instrument {
+  position: sticky;
+  top: 72px;
+  background: var(--ink-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+.player-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.4rem 0.6rem;
+  background: var(--ink-3);
+  border-radius: var(--radius-ctl);
+  font-size: 0.84rem;
+}
+.player-info {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+.player-avatar {
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.72rem;
+}
+.player-avatar.w { background: #fbf6ec; color: #1c1712; }
+.player-avatar.b { background: #222; color: #fff; border: 1px solid var(--line); }
+.clock-chip {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  background: var(--ink-1);
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+  border: 1px solid var(--line);
+  color: var(--text-muted);
+}
+.clock-chip.danger { color: var(--red); border-color: rgba(239, 68, 68, 0.4); font-weight: 700; }
+
+.board-stage {
+  display: flex;
+  gap: 0.65rem;
+  justify-content: center;
+}
+.eval-bar-v {
+  width: 14px;
+  background: #2b2b2b;
+  border-radius: 4px;
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  flex-shrink: 0;
+}
+.eval-fill-w {
+  position: absolute;
+  bottom: 0;
+  width: 100%;
+  height: 38%;
+  background: #fbf6ec;
+  transition: height 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.eval-label-overlay {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) rotate(-90deg);
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: #141712;
+  pointer-events: none;
+}
+
+.chess-board {
+  width: 100%;
+  max-width: 440px;
+  aspect-ratio: 1 / 1;
+  background: var(--sq-dark);
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.6);
+  position: relative;
+}
+.sq {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.sq.l { background: var(--sq-light); }
+.sq.d { background: var(--sq-dark); }
+.sq.hl-prev { background: rgba(226, 182, 95, 0.55); }
+.sq.hl-blunder { background: rgba(239, 68, 68, 0.6); }
+.pc {
+  font-size: 32px;
+  user-select: none;
+  cursor: pointer;
+  transition: transform 0.1s ease;
+}
+.pc:hover { transform: scale(1.12); }
+.pc.w { color: #fbf6ec; text-shadow: 0 1px 2px rgba(0,0,0,0.8); }
+.pc.b { color: #1c1712; text-shadow: 0 0 1px rgba(255,255,255,0.4); }
+
+.scrubber-deck {
+  background: var(--ink-3);
+  border-radius: var(--radius-ctl);
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.scrubber-track {
+  height: 38px;
+  background: var(--ink-1);
+  border-radius: 4px;
+  position: relative;
+  cursor: pointer;
+  overflow: hidden;
+  border: 1px solid var(--line);
+}
+.eval-curve-svg {
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  inset: 0;
+}
+.scrubber-cursor {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--gold-bright);
+  left: 68%;
+  pointer-events: none;
+  box-shadow: 0 0 6px rgba(226, 182, 95, 0.8);
+}
+.scrubber-ctl-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.ctl-btn-group {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.ctl-icon-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  background: var(--ink-2);
+  border: 1px solid var(--line);
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.ctl-icon-btn:hover { color: var(--text); border-color: var(--line-strong); }
+.badge-caps {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  padding: 0.12rem 0.4rem;
+  border-radius: 4px;
+  font-weight: 700;
+}
+.badge-blunder { background: var(--red); color: #fff; }
+.badge-brilliant { background: var(--green); color: #040708; }
+
+/* EDITORIAL PARCHMENT CANVAS (RIGHT COLUMN) */
+.editorial-canvas {
+  background: var(--paper);
+  color: var(--paper-text);
+  border-radius: var(--radius);
+  padding: 2.25rem;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+.hero-wedge {
+  background: var(--paper-2);
+  border-left: 5px solid var(--accent);
+  padding: 1.5rem;
+  border-radius: 0 var(--radius-ctl) var(--radius-ctl) 0;
+}
+.hero-wedge-label {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  color: var(--accent);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.35rem;
+}
+.hero-wedge-title {
+  font-family: var(--font-display);
+  font-size: 1.45rem;
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--paper-text);
+}
+.hero-wedge-desc {
+  font-size: 0.95rem;
+  color: var(--paper-muted);
+  margin-top: 0.5rem;
+  line-height: 1.6;
+}
+
+/* Phase Accuracy Chart */
+.phase-chart-box {
+  background: var(--paper-2);
+  border: 1px solid var(--paper-line);
+  border-radius: var(--radius-ctl);
+  padding: 1.25rem;
+}
+.phase-bar-row {
+  display: grid;
+  grid-template-columns: 110px 1fr 60px;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 0.65rem;
+}
+.phase-bar-track {
+  height: 10px;
+  background: var(--paper-inset);
+  border-radius: 999px;
+  overflow: hidden;
+  position: relative;
+}
+.phase-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+}
+
+/* Do / Don't Focus Cards */
+.focus-board-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+.focus-card {
+  background: var(--paper-2);
+  border: 1px solid var(--paper-line);
+  border-radius: var(--radius-ctl);
+  padding: 1rem 1.25rem;
+  display: grid;
+  grid-template-columns: 40px 1fr 1fr;
+  gap: 1rem;
+  align-items: center;
+}
+@media (max-width: 700px) {
+  .focus-card { grid-template-columns: 1fr; }
+}
+.focus-rank-circle {
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  background: var(--paper-inset);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 0.88rem;
+  color: var(--paper-text);
+}
+.focus-dont {
+  background: rgba(125, 53, 39, 0.08);
+  border-left: 3px solid var(--alert);
+  padding: 0.65rem 0.85rem;
+  border-radius: 0 4px 4px 0;
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+.focus-dont b { color: var(--alert); }
+.focus-do {
+  background: rgba(47, 107, 98, 0.08);
+  border-left: 3px solid var(--accent);
+  padding: 0.65rem 0.85rem;
+  border-radius: 0 4px 4px 0;
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+.focus-do b { color: var(--accent); }
+
+/* CRUCIAL FIX: MINI BOARDS AND SQUARES GRID */
+.mini-board-card {
+  background: var(--paper-2);
+  border: 1px solid var(--paper-line);
+  border-radius: var(--radius-ctl);
+  padding: 1.25rem;
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  gap: 1.25rem;
+  align-items: start;
+}
+@media (max-width: 600px) {
+  .mini-board-card { grid-template-columns: 1fr; }
+}
+.mini-board {
+  width: 140px;
+  height: 140px;
+  aspect-ratio: 1 / 1;
+  border-radius: 4px;
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  grid-template-rows: repeat(8, 1fr);
+  background: var(--sq-dark);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+.mini-sq {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+.mini-sq.l { background: var(--sq-light); }
+.mini-sq.d { background: var(--sq-dark); }
+.mini-sq.hl { background: rgba(239, 68, 68, 0.55); }
+.mini-pc {
+  font-size: 13px;
+  line-height: 1;
+  user-select: none;
+}
+.mini-pc.w { color: #fbf6ec; }
+.mini-pc.b { color: #1c1712; }
+
+/* Replay Drills Box */
+.drill-section-box {
+  background: #1c2724;
+  color: #f4eee2;
+  border-radius: var(--radius-ctl);
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+.drill-card-inner {
+  background: rgba(0,0,0,0.25);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: var(--radius-ctl);
+  padding: 1rem;
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  gap: 1.25rem;
+  align-items: center;
+}
+@media (max-width: 600px) {
+  .drill-card-inner { grid-template-columns: 1fr; }
+}
+
+/* Lichess Resources Deck */
+.resources-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.85rem;
+}
+@media (max-width: 600px) { .resources-grid { grid-template-columns: 1fr; } }
+.resource-item {
+  background: var(--paper-2);
+  border: 1px solid var(--paper-line);
+  border-radius: var(--radius-ctl);
+  padding: 0.85rem 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  text-decoration: none;
+  color: var(--paper-text);
+  transition: all 0.15s ease;
+}
+.resource-item:hover { border-color: var(--accent); transform: translateX(2px); }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   PSYCHOLOGY PANEL (POSITIONED PROMINENTLY ON TOP)
+   ──────────────────────────────────────────────────────────────────────────── */
+.psych-card-shell {
+  background: var(--paper-2);
+  border: 2px solid var(--accent);
+  border-radius: var(--radius-ctl);
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  box-shadow: 0 4px 16px rgba(47, 107, 98, 0.1);
+}
+.psych-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  border-bottom: 1px solid var(--paper-line);
+  padding-bottom: 0.75rem;
+}
+.psych-type-badge {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  background: var(--accent);
+  color: #fff;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  font-weight: 700;
+}
+.psych-radar-layout {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  gap: 1.5rem;
+  align-items: center;
+}
+@media (max-width: 768px) { .psych-radar-layout { grid-template-columns: 1fr; } }
+
+.psych-radar-svg {
+  width: 100%;
+  max-width: 240px;
+  aspect-ratio: 1 / 1;
+}
+
+.psych-table {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.psych-row {
+  background: var(--paper);
+  border: 1px solid var(--paper-line);
+  border-radius: 4px;
+  padding: 0.55rem 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+.psych-row-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.psych-tag {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 3px;
+  font-weight: 700;
+}
+.psych-tag.strong { background: rgba(21, 128, 61, 0.15); color: var(--green-paper); }
+.psych-tag.develop { background: rgba(180, 83, 9, 0.15); color: #b45309; }
+.psych-tag.weak { background: rgba(125, 53, 39, 0.15); color: var(--alert); }
+
+/* Form Timeline */
+.form-timeline-box {
+  background: var(--paper);
+  border: 1px solid var(--paper-line);
+  border-radius: var(--radius-ctl);
+  padding: 1rem;
+}
+.form-svg {
+  width: 100%;
+  height: 120px;
+}
+
+/* Clock Pressure & Speed */
+.pressure-speed-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.25rem;
+}
+@media (max-width: 768px) { .pressure-speed-grid { grid-template-columns: 1fr; } }
+
+.pressure-row {
+  display: grid;
+  grid-template-columns: 65px 1fr 75px;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.45rem;
+  font-size: 0.8rem;
+}
+.pressure-track {
+  height: 8px;
+  background: var(--paper-inset);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.pressure-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 4px;
+}
+.pressure-row.is-worst .pressure-fill { background: var(--alert); }
+.pressure-row.is-worst b { color: var(--alert); }
+
+.speed-track-bar {
+  display: flex;
+  height: 12px;
+  border-radius: 6px;
+  overflow: hidden;
+  margin-bottom: 0.65rem;
+}
+.speed-seg { height: 100%; }
+.seg-0 { background: #3b82f6; }
+.seg-1 { background: #22c55e; }
+.seg-2 { background: #eab308; }
+.seg-3 { background: #ef4444; }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   PROGRESS / PERFORMANCE TAB (VISUAL BEFORE-AFTER COMPARISON & PROFILE)
+   ──────────────────────────────────────────────────────────────────────────── */
+.student-persona-hero {
+  background: var(--ink-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+.persona-left {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+}
+.persona-avatar {
+  width: 60px;
+  height: 60px;
+  border-radius: 999px;
+  background: var(--ink-3);
+  border: 2px solid var(--gold);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  color: var(--gold-bright);
+  font-weight: 700;
+}
+
+/* Transparent Before/After Movement Matrix */
+.movement-matrix-card {
+  background: var(--ink-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+.movement-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 1rem;
+  margin-top: 1rem;
+}
+@media (max-width: 900px) { .movement-grid { grid-template-columns: 1fr 1fr; } }
+.movement-item {
+  background: var(--ink-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-ctl);
+  padding: 0.85rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.movement-label {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+.movement-val {
+  font-family: var(--font-mono);
+  font-size: 1.25rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.movement-delta {
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+/* 3-Pillar Progress Tracker */
+.three-pillar-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.25rem;
+  margin-bottom: 1.5rem;
+}
+@media (max-width: 900px) { .three-pillar-grid { grid-template-columns: 1fr; } }
+.pillar-card {
+  background: var(--ink-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.pillar-card.improved { border-top: 4px solid var(--green); }
+.pillar-card.improving { border-top: 4px solid var(--gold); }
+.pillar-card.needs-work { border-top: 4px solid var(--red); }
+.pillar-title {
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+/* Curated Studies Grid */
+.curated-studies-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.25rem;
+  margin-bottom: 1.75rem;
+}
+@media (max-width: 900px) { .curated-studies-grid { grid-template-columns: 1fr; } }
+.study-card {
+  background: var(--ink-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  transition: all 0.15s ease;
+}
+.study-card:hover { border-color: var(--gold); transform: translateY(-2px); }
+
+/* Subscription Pricing Grid */
+.pricing-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.5rem;
+  margin-top: 2rem;
+}
+@media (max-width: 960px) { .pricing-grid { grid-template-columns: 1fr; } }
+.pricing-card {
+  background: var(--ink-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 2rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  position: relative;
+}
+.pricing-card.featured {
+  border-color: var(--gold);
+  background: linear-gradient(180deg, rgba(226, 182, 95, 0.08) 0%, var(--ink-2) 100%);
+}
+.pricing-badge {
+  position: absolute;
+  top: -12px;
+  right: 1.5rem;
+  background: var(--gold);
+  color: #141712;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  text-transform: uppercase;
+}
+.pricing-price {
+  font-family: var(--font-mono);
+  font-size: 2.4rem;
+  font-weight: 700;
+  color: var(--text);
+}
+.pricing-price span { font-size: 0.9rem; color: var(--text-muted); font-weight: 400; }
+
+/* Global Site Footer */
+.site-footer {
+  background: var(--ink-0);
+  border-top: 1px solid var(--line);
+  padding: 3.5rem 1.5rem 6.5rem;
+  margin-top: auto;
+}
+.footer-container {
+  max-width: 1440px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2.5rem;
+}
+.footer-top-row {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr;
+  gap: 2rem;
+}
+@media (max-width: 900px) { .footer-top-row { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 600px) { .footer-top-row { grid-template-columns: 1fr; } }
+
+.footer-brand-col { display: flex; flex-direction: column; gap: 0.85rem; }
+.footer-col-title {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  color: var(--gold-bright);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  margin-bottom: 0.5rem;
+}
+.footer-links {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.footer-link-item a {
+  color: var(--text-muted);
+  text-decoration: none;
+  font-size: 0.85rem;
+  transition: color 0.15s ease;
+  cursor: pointer;
+}
+.footer-link-item a:hover { color: var(--text); }
+
+.footer-bottom-row {
+  border-top: 1px solid var(--line);
+  padding-top: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+.footer-disclaimer {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+  max-width: 720px;
+}
+.badge-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+.badge-img {
+  height: 38px;
+  border-radius: 4px;
+  opacity: 0.9;
+  transition: opacity 0.15s ease;
+}
+.badge-img:hover { opacity: 1; }
+
+.mono-num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums lining-nums;
+}
+</style>
+</head>
+<body>
+
+<!-- ─── REFINED APP HEADER (OBSIDIAN CHROME + GOOGLE SIGN-IN + SUBSCRIBE HOOK) ─── -->
+<header class="app-header">
+  <div class="header-container">
+    <div class="brand-lockup" onclick="setPage('view-home')">
+      <div class="brand-name">♔ Chessmasters<span>.</span></div>
+      <span class="pro-pill">Pro Workspace</span>
+    </div>
+
+    <!-- Primary Quick Navigation -->
+    <nav class="primary-nav">
+      <button class="nav-item active" onclick="setPage('view-analysis')">Review</button>
+      <button class="nav-item" onclick="setPage('view-progress')">Progress</button>
+      <button class="nav-item" onclick="setPage('view-study')">Studies</button>
+      <button class="nav-item" onclick="setPage('view-scout')">Scout</button>
+      <button class="nav-item" onclick="setPage('view-coach')">Coach</button>
+      <button class="nav-item" onclick="setPage('view-subscription')">Subscription</button>
+      <button class="nav-item" onclick="setPage('view-history')">History</button>
+      <button class="nav-item" onclick="setPage('view-about')">About</button>
+      <button class="nav-item" onclick="setPage('view-faq')">FAQ</button>
+      <button class="nav-item" onclick="setPage('view-tactics')">Tactics</button>
+    </nav>
+
+    <!-- Header Actions -->
+    <div class="header-actions">
+      <!-- Google Sign In Button -->
+      <button class="google-btn" id="googleAuthBtn" onclick="toggleAuth()">
+        <svg class="google-icon" viewBox="0 0 18 18">
+          <path fill="#4285F4" d="M17.64 9.2c0-.63-.06-1.25-.16-1.84H9v3.49h4.84a4.14 4.14 0 0 1-1.8 2.71v2.26h2.92c1.71-1.57 2.68-3.89 2.68-6.62z"/>
+          <path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.92-2.26c-.8.54-1.83.86-3.04.86-2.34 0-4.32-1.58-5.03-3.71H1.02v2.33C2.5 15.91 5.51 18 9 18z"/>
+          <path fill="#FBBC05" d="M3.97 10.71A5.4 5.4 0 0 1 3.69 9c0-.59.1-1.17.28-1.71V4.96H1.02A8.996 8.996 0 0 0 0 9c0 1.45.35 2.82 1.02 4.04l2.95-2.33z"/>
+          <path fill="#EA4335" d="M9 3.58c1.32 0 2.5.45 3.44 1.35l2.58-2.59C13.46.89 11.43 0 9 0 5.51 0 2.5 2.09 1.02 4.96l2.95 2.33C4.68 5.16 6.66 3.58 9 3.58z"/>
+        </svg>
+        <span id="authBtnLabel">Sign in</span>
+      </button>
+
+      <!-- Prominent Subscribe Hook -->
+      <button class="subscribe-hook-btn" onclick="setPage('view-subscription')">
+        <span>👑 Upgrade to Pro</span>
+      </button>
+
+      <button class="pages-menu-btn" onclick="openPagesModal()">
+        <span>All 18 Pages</span>
+        <span>▾</span>
+      </button>
+
+      <div class="search-pill" onclick="toggleDrawer()">
+        <span>Ask AI</span>
+        <kbd>⌘K</kbd>
+      </div>
+
+      <div class="avatar-badge" onclick="setPage('view-progress')" title="Student Profile: Aarav Sharma (2145 Elo)">AS</div>
+    </div>
+  </div>
+</header>
+
+<!-- ─── CONTEXT-AWARE AI COACH COPILOT DRAWER (STOCKFISH + USER DATA CONTEXT) ─── -->
+<aside class="slide-drawer" id="sideDrawer">
+  <div class="drawer-header">
+    <div style="display: flex; align-items: center; gap: 0.5rem;">
+      <span style="color: var(--gold-bright); font-size: 1.1rem;">♟</span>
+      <div>
+        <strong style="font-size: 0.95rem; display: block;">AI Coach & Copilot</strong>
+        <span style="font-size: 0.72rem; color: var(--gold-bright); font-family: var(--font-mono);">Aarav Sharma (2145 Elo) &middot; 14 Games Context</span>
+      </div>
+    </div>
+    <button onclick="toggleDrawer()" style="background: none; border: none; color: var(--text-muted); font-size: 1.25rem; cursor: pointer;">✕</button>
+  </div>
+
+  <div class="drawer-body">
+    <!-- Quick Query Chips with User Context -->
+    <div>
+      <span style="font-family: var(--font-mono); font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; display: block; margin-bottom: 0.4rem;">
+        Suggested Queries with Your Data:
+      </span>
+      <div class="ai-query-chips">
+        <button class="query-chip" onclick="askAICoach('analyze_this')">
+          <span>⚡ Analyze this game's turning point</span>
+          <span style="color: var(--gold-bright);">➔</span>
+        </button>
+        <button class="query-chip" onclick="askAICoach('analyze_last_3')">
+          <span>📊 Analyze my last 3 games</span>
+          <span style="color: var(--gold-bright);">➔</span>
+        </button>
+        <button class="query-chip" onclick="askAICoach('most_mistakes')">
+          <span>🎯 Where am I making the most mistakes?</span>
+          <span style="color: var(--gold-bright);">➔</span>
+        </button>
+        <button class="query-chip" onclick="askAICoach('what_practice')">
+          <span>🏋️ What should I practice right now?</span>
+          <span style="color: var(--gold-bright);">➔</span>
+        </button>
+        <button class="query-chip" onclick="askAICoach('nav_progress')">
+          <span>🧭 Navigate to my Progress & Leaks</span>
+          <span style="color: var(--gold-bright);">➔</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Live Conversation Thread -->
+    <div id="aiChatThread" style="display: flex; flex-direction: column; gap: 0.85rem;">
+      <div class="chat-bubble-ai">
+        <b>Coach Gemini & Stockfish 17:</b><br>
+        Welcome back, Aarav. I have full context on your <b>2145 Elo profile</b> and your last 14 games. In today's Najdorf (Game #842), you were winning (+4.8) until move 28, where <b>28...Re8??</b> walked into White's queen deflection. Ask me anything about this position, your recent games, or where your rating leaks lie.
+      </div>
+    </div>
+
+    <!-- Input Box -->
+    <div style="margin-top: auto; display: flex; gap: 0.45rem;">
+      <input type="text" id="aiCoachInput" placeholder="Ask coach anything about your games..." 
+             onkeydown="if(event.key==='Enter') sendCustomAIChat()"
+             style="flex: 1; padding: 0.6rem 0.85rem; background: var(--ink-3); border: 1px solid var(--line); border-radius: var(--radius-ctl); color: var(--text); font-size: 0.85rem;" />
+      <button class="btn btn-sm btn-gold" onclick="sendCustomAIChat()">Send</button>
+    </div>
+  </div>
+</aside>
+
+<!-- ─── STITCH ALL-PAGES DIRECTORY MODAL ─── -->
+<div class="pages-modal-overlay" id="pagesModal" onclick="closePagesModal(event)">
+  <div class="pages-modal" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <div class="modal-title">
+        <span>♜</span>
+        <span>Chessmasters Platform Site Map & Directory</span>
+      </div>
+      <button onclick="closePagesModal()" style="background:none; border:none; color:var(--text-muted); font-size:1.25rem; cursor:pointer;">✕</button>
+    </div>
+    <div class="modal-body">
+      <!-- Core Tools -->
+      <div class="modal-grid-section">
+        <div class="section-tag">⚡ Core Analysis & Review</div>
+        <div class="modal-cards-grid">
+          <div class="modal-page-card" onclick="setPage('view-home'); closePagesModal();">
+            <div class="modal-card-top">
+              <span class="modal-page-name">Home & Fast PGN Paste</span>
+              <span class="modal-page-route">/</span>
+            </div>
+            <p class="modal-page-desc">Instant game paste, auto color detector, sample game presets.</p>
+          </div>
+          <div class="modal-page-card" onclick="setPage('view-analysis'); closePagesModal();">
+            <div class="modal-card-top">
+              <span class="modal-page-name">Analysis Workspace</span>
+              <span class="modal-page-route">/analysis/[id]</span>
+            </div>
+            <p class="modal-page-desc">Psychology on top, Do/Don't cards, mini-boards, replay drills arena.</p>
+          </div>
+          <div class="modal-page-card" onclick="setPage('view-progress'); closePagesModal();">
+            <div class="modal-card-top">
+              <span class="modal-page-name">Student Progress & Leaks</span>
+              <span class="modal-page-route">/progress</span>
+            </div>
+            <p class="modal-page-desc">Persona profile, before/after movement matrix, 3-pillar evolution.</p>
+          </div>
+          <div class="modal-page-card" onclick="setPage('view-study'); closePagesModal();">
+            <div class="modal-card-top">
+              <span class="modal-page-name">Curated Lichess Studies</span>
+              <span class="modal-page-route">/study/[id]</span>
+            </div>
+            <p class="modal-page-desc">Studies curated directly from your analyzed game blunders, %csl & %cal arrows.</p>
+          </div>
+          <div class="modal-page-card" onclick="setPage('view-subscription'); closePagesModal();">
+            <div class="modal-card-top">
+              <span class="modal-page-name">Subscription & Plans</span>
+              <span class="modal-page-route">/subscription</span>
+            </div>
+            <p class="modal-page-desc">Active plan status, Razorpay monthly & annual toggle, 14-day guarantee.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ─── MAIN CONTENT CONTAINER ─── -->
+<main class="page-wrapper">
+
+  <!-- ═════════════════════════════════════════════════════════════════
+       VIEW 0: HOME & INSTANT PGN PASTE (/ )
+       ═════════════════════════════════════════════════════════════════ -->
+  <section class="view-panel" id="view-home">
+    <div style="max-width: 860px; margin: 0 auto; text-align: center;">
+      <span class="pill pill-gold" style="margin-bottom: 0.75rem;">AI Chess Game Analyzer</span>
+      <h1 style="font-family: var(--font-display); font-size: 2.6rem; font-weight: 700; line-height: 1.15; margin-bottom: 0.85rem;">
+        Your Next Chess Lesson is Hiding in Your Last Game.
+      </h1>
+      <p style="color: var(--text-muted); font-size: 1.15rem; line-height: 1.6; margin-bottom: 2.5rem;">
+        Paste any Chess.com or Lichess game URL or PGN. Receive a grandmaster-level psychological coaching report explaining <i>why</i> you stumbled.
+      </p>
+
+      <div style="background: var(--ink-2); border: 1px solid var(--line); border-radius: var(--radius); padding: 1.5rem; text-align: left; max-width: 680px; margin: 0 auto; box-shadow: 0 16px 40px rgba(0,0,0,0.5);">
+        <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem;">
+          <button class="btn btn-sm btn-gold">Lichess / Chess.com Link</button>
+          <button class="btn btn-sm btn-outline">Raw PGN</button>
+          <button class="btn btn-sm btn-outline" onclick="toggleAutoColor()">Auto-Color: ON</button>
+        </div>
+        <div style="display: flex; gap: 0.5rem;">
+          <input type="text" value="https://lichess.org/xK8g2YqM" 
+                 style="flex: 1; padding: 0.75rem 1rem; background: var(--ink-1); border: 1px solid var(--line-strong); border-radius: var(--radius-ctl); color: var(--text); font-family: var(--font-mono); font-size: 0.88rem;" />
+          <button class="btn btn-gold" onclick="setPage('view-analysis')">Analyze Game ➔</button>
+        </div>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.85rem; font-size: 0.76rem; color: var(--text-muted);">
+          <span>Instant Stockfish 17 depth-22 evaluation + Gemini psychological stream.</span>
+          <a href="#" onclick="setPage('view-sample-report')" style="color: var(--gold-bright); text-decoration: none;">Try Sample Game ➔</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═════════════════════════════════════════════════════════════════
+       VIEW 1: FLAGSHIP DUAL-PANE ANALYSIS (PSYCHOLOGY PROMINENTLY ON TOP!)
+       ═════════════════════════════════════════════════════════════════ -->
+  <section class="view-panel active" id="view-analysis">
+    <div class="dual-workspace">
+      
+      <!-- STICKY LEFT INSTRUMENT (480px) -->
+      <aside class="board-instrument">
+        <div class="player-strip">
+          <div class="player-info">
+            <div class="player-avatar b">B</div>
+            <b>Grandmaster_Opponent</b>
+            <span class="mono-num" style="color: var(--text-muted);">(2482)</span>
+          </div>
+          <div class="clock-chip">3:42</div>
+        </div>
+
+        <div class="board-stage">
+          <div class="eval-bar-v" title="Stockfish Centipawn: -4.2">
+            <div class="eval-fill-w"></div>
+            <div class="eval-label-overlay">-4.2</div>
+          </div>
+          <div class="chess-board" id="mainAnalysisBoard"></div>
+        </div>
+
+        <div class="player-strip">
+          <div class="player-info">
+            <div class="player-avatar w">W</div>
+            <b>You (Student)</b>
+            <span class="mono-num" style="color: var(--gold-bright);">(2145)</span>
+          </div>
+          <div class="clock-chip danger">0:14 ⚡</div>
+        </div>
+
+        <!-- Scrubber Deck -->
+        <div class="scrubber-deck">
+          <div class="scrubber-track" onclick="handleScrub(event)">
+            <svg class="eval-curve-svg" viewBox="0 0 100 20" preserveAspectRatio="none">
+              <path d="M 0 10 Q 20 8 35 12 T 60 7 T 75 18 T 100 19" fill="none" stroke="var(--cyan)" stroke-width="1.8" />
+              <line x1="0" y1="10" x2="100" y2="10" stroke="rgba(255,255,255,0.2)" stroke-dasharray="2,2" stroke-width="0.8" />
+            </svg>
+            <div class="scrubber-cursor" id="mainScrubberCursor"></div>
+          </div>
+
+          <div class="scrubber-ctl-row">
+            <div class="ctl-btn-group">
+              <button class="ctl-icon-btn" onclick="stepMove(-1)">◀</button>
+              <button class="ctl-icon-btn" onclick="stepMove(1)">▶</button>
+              <button class="ctl-icon-btn" onclick="flipMainBoard()" title="Flip Board">⟳</button>
+            </div>
+            <div style="font-family: var(--font-mono); font-size: 0.8rem;">
+              Ply <b id="mainPly">56</b> / 74 &middot; <span class="badge-caps badge-blunder">28. ...Re8?? Blunder</span>
+            </div>
+            <button class="btn btn-sm btn-outline" onclick="toggleDrawer()">Ask AI ⌘K</button>
+          </div>
+        </div>
+      </aside>
+
+      <!-- EDITORIAL PARCHMENT CANVAS (RIGHT COLUMN - PSYCHOLOGY ON TOP!) -->
+      <article class="editorial-canvas">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 0.5rem;">
+          <div>
+            <span class="pill pill-paper" style="margin-bottom: 0.4rem;">Blitz 5+3 &middot; Rated &middot; Lichess</span>
+            <h1 style="font-family: var(--font-display); font-size: 2rem; font-weight: 700; line-height: 1.15;">
+              Round 7: Tactical Collapse Under Time Panic
+            </h1>
+            <p style="color: var(--paper-muted); font-size: 0.95rem; margin-top: 0.25rem;">
+              Sicilian Defense, Najdorf Variation (B90) &middot; Game ID: <code>xK8g2YqM</code>
+            </p>
+          </div>
+          <div style="display: flex; gap: 0.4rem;">
+            <a href="#drills" class="btn btn-sm btn-paper">Jump to Drills ▾</a>
+            <button class="btn btn-sm btn-outline" style="border-color: var(--paper-line); color: var(--paper-text);" onclick="toggleDrawer()">Ask Coach ⌘K</button>
+          </div>
+        </div>
+
+        <!-- ─────────────────────────────────────────────────────────────
+             1. PSYCHOLOGY SECTION ON TOP (AS REQUESTED)
+             ───────────────────────────────────────────────────────────── -->
+        <section class="psych-card-shell">
+          <div class="psych-head">
+            <div>
+              <span style="font-family: var(--font-mono); font-size: 0.72rem; color: var(--accent); text-transform: uppercase; font-weight: 700; letter-spacing: 0.05em;">
+                🧠 COGNITIVE PSYCHOLOGY VERDICT (LEAD ANALYSIS)
+              </span>
+              <h3 style="font-family: var(--font-display); font-size: 1.35rem; font-weight: 700;">Mental Toughness & Cognitive Biases</h3>
+            </div>
+            <span class="psych-type-badge">Activist &middot; Early Lean &middot; from 14 games</span>
+          </div>
+
+          <p style="font-size: 0.95rem; color: var(--paper-muted); line-height: 1.6;">
+            <b>Coach Psychological Diagnosis:</b> Tactically ambitious attacker with sharp initiative, but prone to catastrophic clock panic and back-rank tunnel vision whenever your remaining time dips below 30 seconds.
+          </p>
+
+          <!-- Radar Chart & Dimensions Table -->
+          <div class="psych-radar-layout">
+            <svg class="psych-radar-svg" viewBox="0 0 260 260">
+              <!-- Rings -->
+              <polygon points="130,48 201,89 201,171 130,212 59,171 59,89" fill="none" stroke="var(--paper-line)" stroke-width="1" />
+              <polygon points="130,89 165,110 165,150 130,171 95,150 95,110" fill="none" stroke="var(--paper-line)" stroke-width="1" />
+              <!-- 70% threshold -->
+              <polygon points="130,72 179,101 179,159 130,188 81,159 81,101" fill="none" stroke="rgba(47,107,98,0.3)" stroke-dasharray="3,3" stroke-width="1" />
+              <!-- Spokes -->
+              <line x1="130" y1="130" x2="130" y2="48" stroke="var(--paper-line)" />
+              <line x1="130" y1="130" x2="201" y2="89" stroke="var(--paper-line)" />
+              <line x1="130" y1="130" x2="201" y2="171" stroke="var(--paper-line)" />
+              <line x1="130" y1="130" x2="130" y2="212" stroke="var(--paper-line)" />
+              <line x1="130" y1="130" x2="59" y2="171" stroke="var(--paper-line)" />
+              <line x1="130" y1="130" x2="59" y2="89" stroke="var(--paper-line)" />
+              <!-- Student Polygon -->
+              <polygon points="130,79 154,116 177,157 130,195 87,143 86,105" fill="rgba(47,107,98,0.25)" stroke="var(--accent)" stroke-width="2" />
+              <!-- Dots -->
+              <circle cx="130" cy="79" r="4" fill="var(--accent)" />
+              <circle cx="154" cy="116" r="4" fill="var(--alert)" />
+              <circle cx="177" cy="157" r="4" fill="#b45309" />
+              <circle cx="130" cy="195" r="4" fill="var(--green-paper)" />
+              <circle cx="87" cy="143" r="4" fill="var(--green-paper)" />
+              <circle cx="86" cy="105" r="4" fill="var(--green-paper)" />
+            </svg>
+
+            <!-- Dimension Table with Concrete Fix Protocols -->
+            <ul class="psych-table">
+              <li class="psych-row">
+                <div class="psych-row-top">
+                  <b>Time Management & Panic</b>
+                  <span class="psych-tag weak">Weak Spot &middot; 34</span>
+                </div>
+                <div style="font-size: 0.78rem; color: var(--paper-muted);">Blunder rate spikes 3.8x under 30s. Protocol: Run 1-second threat check.</div>
+              </li>
+              <li class="psych-row">
+                <div class="psych-row-top">
+                  <b>Composure (Post-Blunder)</b>
+                  <span class="psych-tag develop">Developing &middot; 58</span>
+                </div>
+                <div style="font-size: 0.78rem; color: var(--paper-muted);">Tilts if moving in &lt;3s after an error; steady when pausing 10s.</div>
+              </li>
+              <li class="psych-row">
+                <div class="psych-row-top">
+                  <b>Tilt Resistance</b>
+                  <span class="psych-tag strong">Strong &middot; 78</span>
+                </div>
+                <div style="font-size: 0.78rem; color: var(--paper-muted);">Wins 71% of games played immediately after a defeat.</div>
+              </li>
+              <li class="psych-row">
+                <div class="psych-row-top">
+                  <b>Converting Advantages</b>
+                  <span class="psych-tag strong">Strong &middot; 72</span>
+                </div>
+                <div style="font-size: 0.78rem; color: var(--paper-muted);">Converts +2.0 pawn leads 82% of the time into full points.</div>
+              </li>
+              <li class="psych-row">
+                <div class="psych-row-top">
+                  <b>Fighting Spirit</b>
+                  <span class="psych-tag strong">Strong &middot; 85</span>
+                </div>
+                <div style="font-size: 0.78rem; color: var(--paper-muted);">Draws or swindles 40% of positions evaluated at -2.0.</div>
+              </li>
+            </ul>
+          </div>
+
+          <!-- Per-Game Form Timeline -->
+          <div class="form-timeline-box">
+            <div style="display: flex; justify-content: space-between; font-size: 0.8rem; margin-bottom: 0.5rem;">
+              <b>Per-Game Accuracy Form Timeline (Last 8 Games)</b>
+              <div style="display: flex; gap: 0.6rem; font-size: 0.72rem;">
+                <span style="color: var(--green-paper);">● Win</span>
+                <span style="color: var(--alert);">● Loss</span>
+                <span style="color: #b45309;">▲ Tilt (Post-Loss Game)</span>
+              </div>
+            </div>
+            <svg class="form-svg" viewBox="0 0 500 100">
+              <line x1="20" y1="50" x2="480" y2="50" stroke="rgba(28,23,18,0.15)" stroke-dasharray="2,2" />
+              <polyline points="30,60 90,45 150,75 210,35 270,55 330,80 390,40 450,30" fill="none" stroke="var(--accent)" stroke-width="2" />
+              <circle cx="30" cy="60" r="4" fill="var(--green-paper)" />
+              <circle cx="90" cy="45" r="4" fill="var(--green-paper)" />
+              <circle cx="150" cy="75" r="4" fill="var(--alert)" />
+              <polygon points="210,24 205,15 215,15" fill="#b45309" />
+              <circle cx="210" cy="35" r="4" fill="var(--green-paper)" />
+              <circle cx="270" cy="55" r="4" fill="var(--green-paper)" />
+              <circle cx="330" cy="80" r="4" fill="var(--alert)" />
+              <polygon points="390,29 385,20 395,20" fill="#b45309" />
+              <circle cx="390" cy="40" r="4" fill="var(--green-paper)" />
+              <circle cx="450" cy="30" r="4" fill="var(--green-paper)" />
+            </svg>
+          </div>
+
+          <!-- Pressure & Speed Row -->
+          <div class="pressure-speed-grid">
+            <div style="background: var(--paper); border: 1px solid var(--paper-line); border-radius: 4px; padding: 0.85rem;">
+              <b style="font-size: 0.82rem; display: block; margin-bottom: 0.5rem;">Blunder Frequency by Clock Level</b>
+              <div class="pressure-row">
+                <span>&gt; 3 min</span>
+                <div class="pressure-track"><div class="pressure-fill" style="width: 8%;"></div></div>
+                <span class="mono-num">1/48 blunders</span>
+              </div>
+              <div class="pressure-row">
+                <span>1 - 3 min</span>
+                <div class="pressure-track"><div class="pressure-fill" style="width: 18%;"></div></div>
+                <span class="mono-num">3/62 blunders</span>
+              </div>
+              <div class="pressure-row">
+                <span>30s - 1m</span>
+                <div class="pressure-track"><div class="pressure-fill" style="width: 38%;"></div></div>
+                <span class="mono-num">5/42 blunders</span>
+              </div>
+              <div class="pressure-row is-worst">
+                <b>&lt; 30s ⚡</b>
+                <div class="pressure-track"><div class="pressure-fill" style="width: 88%;"></div></div>
+                <b class="mono-num" style="color: var(--alert);">11/29 blunders</b>
+              </div>
+            </div>
+
+            <div style="background: var(--paper); border: 1px solid var(--paper-line); border-radius: 4px; padding: 0.85rem;">
+              <b style="font-size: 0.82rem; display: block; margin-bottom: 0.5rem;">Move Think-Time Distribution</b>
+              <div class="speed-track-bar">
+                <div class="speed-seg seg-0" style="width: 32%;" title="<5s Blitz"></div>
+                <div class="speed-seg seg-1" style="width: 44%;" title="5-15s Normal"></div>
+                <div class="speed-seg seg-2" style="width: 18%;" title="15-45s Deep"></div>
+                <div class="speed-seg seg-3" style="width: 6%;" title=">45s Crisis"></div>
+              </div>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem; font-size: 0.74rem;">
+                <div><span style="color:#3b82f6;">■</span> &lt; 5s (32%) &middot; Impulse</div>
+                <div><span style="color:#22c55e;">■</span> 5-15s (44%) &middot; Natural</div>
+                <div><span style="color:#eab308;">■</span> 15-45s (18%) &middot; Deep</div>
+                <div><span style="color:#ef4444;">■</span> &gt; 45s (6%) &middot; Crisis</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 2. The Next Game Rule -->
+        <section class="hero-wedge">
+          <div class="hero-wedge-label">Core Actionable Takeaway &middot; The Next Game Rule</div>
+          <div class="hero-wedge-title">
+            "Before playing any rook lift in an open file, verify your king's escape flight square."
+          </div>
+          <p class="hero-wedge-desc">
+            On move 28, with 14 seconds left on your clock, you grabbed the e-file with <b>28...Re8??</b> without noticing your f7-pawn was pinned to your king. You fell for a back-rank deflection tactic.
+          </p>
+        </section>
+
+        <!-- 3. Phase Accuracy Matrix -->
+        <section class="phase-chart-box">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+            <div>
+              <b style="font-family: var(--font-display); font-size: 1.1rem;">Phase-by-Phase Accuracy Matrix</b>
+              <p style="font-size: 0.8rem; color: var(--paper-muted);">Comparing your accuracy against opponent by game stage</p>
+            </div>
+            <span class="pill pill-paper">Game Overall: 76.4%</span>
+          </div>
+
+          <div class="phase-bar-row">
+            <span style="font-size: 0.82rem; font-weight: 600;">Opening (Moves 1-14)</span>
+            <div class="phase-bar-track">
+              <div class="phase-bar-fill" style="width: 88%; background: var(--green-paper);"></div>
+            </div>
+            <span style="font-family: var(--font-mono); font-size: 0.82rem; text-align: right; font-weight: 700;">88%</span>
+          </div>
+
+          <div class="phase-bar-row">
+            <span style="font-size: 0.82rem; font-weight: 600;">Middlegame (15-32)</span>
+            <div class="phase-bar-track">
+              <div class="phase-bar-fill" style="width: 74%; background: var(--accent);"></div>
+            </div>
+            <span style="font-family: var(--font-mono); font-size: 0.82rem; text-align: right; font-weight: 700;">74%</span>
+          </div>
+
+          <div class="phase-bar-row">
+            <span style="font-size: 0.82rem; font-weight: 600;">Endgame (33+)</span>
+            <div class="phase-bar-track">
+              <div class="phase-bar-fill" style="width: 52%; background: var(--alert);"></div>
+            </div>
+            <span style="font-family: var(--font-mono); font-size: 0.82rem; text-align: right; font-weight: 700; color: var(--alert);">52%</span>
+          </div>
+        </section>
+
+        <!-- 4. Draw & Choke Diagnosis -->
+        <section style="background: #ded7c3; border-left: 4px solid var(--accent); padding: 1rem 1.25rem; border-radius: 0 var(--radius-ctl) var(--radius-ctl) 0;">
+          <div style="display: flex; align-items: center; justify-content: space-between;">
+            <b style="color: var(--alert);">Critical Choke Verification Engine:</b>
+            <span class="pill pill-paper" style="background:#fff; font-weight: 700;">MISSED_WIN_CHOKE</span>
+          </div>
+          <p style="font-size: 0.88rem; color: var(--paper-muted); margin-top: 0.25rem;">
+            Evaluation reached +4.8 in your favor at Move 24. A premature queen trade proposal gave away the initiative, transitioning from a winning endgame into a collapse.
+          </p>
+        </section>
+
+        <!-- 5. Focus Areas (Do / Don't Actionable Cards) -->
+        <section>
+          <div style="margin-bottom: 0.75rem;">
+            <h3 style="font-family: var(--font-display); font-size: 1.25rem; font-weight: 700;">Focus Areas &middot; Actionable Habits</h3>
+            <p style="font-size: 0.82rem; color: var(--paper-muted);">Binary behavioral rules to run in your future games</p>
+          </div>
+
+          <div class="focus-board-grid">
+            <article class="focus-card">
+              <div class="focus-rank-circle">1</div>
+              <div class="focus-dont">
+                <b>Don't:</b> Grab open files without verifying your king's flight square first.
+              </div>
+              <div class="focus-do">
+                <b>Do:</b> Play Kh8 to eliminate the pin before activating your heavy rooks.
+              </div>
+            </article>
+
+            <article class="focus-card">
+              <div class="focus-rank-circle">2</div>
+              <div class="focus-dont">
+                <b>Don't:</b> Rush moves in under 2 seconds when your clock drops below 30s.
+              </div>
+              <div class="focus-do">
+                <b>Do:</b> Run a 1-second mental scan for opponent checks, captures, and threats.
+              </div>
+            </article>
+
+            <article class="focus-card">
+              <div class="focus-rank-circle">3</div>
+              <div class="focus-dont">
+                <b>Don't:</b> Surrender central tension with passive waiting moves.
+              </div>
+              <div class="focus-do">
+                <b>Do:</b> Strike with ...d5 when White commits the light-squared bishop early.
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <!-- 6. Key Game Moments (PROPERLY STYLED MINI-BOARDS) -->
+        <section style="display: flex; flex-direction: column; gap: 1rem;">
+          <h3 style="font-family: var(--font-display); font-size: 1.25rem; font-weight: 700;">Key Game Moments</h3>
+          
+          <div class="mini-board-card">
+            <div class="mini-board" id="miniBoardWeakness"></div>
+            <div>
+              <div style="display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.25rem;">
+                <span class="pill" style="background: rgba(125,53,39,0.15); color: var(--alert);">CRITICAL BLUNDER &middot; Move 28</span>
+              </div>
+              <strong style="font-size: 1.05rem;">28. ...Re8?? &mdash; The Fatal Flight Blindspot</strong>
+              <p style="font-size: 0.88rem; color: var(--paper-muted); margin-top: 0.35rem; line-height: 1.5;">
+                Engine best was <b>28...Kh8! (+2.1)</b> eliminating the pin. By rushing to activate the rook, you allowed White's 29. Qxf7+! deflection.
+              </p>
+            </div>
+          </div>
+
+          <div class="mini-board-card">
+            <div class="mini-board" id="miniBoardStrength"></div>
+            <div>
+              <div style="display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.25rem;">
+                <span class="pill" style="background: rgba(47,107,98,0.15); color: var(--accent);">TACTICAL STRENGTH &middot; Move 17</span>
+              </div>
+              <strong style="font-size: 1.05rem;">17. ...d5! &mdash; Central Pawn Break</strong>
+              <p style="font-size: 0.88rem; color: var(--paper-muted); margin-top: 0.35rem; line-height: 1.5;">
+                Superb thematic Najdorf strike. You dismantled White's central bind and opened the bishop pair diagonal.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <!-- 7. Replay Drill Arena -->
+        <section class="drill-section-box" id="drills">
+          <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 0.75rem;">
+            <div>
+              <b style="font-family: var(--font-mono); font-size: 0.88rem; color: var(--gold-bright);">⚡ REPLAY DRILL ARENA &middot; MOVE 28</b>
+              <p style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.15rem;">Fix the exact mistake you just made on the board</p>
+            </div>
+            <span class="pill pill-gold">Play as Black</span>
+          </div>
+
+          <div class="drill-card-inner">
+            <div class="mini-board" id="drillBoardInteractive"></div>
+            <div>
+              <div style="font-size: 0.88rem; margin-bottom: 0.65rem;">
+                White has just played <b>28. Qd4</b>. Your king is pinned along the a2-g8 diagonal. What is Black's winning resource?
+              </div>
+              <div style="display: flex; gap: 0.45rem; flex-wrap: wrap;">
+                <button class="btn btn-sm btn-outline" style="border-color: rgba(255,255,255,0.25);" onclick="solveMainDrill(false)">28... Re8?? (Played)</button>
+                <button class="btn btn-sm btn-outline" style="border-color: rgba(255,255,255,0.25);" onclick="solveMainDrill(true)">28... Kh8! (Correct)</button>
+                <button class="btn btn-sm btn-outline" style="border-color: rgba(255,255,255,0.25);" onclick="solveMainDrill(false)">28... f5</button>
+              </div>
+              <div id="mainDrillSuccess" style="display:none; color: var(--green); font-size: 0.84rem; margin-top: 0.6rem;">
+                ✓ <b>Spot on!</b> 28...Kh8 neutralizes all white queen threats and protects the f7-pawn (+2.4 advantage).
+              </div>
+            </div>
+          </div>
+
+          <div style="display: flex; align-items: center; justify-content: space-between; pt-2; font-size: 0.82rem;">
+            <span>Target Theme: <b>Deflection / Overloading</b></span>
+            <a href="https://lichess.org/training/deflection" target="_blank" class="btn btn-sm btn-gold">
+              Practice Deflection on Lichess ➔
+            </a>
+          </div>
+        </section>
+
+        <!-- 8. Curated Lichess Resources -->
+        <section>
+          <div style="margin-bottom: 0.75rem;">
+            <h3 style="font-family: var(--font-display); font-size: 1.25rem; font-weight: 700;">Curated Practice Resources</h3>
+            <p style="font-size: 0.82rem; color: var(--paper-muted);">Direct Lichess training slugs mapped to the root causes in this game</p>
+          </div>
+
+          <div class="resources-grid">
+            <a href="https://lichess.org/training/deflection" target="_blank" class="resource-item">
+              <div>
+                <b>Deflection Tactics & Decoy</b>
+                <div style="font-size: 0.75rem; color: var(--paper-muted);">Fix rook lift blindspots</div>
+              </div>
+              <span style="color: var(--accent); font-weight: 700;">➔</span>
+            </a>
+
+            <a href="https://lichess.org/training/backRankMate" target="_blank" class="resource-item">
+              <div>
+                <b>Back-Rank Mates & Luft Pawns</b>
+                <div style="font-size: 0.75rem; color: var(--paper-muted);">King escape square safety</div>
+              </div>
+              <span style="color: var(--accent); font-weight: 700;">➔</span>
+            </a>
+
+            <a href="https://lichess.org/training/pin" target="_blank" class="resource-item">
+              <div>
+                <b>Absolute & Relative Pins</b>
+                <div style="font-size: 0.75rem; color: var(--paper-muted);">Diagonal unpinning mechanics</div>
+              </div>
+              <span style="color: var(--accent); font-weight: 700;">➔</span>
+            </a>
+
+            <a href="https://lichess.org/study/search?q=Sicilian+Najdorf+Tactics" target="_blank" class="resource-item">
+              <div>
+                <b>Sicilian Najdorf Study Search</b>
+                <div style="font-size: 0.75rem; color: var(--paper-muted);">Master lines for 17...d5!</div>
+              </div>
+              <span style="color: var(--accent); font-weight: 700;">➔</span>
+            </a>
+          </div>
+        </section>
+
+      </article>
+    </div>
+  </section>
+
+  <!-- ═════════════════════════════════════════════════════════════════
+       VIEW 2: STUDENT PROGRESS & PERSONA (HIGHLY VISUAL COMPARISONS)
+       ═════════════════════════════════════════════════════════════════ -->
+  <section class="view-panel" id="view-progress">
+    <!-- Student Persona Hero Card -->
+    <div class="student-persona-hero">
+      <div class="persona-left">
+        <div class="persona-avatar">AS</div>
+        <div>
+          <div style="display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap;">
+            <h2 style="font-family: var(--font-display); font-size: 1.45rem; font-weight: 700;">Aarav Sharma</h2>
+            <span class="pill pill-gold">FIDE AIM Cohort</span>
+            <span class="pill pill-green">Culmination State: +3.2% Weekly Lift</span>
+          </div>
+          <div style="font-size: 0.88rem; color: var(--gold-bright); font-weight: 600; margin-top: 0.15rem;">
+            Dynamic Archetype: Activist (74%) / Pragmatist (58%) &middot; Updated 2h ago from Game #842
+          </div>
+          <p style="font-size: 0.82rem; color: var(--text-muted); max-width: 600px; margin-top: 0.35rem; line-height: 1.45;">
+            "Excels in dynamic initiative and opening tactics; struggles with clock conservation in complex rook endings when remaining time falls below 25s."
+          </p>
+        </div>
+      </div>
+      <div style="text-align: right;">
+        <span style="font-size: 0.75rem; color: var(--text-muted); font-family: var(--font-mono);">RATING EVOLUTION</span>
+        <div style="font-family: var(--font-mono); font-size: 2.2rem; font-weight: 700; color: var(--text);">2145 <span style="font-size: 1rem; color: var(--green);">+68 Elo</span></div>
+        <div style="font-size: 0.78rem; color: var(--text-muted);">From 14 Games Analyzed</div>
+      </div>
+    </div>
+
+    <!-- TRANSPARENT BEFORE / AFTER MOVEMENT MATRIX (HOW STUDENT IS MOVING) -->
+    <div class="movement-matrix-card">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <div>
+          <b style="font-family: var(--font-display); font-size: 1.15rem;">Transparent Student Movement & Culmination</b>
+          <p style="font-size: 0.8rem; color: var(--text-muted);">Tracking exactly how Aarav has moved from his onboarding baseline to current form</p>
+        </div>
+        <span class="pill pill-gold">14-Game Cumulative Benchmark</span>
+      </div>
+
+      <div class="movement-grid">
+        <div class="movement-item">
+          <span class="movement-label">RATING DRIFT</span>
+          <div class="movement-val" style="color: var(--gold-bright);">
+            2077 ➔ 2145
+          </div>
+          <span class="movement-delta" style="color: var(--green);">+68 Elo Gain ✓</span>
+        </div>
+
+        <div class="movement-item">
+          <span class="movement-label">AVG CENTIPAWN LOSS</span>
+          <div class="movement-val" style="color: var(--cyan);">
+            42.1 ➔ 28.2
+          </div>
+          <span class="movement-delta" style="color: var(--green);">-13.9 ACPL (Sharper)</span>
+        </div>
+
+        <div class="movement-item">
+          <span class="movement-label">TIME TROUBLE BLUNDERS</span>
+          <div class="movement-val" style="color: var(--red);">
+            58% ➔ 38%
+          </div>
+          <span class="movement-delta" style="color: var(--green);">-20% Panic Reduction</span>
+        </div>
+
+        <div class="movement-item">
+          <span class="movement-label">PIN DEFENSE ACCURACY</span>
+          <div class="movement-val" style="color: var(--green);">
+            68% ➔ 94%
+          </div>
+          <span class="movement-delta" style="color: var(--green);">Leak Converted to Strength ✓</span>
+        </div>
+
+        <div class="movement-item">
+          <span class="movement-label">POST-LOSS TILT DROP</span>
+          <div class="movement-val">
+            -14 pts ➔ -5 pts
+          </div>
+          <span class="movement-delta" style="color: var(--green);">+9 pts Composure Lift</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3-PILLAR MASTERY TRACKER -->
+    <div class="three-pillar-grid">
+      <div class="pillar-card improved">
+        <div class="pillar-title" style="color: var(--green);">
+          <span>✓</span>
+          <span>What Has Improved (Mastered)</span>
+        </div>
+        <p style="font-size: 0.78rem; color: var(--text-muted);">Skills converted into subconscious instinct:</p>
+        <div style="display: flex; flex-direction: column; gap: 0.5rem; font-size: 0.84rem;">
+          <div style="background: var(--ink-3); padding: 0.6rem 0.75rem; border-radius: 4px;">
+            <b>• Pin Detection:</b> Blunder rate down by 84% over last 20 games.
+          </div>
+          <div style="background: var(--ink-3); padding: 0.6rem 0.75rem; border-radius: 4px;">
+            <b>• Central Pawn Breaks:</b> 92% accuracy on thematic ...d5 Najdorf breaks.
+          </div>
+          <div style="background: var(--ink-3); padding: 0.6rem 0.75rem; border-radius: 4px;">
+            <b>• Early King Safety:</b> Castles before move 12 in 95% of games.
+          </div>
+        </div>
+      </div>
+
+      <div class="pillar-card improving">
+        <div class="pillar-title" style="color: var(--gold-bright);">
+          <span>⚡</span>
+          <span>What Is Improving (In Progress)</span>
+        </div>
+        <p style="font-size: 0.78rem; color: var(--text-muted);">Habits showing positive statistical drift:</p>
+        <div style="display: flex; flex-direction: column; gap: 0.5rem; font-size: 0.84rem;">
+          <div style="background: var(--ink-3); padding: 0.6rem 0.75rem; border-radius: 4px;">
+            <b>• Deflection Awareness:</b> 2 blunders in last 10 games (down from 6).
+          </div>
+          <div style="background: var(--ink-3); padding: 0.6rem 0.75rem; border-radius: 4px;">
+            <b>• Advantage Conversion (+2.0):</b> Win rate climbed from 68% to 79%.
+          </div>
+          <div style="background: var(--ink-3); padding: 0.6rem 0.75rem; border-radius: 4px;">
+            <b>• Tilt Recovery:</b> Accuracy drop after a loss reduced from -14 to -5.
+          </div>
+        </div>
+      </div>
+
+      <div class="pillar-card needs-work">
+        <div class="pillar-title" style="color: var(--red);">
+          <span>⚠</span>
+          <span>What Still Needs Work (Critical Leaks)</span>
+        </div>
+        <p style="font-size: 0.78rem; color: var(--text-muted);">Root causes costing you the most rating points:</p>
+        <div style="display: flex; flex-direction: column; gap: 0.5rem; font-size: 0.84rem;">
+          <div style="background: var(--ink-3); padding: 0.6rem 0.75rem; border-radius: 4px; border-left: 2px solid var(--red);">
+            <b style="color: var(--red);">• Sub-30s Clock Panic:</b> 82% of all game-losing drops happen under 25 seconds.
+          </div>
+          <div style="background: var(--ink-3); padding: 0.6rem 0.75rem; border-radius: 4px; border-left: 2px solid var(--red);">
+            <b style="color: var(--red);">• Flight Square Blindspot:</b> Rook lifts executed with pinned f7-pawns.
+          </div>
+          <div style="background: var(--ink-3); padding: 0.6rem 0.75rem; border-radius: 4px; border-left: 2px solid var(--red);">
+            <b style="color: var(--red);">• Queen Trade Hesitation:</b> Avoiding liquidation when ahead 2 pawns.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- HIGHLY VISUAL LONGITUDINAL CHARTS & RADAR COMPARISON OVERLAY -->
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem;">
+      <!-- Chart 1: Transparent Psychology Radar Overlay (Baseline Ghost vs Current Profile) -->
+      <div class="card-shell">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+          <div>
+            <b style="font-size: 0.95rem;">Psychology Radar: Baseline vs Current</b>
+            <p style="font-size: 0.75rem; color: var(--text-muted);">Ghost outline shows initial baseline at onboarding</p>
+          </div>
+          <div style="display: flex; gap: 0.5rem; font-size: 0.72rem;">
+            <span style="color: rgba(255,255,255,0.4);">--- Baseline</span>
+            <span style="color: var(--cyan);">● Current Form</span>
+          </div>
+        </div>
+        <div style="display: flex; justify-content: center;">
+          <svg viewBox="0 0 260 260" style="width: 220px; height: 220px;">
+            <!-- Rings -->
+            <polygon points="130,48 201,89 201,171 130,212 59,171 59,89" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="1" />
+            <polygon points="130,89 165,110 165,150 130,171 95,150 95,110" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="1" />
+            <!-- Spokes -->
+            <line x1="130" y1="130" x2="130" y2="48" stroke="rgba(255,255,255,0.1)" />
+            <line x1="130" y1="130" x2="201" y2="89" stroke="rgba(255,255,255,0.1)" />
+            <line x1="130" y1="130" x2="201" y2="171" stroke="rgba(255,255,255,0.1)" />
+            <line x1="130" y1="130" x2="130" y2="212" stroke="rgba(255,255,255,0.1)" />
+            <line x1="130" y1="130" x2="59" y2="171" stroke="rgba(255,255,255,0.1)" />
+            <line x1="130" y1="130" x2="59" y2="89" stroke="rgba(255,255,255,0.1)" />
+            <!-- GHOST BASELINE OVERLAY -->
+            <polygon points="130,95 145,125 155,160 130,175 105,155 105,120" fill="none" stroke="rgba(255,255,255,0.35)" stroke-dasharray="3,3" stroke-width="1.5" />
+            <!-- CURRENT FORM POLYGON -->
+            <polygon points="130,79 154,116 177,157 130,195 87,143 86,105" fill="rgba(6, 182, 212, 0.2)" stroke="var(--cyan)" stroke-width="2" />
+            <circle cx="130" cy="79" r="3.5" fill="var(--cyan)" />
+            <circle cx="154" cy="116" r="3.5" fill="var(--alert)" />
+            <circle cx="177" cy="157" r="3.5" fill="#b45309" />
+            <circle cx="130" cy="195" r="3.5" fill="var(--green)" />
+            <circle cx="87" cy="143" r="3.5" fill="var(--green)" />
+            <circle cx="86" cy="105" r="3.5" fill="var(--green)" />
+          </svg>
+        </div>
+      </div>
+
+      <!-- Chart 2: Blunder Root Cause Distribution (Horizontal Bars) -->
+      <div class="card-shell">
+        <b style="font-size: 0.95rem; display: block; margin-bottom: 0.25rem;">Blunder Root Cause Distribution</b>
+        <p style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 1rem;">Categorizing all 18 blunders across the last 14 games</p>
+        
+        <div style="display: flex; flex-direction: column; gap: 0.65rem; font-size: 0.82rem;">
+          <div>
+            <div style="display:flex; justify-content:space-between; margin-bottom: 0.2rem;">
+              <span>Deflection & Decoy Traps</span>
+              <span style="color:var(--red); font-family:var(--font-mono);">7 blunders (38%)</span>
+            </div>
+            <div style="height:8px; background:var(--ink-3); border-radius:4px; overflow:hidden;">
+              <div style="width:38%; height:100%; background:var(--red);"></div>
+            </div>
+          </div>
+
+          <div>
+            <div style="display:flex; justify-content:space-between; margin-bottom: 0.2rem;">
+              <span>Pinned Piece Oversight</span>
+              <span style="color:var(--warn); font-family:var(--font-mono);">4 blunders (24%)</span>
+            </div>
+            <div style="height:8px; background:var(--ink-3); border-radius:4px; overflow:hidden;">
+              <div style="width:24%; height:100%; background:var(--warn);"></div>
+            </div>
+          </div>
+
+          <div>
+            <div style="display:flex; justify-content:space-between; margin-bottom: 0.2rem;">
+              <span>Back-Rank Flight Luft Missing</span>
+              <span style="color:var(--gold-bright); font-family:var(--font-mono);">4 blunders (20%)</span>
+            </div>
+            <div style="height:8px; background:var(--ink-3); border-radius:4px; overflow:hidden;">
+              <div style="width:20%; height:100%; background:var(--gold-bright);"></div>
+            </div>
+          </div>
+
+          <div>
+            <div style="display:flex; justify-content:space-between; margin-bottom: 0.2rem;">
+              <span>Passive Endgame King Activity</span>
+              <span style="color:var(--cyan); font-family:var(--font-mono);">3 blunders (18%)</span>
+            </div>
+            <div style="height:8px; background:var(--ink-3); border-radius:4px; overflow:hidden;">
+              <div style="width:18%; height:100%; background:var(--cyan);"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── EXPANDED TIME-SERIES TELEMETRY (ELO TRAJECTORY, CAPS2 ACCURACY, ACPL, PHASE DYNAMICS) ─── -->
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem;">
+      
+      <!-- Time-Series Graph 1: Elo Rating Trajectory with Milestone Target Bands -->
+      <div class="card-shell">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.85rem;">
+          <div>
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+              <b style="font-size: 0.95rem;">Elo Rating Trajectory (Last 14 Games)</b>
+              <span class="pill pill-green">+68 Net Elo</span>
+            </div>
+            <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.2rem;">
+              Progressing towards FIDE AIM 2200 Benchmark Candidate
+            </p>
+          </div>
+          <div style="display: flex; gap: 0.6rem; font-size: 0.72rem; font-family: var(--font-mono);">
+            <span style="color: var(--text-muted);">● Baseline: 2077</span>
+            <span style="color: var(--gold-bright);">● Current: 2145</span>
+            <span style="color: var(--cyan);">-- Target: 2200</span>
+          </div>
+        </div>
+
+        <!-- SVG Elo Trajectory Curve -->
+        <div style="position: relative; width: 100%; height: 160px;">
+          <svg viewBox="0 0 520 160" style="width: 100%; height: 100%; overflow: visible;">
+            <defs>
+              <linearGradient id="eloGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#c9993f" stop-opacity="0.25" />
+                <stop offset="100%" stop-color="#c9993f" stop-opacity="0.0" />
+              </linearGradient>
+            </defs>
+
+            <!-- Grid & Target Bands -->
+            <line x1="40" y1="20" x2="500" y2="20" stroke="rgba(6, 182, 212, 0.25)" stroke-dasharray="3,3" stroke-width="1" />
+            <text x="495" y="16" fill="var(--cyan)" font-size="10" font-family="var(--font-mono)" text-anchor="end">2200 Master Benchmark</text>
+
+            <line x1="40" y1="65" x2="500" y2="65" stroke="rgba(255, 255, 255, 0.08)" stroke-width="1" />
+            <text x="495" y="61" fill="var(--text-muted)" font-size="10" font-family="var(--font-mono)" text-anchor="end">2150 Threshold</text>
+
+            <line x1="40" y1="110" x2="500" y2="110" stroke="rgba(255, 255, 255, 0.08)" stroke-width="1" />
+            <text x="495" y="106" fill="var(--text-muted)" font-size="10" font-family="var(--font-mono)" text-anchor="end">2100 Cohort Level</text>
+
+            <!-- Axes -->
+            <line x1="40" y1="10" x2="40" y2="140" stroke="rgba(255, 255, 255, 0.12)" stroke-width="1" />
+            <line x1="40" y1="140" x2="500" y2="140" stroke="rgba(255, 255, 255, 0.12)" stroke-width="1" />
+
+            <!-- Area Fill -->
+            <polygon points="50,126 85,122 120,115 155,108 190,118 225,102 260,94 295,98 330,85 365,72 400,82 435,68 470,54 495,50 495,140 50,140" fill="url(#eloGrad)" />
+
+            <!-- Elo Trajectory Spline -->
+            <path d="M 50,126 L 85,122 L 120,115 L 155,108 L 190,118 L 225,102 L 260,94 L 295,98 L 330,85 L 365,72 L 400,82 L 435,68 L 470,54 L 495,50" 
+                  fill="none" stroke="var(--gold-bright)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+
+            <!-- Game Data Points (Color-coded by Win / Loss / Draw) -->
+            <circle cx="50" cy="126" r="3.5" fill="var(--green)" />
+            <circle cx="85" cy="122" r="3.5" fill="var(--green)" />
+            <circle cx="120" cy="115" r="3.5" fill="var(--green)" />
+            <circle cx="155" cy="108" r="3.5" fill="var(--green)" />
+            <circle cx="190" cy="118" r="3.5" fill="var(--red)" />
+            <circle cx="225" cy="102" r="3.5" fill="var(--green)" />
+            <circle cx="260" cy="94" r="3.5" fill="var(--green)" />
+            <circle cx="295" cy="98" r="3.5" fill="var(--text-muted)" />
+            <circle cx="330" cy="85" r="3.5" fill="var(--green)" />
+            <circle cx="365" cy="72" r="3.5" fill="var(--green)" />
+            <circle cx="400" cy="82" r="3.5" fill="var(--red)" />
+            <circle cx="435" cy="68" r="3.5" fill="var(--green)" />
+            <circle cx="470" cy="54" r="3.5" fill="var(--green)" />
+            <circle cx="495" cy="50" r="4.5" fill="var(--gold-bright)" stroke="#fff" stroke-width="1.5" />
+
+            <!-- Labels -->
+            <text x="50" y="153" fill="var(--text-muted)" font-size="9" font-family="var(--font-mono)" text-anchor="middle">G1</text>
+            <text x="190" y="153" fill="var(--text-muted)" font-size="9" font-family="var(--font-mono)" text-anchor="middle">G5</text>
+            <text x="365" y="153" fill="var(--text-muted)" font-size="9" font-family="var(--font-mono)" text-anchor="middle">G10</text>
+            <text x="495" y="153" fill="var(--gold-bright)" font-size="9" font-family="var(--font-mono)" text-anchor="middle">Latest</text>
+          </svg>
+        </div>
+      </div>
+
+      <!-- Time-Series Graph 2: CAPS2 Accuracy & ACPL Longitudinal Correlation -->
+      <div class="card-shell">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.85rem;">
+          <div>
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+              <b style="font-size: 0.95rem;">Accuracy (CAPS2) & Centipawn Loss (ACPL)</b>
+              <span class="pill pill-cyan">Inverse Correlation ✓</span>
+            </div>
+            <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.2rem;">
+              Higher accuracy aligns cleanly with reduced tactical blunders
+            </p>
+          </div>
+          <div style="display: flex; gap: 0.6rem; font-size: 0.72rem; font-family: var(--font-mono);">
+            <span style="color: var(--cyan);">● CAPS2 Accuracy (%)</span>
+            <span style="color: #f59e0b;">● ACPL Loss (lower is better)</span>
+          </div>
+        </div>
+
+        <!-- SVG Dual Axis Graph -->
+        <div style="position: relative; width: 100%; height: 160px;">
+          <svg viewBox="0 0 520 160" style="width: 100%; height: 100%; overflow: visible;">
+            <!-- Grid Lines -->
+            <line x1="40" y1="30" x2="500" y2="30" stroke="rgba(255, 255, 255, 0.06)" stroke-width="1" />
+            <line x1="40" y1="75" x2="500" y2="75" stroke="rgba(255, 255, 255, 0.06)" stroke-width="1" />
+            <line x1="40" y1="120" x2="500" y2="120" stroke="rgba(255, 255, 255, 0.06)" stroke-width="1" />
+
+            <!-- Left Y-Axis (CAPS2 %) -->
+            <text x="32" y="34" fill="var(--cyan)" font-size="9" font-family="var(--font-mono)" text-anchor="end">95%</text>
+            <text x="32" y="79" fill="var(--cyan)" font-size="9" font-family="var(--font-mono)" text-anchor="end">85%</text>
+            <text x="32" y="124" fill="var(--cyan)" font-size="9" font-family="var(--font-mono)" text-anchor="end">75%</text>
+
+            <!-- Right Y-Axis (ACPL) -->
+            <text x="508" y="34" fill="#f59e0b" font-size="9" font-family="var(--font-mono)">20</text>
+            <text x="508" y="79" fill="#f59e0b" font-size="9" font-family="var(--font-mono)">35</text>
+            <text x="508" y="124" fill="#f59e0b" font-size="9" font-family="var(--font-mono)">50</text>
+
+            <!-- CAPS2 Curve (Rising: Cyan) -->
+            <path d="M 50,118 L 85,110 L 120,95 L 155,88 L 190,112 L 225,82 L 260,76 L 295,85 L 330,68 L 365,60 L 400,92 L 435,54 L 470,48 L 495,45" 
+                  fill="none" stroke="var(--cyan)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+
+            <!-- ACPL Curve (Falling: Amber) -->
+            <path d="M 50,42 L 85,50 L 120,68 L 155,75 L 190,52 L 225,85 L 260,89 L 295,78 L 330,98 L 365,108 L 400,72 L 435,115 L 470,122 L 495,125" 
+                  fill="none" stroke="#f59e0b" stroke-width="2" stroke-dasharray="4,3" stroke-linecap="round" stroke-linejoin="round" />
+
+            <!-- Final Value Indicators -->
+            <circle cx="495" cy="45" r="4" fill="var(--cyan)" />
+            <text x="495" y="32" fill="var(--cyan)" font-size="10" font-family="var(--font-mono)" font-weight="700" text-anchor="middle">88.4%</text>
+
+            <circle cx="495" cy="125" r="4" fill="#f59e0b" />
+            <text x="495" y="142" fill="#f59e0b" font-size="10" font-family="var(--font-mono)" font-weight="700" text-anchor="middle">28.2</text>
+          </svg>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── PHASE-BY-PHASE ACCURACY & TIME TROUBLE CURVE ─── -->
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem;">
+      <!-- Chart 3: Phase-by-Phase Accuracy Evolution (Opening vs Middlegame vs Endgame) -->
+      <div class="card-shell">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.85rem;">
+          <div>
+            <b style="font-size: 0.95rem;">Game Phase Accuracy Breakdown Over Time</b>
+            <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.2rem;">
+              Tracking tactical mastery across Opening, Middlegame, and Endgame
+            </p>
+          </div>
+          <div style="display: flex; gap: 0.55rem; font-size: 0.72rem; font-family: var(--font-mono);">
+            <span style="color: var(--gold-bright);">● Opening (88%)</span>
+            <span style="color: var(--teal);">● Middlegame (74%)</span>
+            <span style="color: #a855f7);">● Endgame (64%)</span>
+          </div>
+        </div>
+
+        <div style="position: relative; width: 100%; height: 150px;">
+          <svg viewBox="0 0 520 150" style="width: 100%; height: 100%; overflow: visible;">
+            <line x1="40" y1="25" x2="500" y2="25" stroke="rgba(255, 255, 255, 0.06)" stroke-width="1" />
+            <line x1="40" y1="70" x2="500" y2="70" stroke="rgba(255, 255, 255, 0.06)" stroke-width="1" />
+            <line x1="40" y1="115" x2="500" y2="115" stroke="rgba(255, 255, 255, 0.06)" stroke-width="1" />
+
+            <!-- Opening Trendline (Gold) -->
+            <path d="M 50,55 L 120,48 L 190,45 L 260,42 L 330,36 L 400,34 L 495,28" 
+                  fill="none" stroke="var(--gold-bright)" stroke-width="2.2" stroke-linecap="round" />
+            
+            <!-- Middlegame Trendline (Teal) -->
+            <path d="M 50,95 L 120,88 L 190,92 L 260,80 L 330,75 L 400,78 L 495,68" 
+                  fill="none" stroke="var(--teal)" stroke-width="2.2" stroke-linecap="round" />
+
+            <!-- Endgame Trendline (Purple) -->
+            <path d="M 50,122 L 120,118 L 190,125 L 260,112 L 330,110 L 400,105 L 495,94" 
+                  fill="none" stroke="#a855f7" stroke-width="2.2" stroke-linecap="round" />
+
+            <!-- Phase Badges on Right -->
+            <circle cx="495" cy="28" r="3.5" fill="var(--gold-bright)" />
+            <circle cx="495" cy="68" r="3.5" fill="var(--teal)" />
+            <circle cx="495" cy="94" r="3.5" fill="#a855f7" />
+
+            <text x="50" y="140" fill="var(--text-muted)" font-size="9" font-family="var(--font-mono)">Start (Game 1)</text>
+            <text x="495" y="140" fill="var(--text-muted)" font-size="9" font-family="var(--font-mono)" text-anchor="end">Game 14 (Now)</text>
+          </svg>
+        </div>
+      </div>
+
+      <!-- Chart 4: Time Management Panic Curve (<30s Blunder Vulnerability) -->
+      <div class="card-shell">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.85rem;">
+          <div>
+            <b style="font-size: 0.95rem;">Move Time vs Blunder Frequency (Panic Curve)</b>
+            <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.2rem;">
+              Exponential blunder spike occurs when remaining time falls below 25s
+            </p>
+          </div>
+          <span class="pill pill-red">Danger Zone &lt; 25s</span>
+        </div>
+
+        <div style="position: relative; width: 100%; height: 150px;">
+          <svg viewBox="0 0 520 150" style="width: 100%; height: 100%; overflow: visible;">
+            <!-- Danger Zone Shading -->
+            <rect x="40" y="15" width="130" height="110" fill="rgba(125, 53, 39, 0.15)" rx="4" />
+            <text x="105" y="32" fill="var(--red)" font-size="10" font-family="var(--font-mono)" text-anchor="middle">Panic Zone (&lt;25s)</text>
+
+            <!-- Safe Zone Shading -->
+            <rect x="230" y="15" width="270" height="110" fill="rgba(47, 107, 98, 0.08)" rx="4" />
+            <text x="365" y="32" fill="var(--teal)" font-size="10" font-family="var(--font-mono)" text-anchor="middle">Comfort Zone (&gt;60s)</text>
+
+            <!-- Panic Curve Line -->
+            <path d="M 50,22 Q 130,55 220,110 T 490,122" 
+                  fill="none" stroke="var(--red)" stroke-width="2.5" stroke-linecap="round" />
+
+            <!-- Points on Panic Curve -->
+            <circle cx="65" cy="28" r="4.5" fill="var(--red)" stroke="#fff" stroke-width="1.5" />
+            <text x="75" y="24" fill="var(--red)" font-size="9" font-family="var(--font-mono)">14s (Move 28 Blunder)</text>
+
+            <circle cx="110" cy="52" r="4" fill="var(--red)" />
+            <circle cx="160" cy="85" r="3.5" fill="var(--warn)" />
+            <circle cx="270" cy="116" r="3.5" fill="var(--teal)" />
+            <circle cx="420" cy="122" r="3.5" fill="var(--teal)" />
+
+            <!-- X Axis Labels -->
+            <line x1="40" y1="125" x2="500" y2="125" stroke="rgba(255, 255, 255, 0.1)" stroke-width="1" />
+            <text x="65" y="140" fill="var(--red)" font-size="9" font-family="var(--font-mono)" text-anchor="middle">10s</text>
+            <text x="135" y="140" fill="var(--warn)" font-size="9" font-family="var(--font-mono)" text-anchor="middle">30s</text>
+            <text x="270" y="140" fill="var(--text-muted)" font-size="9" font-family="var(--font-mono)" text-anchor="middle">60s</text>
+            <text x="420" y="140" fill="var(--text-muted)" font-size="9" font-family="var(--font-mono)" text-anchor="middle">120s+</text>
+          </svg>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═════════════════════════════════════════════════════════════════
+       VIEW 3: CURATED STUDIES CONNECTED WITH GAME ANALYSIS (/study)
+       ═════════════════════════════════════════════════════════════════ -->
+  <section class="view-panel" id="view-study">
+    <div class="card-shell-header">
+      <div>
+        <h2 class="card-title">Curated Lichess Studies Based on Your Recent Games</h2>
+        <p style="color: var(--text-muted); font-size: 0.85rem;">Automatically tailored to eradicate your recurring tactical leaks and endgame blindspots</p>
+      </div>
+      <span class="pill pill-gold">3 Curated Studies</span>
+    </div>
+
+    <!-- Curated Studies Cards -->
+    <div class="curated-studies-grid">
+      <div class="study-card">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <span class="pill pill-red">Fixes Game #842 Blunder</span>
+          <span style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--gold-bright);">4 Chapters</span>
+        </div>
+        <b style="font-family: var(--font-display); font-size: 1.15rem;">Deflection & Decoy in King Safety</b>
+        <p style="font-size: 0.82rem; color: var(--text-muted); line-height: 1.5;">
+          Directly addresses your Move 28 blunder: recognizing when opponent queen sacrifices deflect your king onto mating squares.
+        </p>
+        <button class="btn btn-sm btn-gold" style="margin-top: auto;" onclick="playSound('move')">Open Chapter 1 ➔</button>
+      </div>
+
+      <div class="study-card">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <span class="pill pill-gold">Endgame Conversion</span>
+          <span style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--gold-bright);">6 Chapters</span>
+        </div>
+        <b style="font-family: var(--font-display); font-size: 1.15rem;">The Lucena Bridge & Rook Endings</b>
+        <p style="font-size: 0.82rem; color: var(--text-muted); line-height: 1.5;">
+          Master the exact technique required to convert 2-pawn rook advantages without allowing drawing counterplay.
+        </p>
+        <button class="btn btn-sm btn-outline" style="margin-top: auto;" onclick="playSound('move')">Open Chapter 3 ➔</button>
+      </div>
+
+      <div class="study-card">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <span class="pill pill-green">Repertoire Mastery</span>
+          <span style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--gold-bright);">8 Chapters</span>
+        </div>
+        <b style="font-family: var(--font-display); font-size: 1.15rem;">Sicilian Najdorf: Dynamic Breaks</b>
+        <p style="font-size: 0.82rem; color: var(--text-muted); line-height: 1.5;">
+          Curated by FIDE AIM Parth Kaushik to reinforce your Move 17 central strike (17...d5!) against English Attacks.
+        </p>
+        <button class="btn btn-sm btn-outline" style="margin-top: auto;" onclick="playSound('move')">Open Chapter 5 ➔</button>
+      </div>
+    </div>
+
+    <!-- Active Study Interactive Chapter Explorer -->
+    <div class="dual-workspace">
+      <div class="board-instrument">
+        <div class="chess-board" id="studyBoardGrid"></div>
+        <div style="font-family: var(--font-mono); font-size: 0.78rem; color: var(--gold-bright); text-align: center;">
+          %csl: Green circles on e4, d5 | %cal: Red attack arrow e1 ➔ e8
+        </div>
+      </div>
+      <div class="card-shell">
+        <span class="pill pill-gold" style="margin-bottom: 0.5rem;">Interactive Drill Chapter</span>
+        <h3 style="font-family: var(--font-display); font-size: 1.3rem;">Chapter 3: Deflection Along the Flight Diagonal</h3>
+        <p style="color: var(--text-muted); font-size: 0.92rem; margin-top: 0.5rem; line-height: 1.6;">
+          White has just sacrificed a knight on f7. Black’s instinct is to capture with the king, but that allows an immediate fork. Can you find the quiet refutation that unpins your king?
+        </p>
+        <div style="margin-top: 1.25rem; display: flex; gap: 0.5rem;">
+          <button class="btn btn-sm btn-gold" onclick="playSound('brilliant')">Try Solution on Board ➔</button>
+          <a href="https://lichess.org/study/vR4tT6Yq" target="_blank" class="btn btn-sm btn-outline">Open in Lichess Study ↗</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═════════════════════════════════════════════════════════════════
+       VIEW 4: SUBSCRIPTION & BILLING (/subscription)
+       ═════════════════════════════════════════════════════════════════ -->
+  <section class="view-panel" id="view-subscription">
+    <div class="editorial-shell" style="text-align: center; margin-bottom: 2rem;">
+      <span class="pill pill-gold" style="margin-bottom: 0.5rem;">Account & Plans</span>
+      <h1 style="font-family: var(--font-display); font-size: 2.5rem; font-weight: 700;">Subscription & Plan Management</h1>
+      <p style="color: var(--text-muted); font-size: 1.1rem; margin-top: 0.35rem;">
+        Transparent chess improvement pricing. Powered by Razorpay with a 14-day money-back guarantee.
+      </p>
+
+      <div style="margin-top: 1.25rem; display: inline-flex; align-items: center; gap: 0.75rem; background: var(--ink-2); padding: 0.5rem 1rem; border-radius: 999px; border: 1px solid var(--gold);">
+        <span style="font-size: 0.85rem;">Active Status: <b style="color: var(--gold-bright);">Pro Student Plan</b></span>
+        <span class="pill pill-green">Renews Nov 6, 2026</span>
+        <button class="btn btn-sm btn-outline" style="border:none; color:var(--text-muted); padding:0;" onclick="setPage('view-refund')">Manage / Cancel</button>
+      </div>
+    </div>
+
+    <div class="pricing-grid">
+      <!-- Free Plan -->
+      <div class="pricing-card">
+        <div>
+          <b style="font-size: 1.15rem; font-family: var(--font-display);">Free Plan</b>
+          <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.25rem;">Ideal for occasional reviews.</p>
+        </div>
+        <div class="pricing-price">₹0 <span>/ mo</span></div>
+        <ul style="list-style: none; display: flex; flex-direction: column; gap: 0.65rem; font-size: 0.85rem; color: var(--text-muted);">
+          <li>✓ 3 AI coaching reports / month</li>
+          <li>✓ Stockfish 17 centipawn evals</li>
+          <li>✓ Core blunder & mistake notes</li>
+          <li>✗ Longitudinal Progress & Leak tracker</li>
+          <li>✗ Curated Lichess study ingestion</li>
+        </ul>
+        <button class="btn btn-outline" style="margin-top: auto;">Current Plan</button>
+      </div>
+
+      <!-- Pro Student -->
+      <div class="pricing-card featured">
+        <span class="pricing-badge">Active Plan</span>
+        <div>
+          <b style="font-size: 1.15rem; font-family: var(--font-display); color: var(--gold-bright);">Pro Student</b>
+          <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.25rem;">For serious club players (800-2200 Elo).</p>
+        </div>
+        <div class="pricing-price">₹399 <span>/ mo</span></div>
+        <ul style="list-style: none; display: flex; flex-direction: column; gap: 0.65rem; font-size: 0.85rem;">
+          <li>✓ <b>Unlimited</b> AI coaching reports</li>
+          <li>✓ <b>Student Progress & Leaks</b> (3-Pillar)</li>
+          <li>✓ <b>Full 6-Dimension Psychology</b> Panel</li>
+          <li>✓ <b>Interactive Replay Drills</b></li>
+          <li>✓ <b>Opponent Scouting</b> Dossiers</li>
+        </ul>
+        <button class="btn btn-gold" style="margin-top: auto;">Renewed via Razorpay ✓</button>
+      </div>
+
+      <!-- Master Coach -->
+      <div class="pricing-card">
+        <div>
+          <b style="font-size: 1.15rem; font-family: var(--font-display);">Master Coach</b>
+          <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.25rem;">For FIDE trainers & academy coaches.</p>
+        </div>
+        <div class="pricing-price">₹1,999 <span>/ mo</span></div>
+        <ul style="list-style: none; display: flex; flex-direction: column; gap: 0.65rem; font-size: 0.85rem; color: var(--text-muted);">
+          <li>✓ Everything in Pro Student</li>
+          <li>✓ <b>Up to 25 linked student</b> accounts</li>
+          <li>✓ Automated student blunder homework</li>
+          <li>✓ Lichess study chapter ingestion</li>
+          <li>✓ Priority 24/7 coaching support</li>
+        </ul>
+        <button class="btn btn-outline" style="margin-top: auto;">Upgrade to Coach Tier</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═════════════════════════════════════════════════════════════════
+       VIEW 5: GAME HISTORY & ARCHIVE (/history)
+       ═════════════════════════════════════════════════════════════════ -->
+  <section class="view-panel" id="view-history">
+    <div class="card-shell-header">
+      <div>
+        <h2 class="card-title">Player Game Analysis Library</h2>
+        <p style="color: var(--text-muted); font-size: 0.85rem;">All games analyzed with Stockfish 17 & AI Coaching Reports</p>
+      </div>
+      <div style="display: flex; gap: 0.5rem;">
+        <input type="text" placeholder="Search opponent, opening..." 
+               style="padding: 0.35rem 0.75rem; background: var(--ink-3); border: 1px solid var(--line); border-radius: var(--radius-ctl); color: var(--text); font-size: 0.82rem;" />
+        <button class="btn btn-sm btn-gold" onclick="setPage('view-home')">+ Analyze New</button>
+      </div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+      <div class="card-shell" style="padding: 1.15rem 1.35rem; display: flex; align-items: center; justify-content: space-between; cursor: pointer;" onclick="setPage('view-analysis')">
+        <div style="display: flex; align-items: center; gap: 1.25rem;">
+          <div style="width: 36px; height: 36px; border-radius: 4px; background: rgba(34, 197, 94, 0.15); color: var(--green); display: flex; align-items: center; justify-content: center; font-weight: 700; font-family: var(--font-mono);">
+            WIN
+          </div>
+          <div>
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+              <b>vs Grandmaster_Opponent (2482)</b>
+              <span class="pill pill-gold">Sicilian Najdorf (B90)</span>
+            </div>
+            <div style="color: var(--text-muted); font-size: 0.78rem; margin-top: 0.2rem;">
+              Blitz 5+3 &middot; 74 moves &middot; 2 hours ago &middot; Lichess
+            </div>
+          </div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 1.5rem;">
+          <div style="text-align: right;">
+            <div style="font-family: var(--font-mono); font-size: 1.1rem; font-weight: 700; color: var(--text);">76.4%</div>
+            <div style="font-size: 0.72rem; color: var(--red);">1 Blunder (??)</div>
+          </div>
+          <button class="btn btn-sm btn-outline">Review ➔</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═════════════════════════════════════════════════════════════════
+       VIEW 6: ABOUT US & PEDAGOGY MANIFESTO (/about)
+       ═════════════════════════════════════════════════════════════════ -->
+  <section class="view-panel" id="view-about">
+    <div class="editorial-shell">
+      <div style="text-align: center; margin-bottom: 2.5rem;">
+        <span class="pill pill-gold" style="margin-bottom: 0.5rem;">Pedagogy & Philosophy</span>
+        <h1 style="font-family: var(--font-display); font-size: 2.6rem; font-weight: 700; line-height: 1.15;">
+          Built by Competitive Players for Real Improvement.
+        </h1>
+        <p style="color: var(--text-muted); font-size: 1.15rem; line-height: 1.6; margin-top: 0.5rem;">
+          Chessmasters was created because standard engine graphs tell you <i>what</i> happened, but fail to explain <i>why</i> you made the mistake. We make post-game feedback read like a private grandmaster lesson.
+        </p>
+      </div>
+
+      <div class="founder-grid">
+        <div class="founder-card">
+          <div style="display: flex; align-items: center; gap: 1rem;">
+            <div class="founder-avatar">PK</div>
+            <div>
+              <strong style="font-size: 1.15rem; font-family: var(--font-display);">Parth Kaushik</strong>
+              <div style="font-size: 0.8rem; color: var(--gold-bright); font-family: var(--font-mono);">FIDE Arena International Master (AIM)</div>
+            </div>
+          </div>
+          <p style="font-size: 0.88rem; color: var(--text-muted); line-height: 1.55; margin-top: 0.5rem;">
+            Peak rating of 2300+ on Chess.com and competitive coach. Parth designed the core psychological pedagogy behind Chessmasters: teaching the AI to spot cognitive traps like "hope chess", premature attacks, and clock anxiety that plague club players.
+          </p>
+        </div>
+
+        <div class="founder-card">
+          <div style="display: flex; align-items: center; gap: 1rem;">
+            <div class="founder-avatar" style="border-color: var(--cyan); color: var(--cyan);">YA</div>
+            <div>
+              <strong style="font-size: 1.15rem; font-family: var(--font-display);">Yatharth Anand</strong>
+              <div style="font-size: 0.8rem; color: var(--cyan); font-family: var(--font-mono);">Lead Systems Architect</div>
+            </div>
+          </div>
+          <p style="font-size: 0.88rem; color: var(--text-muted); line-height: 1.55; margin-top: 0.5rem;">
+            Architected the real-time pipeline bridging Stockfish 17 centipawn evaluations, multi-game archives, and Gemini streaming models. Dedicated to building an ultra-fast, calm-density interface that gets out of the student's way.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═════════════════════════════════════════════════════════════════
+       VIEW 7: FAQ & KNOWLEDGE BASE (/faq)
+       ═════════════════════════════════════════════════════════════════ -->
+  <section class="view-panel" id="view-faq">
+    <div class="editorial-shell">
+      <div style="text-align: center; margin-bottom: 2.5rem;">
+        <span class="pill pill-gold" style="margin-bottom: 0.5rem;">Knowledge Base</span>
+        <h1 style="font-family: var(--font-display); font-size: 2.5rem; font-weight: 700;">Frequently Asked Questions</h1>
+        <p style="color: var(--text-muted); font-size: 1.05rem;">Everything you need to know about analyses, billing, coach tools, and our engine.</p>
+      </div>
+
+      <div class="faq-accordion">
+        <div class="faq-item">
+          <div class="faq-q">
+            <span>Which chess platforms and games can I analyze?</span>
+            <span>▾</span>
+          </div>
+          <div class="faq-a">
+            We support both Chess.com and Lichess.org games. For Lichess, paste the 8-character game URL. For Chess.com, paste either the URL or enter your username to fetch recent games automatically.
+          </div>
+        </div>
+
+        <div class="faq-item">
+          <div class="faq-q">
+            <span>How does your analysis differ from Chess.com Game Review or Aimchess?</span>
+            <span>▾</span>
+          </div>
+          <div class="faq-a">
+            Standard platforms provide engine centipawn charts and basic badges. Chessmasters analyzes your cognitive habits &mdash; identifying whether your blunders stem from time-trouble panic, hope chess, or calculation blindspots &mdash; and pairs each weakness with tailored drill slugs.
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═════════════════════════════════════════════════════════════════
+       VIEW 8: TACTICAL CURRICULUM DIRECTORY (/tactics)
+       ═════════════════════════════════════════════════════════════════ -->
+  <section class="view-panel" id="view-tactics">
+    <div class="card-shell-header">
+      <div>
+        <h2 class="card-title">Tactical Training Curriculum &middot; Thematic Directory</h2>
+        <p style="color: var(--text-muted); font-size: 0.85rem;">Master the foundational tactical motifs identified in your analyses.</p>
+      </div>
+      <span class="pill pill-gold">8 Core Motifs</span>
+    </div>
+
+    <div class="tactics-grid">
+      <div class="tactic-card">
+        <b style="font-family: var(--font-display); font-size: 1.1rem;">Deflection & Decoy</b>
+        <p style="font-size: 0.85rem; color: var(--text-muted);">Forcing an opponent piece away from defending a key square or flight path.</p>
+        <a href="https://lichess.org/training/deflection" target="_blank" class="btn btn-sm btn-outline" style="margin-top:auto;">Practice on Lichess ➔</a>
+      </div>
+      <div class="tactic-card">
+        <b style="font-family: var(--font-display); font-size: 1.1rem;">Absolute & Relative Pins</b>
+        <p style="font-size: 0.85rem; color: var(--text-muted);">Immobilizing pieces against the king or queen to win decisive material.</p>
+        <a href="https://lichess.org/training/pin" target="_blank" class="btn btn-sm btn-outline" style="margin-top:auto;">Practice on Lichess ➔</a>
+      </div>
+      <div class="tactic-card">
+        <b style="font-family: var(--font-display); font-size: 1.1rem;">Knight & Pawn Forks</b>
+        <p style="font-size: 0.85rem; color: var(--text-muted);">Attacking two pieces simultaneously with geometric precision.</p>
+        <a href="https://lichess.org/training/fork" target="_blank" class="btn btn-sm btn-outline" style="margin-top:auto;">Practice on Lichess ➔</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═════════════════════════════════════════════════════════════════
+       VIEW 9: COACH COHORT COCKPIT (/coach)
+       ═════════════════════════════════════════════════════════════════ -->
+  <section class="view-panel" id="view-coach">
+    <div class="card-shell-header">
+      <div>
+        <h2 class="card-title">Coach Cohort Roster &middot; Bengaluru Academy</h2>
+        <p style="color: var(--text-muted); font-size: 0.85rem;">Managing 14 active students</p>
+      </div>
+      <button class="btn btn-sm btn-gold">+ Invite Student</button>
+    </div>
+    <div class="card-shell" style="padding: 0; overflow: hidden;">
+      <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.85rem;">
+        <thead style="background: var(--ink-3); color: var(--gold-bright); font-family: var(--font-mono); font-size: 0.75rem;">
+          <tr>
+            <th style="padding: 0.75rem 1rem;">STUDENT</th>
+            <th style="padding: 0.75rem 1rem;">RATING</th>
+            <th style="padding: 0.75rem 1rem;">PRIMARY TACTICAL LEAK</th>
+            <th style="padding: 0.75rem 1rem;">HOMEWORK STATUS</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr style="border-bottom: 1px solid var(--line);">
+            <td style="padding: 0.75rem 1rem;"><b>Aarav Sharma</b></td>
+            <td style="padding: 0.75rem 1rem; font-family: var(--font-mono);">2145 (+68)</td>
+            <td style="padding: 0.75rem 1rem; color: var(--red);">Rook Deflection on Back Rank</td>
+            <td style="padding: 0.75rem 1rem;"><span class="pill pill-green">Completed</span></td>
+          </tr>
+          <tr style="border-bottom: 1px solid var(--line);">
+            <td style="padding: 0.75rem 1rem;"><b>Rhea Patel</b></td>
+            <td style="padding: 0.75rem 1rem; font-family: var(--font-mono);">1845 (+15)</td>
+            <td style="padding: 0.75rem 1rem; color: var(--warn);">Time Panic (&lt; 20s)</td>
+            <td style="padding: 0.75rem 1rem;"><span class="pill pill-red">Pending</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ═════════════════════════════════════════════════════════════════
+       VIEW 10: OPPONENT SCOUTING DOSSIER (/scout)
+       ═════════════════════════════════════════════════════════════════ -->
+  <section class="view-panel" id="view-scout">
+    <div class="card-shell-header">
+      <div>
+        <h2 class="card-title">Opponent Preparation Dossier &middot; @Hikaru</h2>
+        <p style="color: var(--text-muted); font-size: 0.85rem;">Scouting based on last 100 Lichess / Chess.com Blitz games</p>
+      </div>
+      <span class="pill pill-red">Danger: Tactical Swindler</span>
+    </div>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+      <div class="card-shell">
+        <b>Opening Repertoire Trie (White)</b>
+        <div style="margin-top: 0.75rem; display: flex; flex-direction: column; gap: 0.5rem; font-size: 0.85rem;">
+          <div style="display: flex; justify-content: space-between;">
+            <span>1. e4 (62% frequency)</span>
+            <span style="color: var(--green);">68% Win Rate</span>
+          </div>
+          <div style="display: flex; justify-content: space-between;">
+            <span>1. d4 (28% frequency)</span>
+            <span style="color: var(--green);">72% Win Rate</span>
+          </div>
+        </div>
+      </div>
+      <div class="card-shell">
+        <b>Time Trouble Vulnerability Threshold</b>
+        <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.5rem;">
+          Under 30 seconds, opponent accuracy drops from 92% to 64%. Push the clock and complicate positions.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═════════════════════════════════════════════════════════════════
+       VIEW 11: ONBOARDING DIAGNOSTIC (/onboarding)
+       ═════════════════════════════════════════════════════════════════ -->
+  <section class="view-panel" id="view-onboarding">
+    <div class="editorial-shell" style="text-align: center;">
+      <span class="pill pill-gold" style="margin-bottom: 0.5rem;">Diagnostic Baseline</span>
+      <h1 style="font-family: var(--font-display); font-size: 2.5rem; font-weight: 700;">10-Game Onboarding Diagnostic</h1>
+      <p style="color: var(--text-muted); font-size: 1.05rem; margin-top: 0.35rem;">Connect your account to extract your initial Tactical Leak Index (TLI) and Time Vulnerability (TTV).</p>
+      
+      <div class="card-shell" style="max-width: 500px; margin: 1.5rem auto 0; text-align: left;">
+        <label style="font-size: 0.8rem; color: var(--text-muted);">Enter Lichess or Chess.com Username</label>
+        <div style="display: flex; gap: 0.5rem; margin-top: 0.4rem;">
+          <input type="text" value="ParthKaushik" style="flex:1; padding: 0.6rem; background: var(--ink-3); border: 1px solid var(--line); border-radius: var(--radius-ctl); color: var(--text);" />
+          <button class="btn btn-gold" onclick="runDiagnosticDemo()">Run Audit ➔</button>
+        </div>
+        <div id="diagResult" style="display: none; margin-top: 1rem; padding: 0.75rem; background: var(--ink-3); border-radius: 4px; border-left: 3px solid var(--green);">
+          ✓ <b>10 Games Audited:</b> TLI: 14.2 (Solid) &middot; TTV: 38s &middot; Opening Stability: 88%.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═════════════════════════════════════════════════════════════════
+       VIEW 12: BATCH ANALYSIS QUEUE (/batch/[id])
+       ═════════════════════════════════════════════════════════════════ -->
+  <section class="view-panel" id="view-batch">
+    <div class="card-shell-header">
+      <div>
+        <h2 class="card-title">Batch Analysis &middot; Batch #9921</h2>
+        <p style="color: var(--text-muted); font-size: 0.85rem;">10 Games from October 2026 Monthly Tournament</p>
+      </div>
+      <span class="pill pill-green">All 10 Analyzed (100%)</span>
+    </div>
+    <div class="card-shell">
+      <b style="font-family: var(--font-display); font-size: 1.1rem;">Top Detected Tactical Leaks Across Batch</b>
+      <div style="margin-top: 0.75rem; display: flex; flex-direction: column; gap: 0.5rem; font-size: 0.85rem;">
+        <div style="display: flex; justify-content: space-between;">
+          <span>1. Deflection along King Flight Squares</span>
+          <span style="color: var(--red); font-family: var(--font-mono);">4 occurrences</span>
+        </div>
+        <div style="display: flex; justify-content: space-between;">
+          <span>2. Premature Queen Trades (Rating Anxiety)</span>
+          <span style="color: var(--warn); font-family: var(--font-mono);">3 occurrences</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═════════════════════════════════════════════════════════════════
+       VIEW 13: CONTACT & COACH ADVISORY (/contact)
+       ═════════════════════════════════════════════════════════════════ -->
+  <section class="view-panel" id="view-contact">
+    <div class="editorial-shell">
+      <div style="text-align: center; margin-bottom: 2rem;">
+        <span class="pill pill-gold" style="margin-bottom: 0.5rem;">We're Here to Help</span>
+        <h1 style="font-family: var(--font-display); font-size: 2.5rem; font-weight: 700;">Contact & Coach Advisory</h1>
+        <p style="color: var(--text-muted); font-size: 1.05rem;">Direct access to our lead coaching team and systems architects.</p>
+      </div>
+      <div class="card-shell">
+        <p style="font-size: 0.95rem; line-height: 1.6; color: var(--text-muted);">
+          Questions about analysis models, coaching licensing, or custom integrations? Email us directly at <b style="color: var(--gold-bright);">parth@chessmasters.in</b>. We guarantee a response within 24 hours.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═════════════════════════════════════════════════════════════════
+       VIEW 14: TERMS & CONDITIONS (/terms)
+       ═════════════════════════════════════════════════════════════════ -->
+  <section class="view-panel" id="view-terms">
+    <div class="editorial-shell">
+      <span class="pill pill-gold" style="margin-bottom: 0.5rem;">Legal Document</span>
+      <h1 style="font-family: var(--font-display); font-size: 2.5rem; font-weight: 700;">Terms & Conditions</h1>
+      <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1.5rem;">Last updated: October 2026</p>
+      <div class="card-shell" style="color: var(--text-muted); line-height: 1.7;">
+        <p><b style="color: var(--text);">1. The Service:</b> Chessmasters provides AI-augmented game analysis and psychological coaching reports by processing public PGN data from Lichess and Chess.com.</p>
+        <p><b style="color: var(--text);">2. Subscriptions:</b> Paid plans are billed through Razorpay at ₹399/mo and renew automatically until cancelled.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═════════════════════════════════════════════════════════════════
+       VIEW 15: PRIVACY POLICY (/privacy)
+       ═════════════════════════════════════════════════════════════════ -->
+  <section class="view-panel" id="view-privacy">
+    <div class="editorial-shell">
+      <span class="pill pill-gold" style="margin-bottom: 0.5rem;">Legal Document</span>
+      <h1 style="font-family: var(--font-display); font-size: 2.5rem; font-weight: 700;">Privacy Policy</h1>
+      <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1.5rem;">Last updated: October 2026</p>
+      <div class="card-shell" style="color: var(--text-muted); line-height: 1.7;">
+        <p><b style="color: var(--text);">Zero Engine Telemetry Retention:</b> We never sell or monetize your game analytics to third parties. Games are analyzed ephemerally in-memory.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═════════════════════════════════════════════════════════════════
+       VIEW 16: REFUND POLICY (/refund)
+       ═════════════════════════════════════════════════════════════════ -->
+  <section class="view-panel" id="view-refund">
+    <div class="editorial-shell">
+      <span class="pill pill-gold" style="margin-bottom: 0.5rem;">Legal Document</span>
+      <h1 style="font-family: var(--font-display); font-size: 2.5rem; font-weight: 700;">Refund & Cancellation Policy</h1>
+      <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1.5rem;">Last updated: October 2026</p>
+      <div class="card-shell" style="color: var(--text-muted); line-height: 1.7;">
+        <p><b style="color: var(--text);">14-Day Money Back Guarantee:</b> If you are unsatisfied for any reason within the first 14 days of your initial purchase, email us at <b style="color: var(--gold-bright);">parth@chessmasters.in</b> for a full refund.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═════════════════════════════════════════════════════════════════
+       VIEW 17: SAMPLE MASTER REPORT (/sample-report)
+       ═════════════════════════════════════════════════════════════════ -->
+  <section class="view-panel" id="view-sample-report">
+    <div class="editorial-shell">
+      <span class="pill pill-gold" style="margin-bottom: 0.5rem;">Benchmark Analysis</span>
+      <h1 style="font-family: var(--font-display); font-size: 2.5rem; font-weight: 700;">Kasparov vs Deep Blue (Game 6)</h1>
+      <p style="color: var(--text-muted); font-size: 1.05rem; margin-top: 0.35rem;">A historic psychological collapse analyzed through our cognitive AI engine.</p>
+      <div class="card-shell" style="margin-top: 1.5rem;">
+        <button class="btn btn-gold" onclick="setPage('view-analysis')">Load in Interactive Dual-Pane Workspace ➔</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═════════════════════════════════════════════════════════════════
+       VIEW 18: CHESS.COM REVIEW ALT GUIDE (/chess-com-alt)
+       ═════════════════════════════════════════════════════════════════ -->
+  <section class="view-panel" id="view-guide-chesscom">
+    <div class="editorial-shell">
+      <span class="pill pill-gold" style="margin-bottom: 0.5rem;">Analytical Comparison</span>
+      <h1 style="font-family: var(--font-display); font-size: 2.5rem; font-weight: 700;">Why Explainable AI Beats Engine Graphs.</h1>
+      <p style="color: var(--text-muted); font-size: 1.05rem; margin-top: 0.35rem;">A deep dive into why club players plateau on standard platforms.</p>
+      <div class="card-shell" style="margin-top: 1.5rem; line-height: 1.7; color: var(--text-muted);">
+        <p>Chessmasters replaces cryptic centipawn shifts with human coaching narrative: explaining whether you dropped material due to greed, tunnel vision, or time panic.</p>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<!-- ─── GLOBAL SITE FOOTER (WITH PRESERVED SEO ENTITIES & BADGES) ─── -->
+<footer class="site-footer">
+  <div class="footer-container">
+    <div class="footer-top-row">
+      <div class="footer-brand-col">
+        <div class="brand-lockup" onclick="setPage('view-home')">
+          <div class="brand-name">♔ Chessmasters<span>.</span></div>
+        </div>
+        <p style="color: var(--text-muted); font-size: 0.85rem; line-height: 1.6; max-width: 380px;">
+          The AI chess game analyzer built alongside FIDE Arena International Master Parth Kaushik. Explaining the human psychology behind every blunder.
+        </p>
+        <div style="font-size: 0.78rem; color: var(--gold-bright);">
+          Reviewed by Parth Kaushik &middot; Peak 2300+ Chess.com &middot; FIDE AIM
+        </div>
+      </div>
+
+      <div>
+        <div class="footer-col-title">Analysis & Tools</div>
+        <ul class="footer-links">
+          <li class="footer-link-item"><a onclick="setPage('view-home')">Game Analyzer</a></li>
+          <li class="footer-link-item"><a onclick="setPage('view-analysis')">Flagship Review</a></li>
+          <li class="footer-link-item"><a onclick="setPage('view-progress')">Student Progress</a></li>
+          <li class="footer-link-item"><a onclick="setPage('view-history')">Game Archive</a></li>
+          <li class="footer-link-item"><a onclick="setPage('view-study')">Curated Studies</a></li>
+          <li class="footer-link-item"><a onclick="setPage('view-scout')">Opponent Scouting</a></li>
+        </ul>
+      </div>
+
+      <div>
+        <div class="footer-col-title">Pedagogy & Guides (SEO)</div>
+        <ul class="footer-links">
+          <li class="footer-link-item"><a onclick="setPage('view-about')">About Us</a></li>
+          <li class="footer-link-item"><a onclick="setPage('view-tactics')">Tactics Curriculum</a></li>
+          <li class="footer-link-item"><a onclick="setPage('view-faq')">Frequently Asked Questions</a></li>
+          <li class="footer-link-item"><a onclick="setPage('view-sample-report')">Sample Master Report</a></li>
+          <li class="footer-link-item"><a onclick="setPage('view-guide-chesscom')">Chess.com Alternative</a></li>
+        </ul>
+      </div>
+
+      <div>
+        <div class="footer-col-title">Account & Legal</div>
+        <ul class="footer-links">
+          <li class="footer-link-item"><a onclick="setPage('view-subscription')">Subscription & Plans</a></li>
+          <li class="footer-link-item"><a onclick="setPage('view-contact')">Contact Support</a></li>
+          <li class="footer-link-item"><a onclick="setPage('view-terms')">Terms & Conditions</a></li>
+          <li class="footer-link-item"><a onclick="setPage('view-privacy')">Privacy Policy</a></li>
+          <li class="footer-link-item"><a onclick="setPage('view-refund')">Refund Policy</a></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="footer-bottom-row">
+      <div class="footer-disclaimer">
+        © 2026 Chessmasters. All rights reserved. Chessmasters is an independent platform and is not affiliated with, endorsed by, or sponsored by Chess.com, Lichess.org, or the Stockfish open-source engine project.
+      </div>
+      <div class="badge-row">
+        <a href="https://tools.cafe" target="_blank" rel="noopener">
+          <img src="https://tools.cafe/b/light.svg" alt="Featured on tools.cafe" class="badge-img" />
+        </a>
+        <a href="https://www.producthunt.com/products/chess-masterss/reviews/new" target="_blank" rel="noopener">
+          <img src="https://api.producthunt.com/widgets/embed-image/v1/product_review.svg?product_id=1337951&theme=light" alt="Chessmasters on Product Hunt" class="badge-img" />
+        </a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<!-- ─── SHOWCASE BOTTOM DOCK (SWITCH PAGES IN 1 CLICK) ─── -->
+<nav class="showcase-dock" aria-label="Quick Page Switcher">
+  <span class="dock-label">Page Switcher:</span>
+  <button class="dock-btn active" onclick="setPage('view-analysis')">Review</button>
+  <button class="dock-btn" onclick="setPage('view-progress')">Progress</button>
+  <button class="dock-btn" onclick="setPage('view-study')">Studies</button>
+  <button class="dock-btn" onclick="setPage('view-scout')">Scout</button>
+  <button class="dock-btn" onclick="setPage('view-coach')">Coach</button>
+  <button class="dock-btn" onclick="setPage('view-subscription')">Subscription</button>
+  <button class="dock-btn" onclick="setPage('view-history')">History</button>
+  <button class="dock-btn" onclick="setPage('view-about')">About</button>
+  <button class="dock-btn" onclick="setPage('view-faq')">FAQ</button>
+  <button class="dock-btn" onclick="setPage('view-tactics')">Tactics</button>
+  <div class="dock-divider"></div>
+  <button class="dock-btn" onclick="openPagesModal()" style="color:var(--gold-bright);">All 18 ▾</button>
+  <div class="dock-divider"></div>
+  <button class="sound-toggle-btn" id="soundBtn" onclick="toggleSound()">
+    <span>🔊</span>
+    <span id="soundLabel">Sound ON</span>
+  </button>
+</nav>
+
+<!-- ─────────────────────────────────────────────────────────────────────────────
+   INTERACTIVE LOGIC & SYNTHESIZER SOUND ENGINE
+   ──────────────────────────────────────────────────────────────────────────── -->
+<script>
+let audioCtx = null;
+let soundEnabled = true;
+
+function initAudio() {
+  if (!audioCtx) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+}
+
+function playSound(type) {
+  if (!soundEnabled) return;
+  try {
+    initAudio();
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    const now = audioCtx.currentTime;
+
+    if (type === 'move') {
+      osc.frequency.setValueAtTime(440, now);
+      osc.frequency.exponentialRampToValueAtTime(320, now + 0.05);
+      gain.gain.setValueAtTime(0.2, now);
+      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.05);
+      osc.start(now);
+      osc.stop(now + 0.05);
+    } else if (type === 'check') {
+      osc.frequency.setValueAtTime(880, now);
+      gain.gain.setValueAtTime(0.3, now);
+      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.12);
+      osc.start(now);
+      osc.stop(now + 0.12);
+    } else if (type === 'brilliant') {
+      osc.frequency.setValueAtTime(587, now);
+      osc.frequency.exponentialRampToValueAtTime(880, now + 0.15);
+      gain.gain.setValueAtTime(0.25, now);
+      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+      osc.start(now);
+      osc.stop(now + 0.25);
+    }
+  } catch(e) {}
+}
+
+function toggleSound() {
+  soundEnabled = !soundEnabled;
+  document.getElementById("soundLabel").textContent = soundEnabled ? "Sound ON" : "Muted";
+  document.getElementById("soundBtn").style.opacity = soundEnabled ? "1" : "0.5";
+}
+
+let signedIn = false;
+function toggleAuth() {
+  signedIn = !signedIn;
+  const label = document.getElementById("authBtnLabel");
+  if (signedIn) {
+    label.textContent = "Aarav S.";
+    playSound('brilliant');
+  } else {
+    label.textContent = "Sign in";
+    playSound('check');
+  }
+}
+
+// CONTEXT-AWARE AI COACH REPLIES
+function askAICoach(intent) {
+  const thread = document.getElementById("aiChatThread");
+  let userText = "";
+  let aiText = "";
+
+  if (intent === 'analyze_this') {
+    userText = "Analyze this game";
+    aiText = "<b>Game #842 Turning Point:</b> At Move 24 you reached a decisive +4.8 pawn advantage in the Najdorf. The game slipped on <b>Move 28</b> with <code>28...Re8??</code> (-4.2 drop) due to a back-rank deflection tactic when your clock fell to 14s. Best move was <code>28...Kh8!</code> eliminating the pin.";
+  } else if (intent === 'analyze_last_3') {
+    userText = "Analyze my last 3 games";
+    aiText = "<b>Last 3 Games Breakdown:</b><br>• Game 1 (Najdorf): Win vs GM_Opponent (76.4% CAPS2)<br>• Game 2 (Berlin): Loss vs MagnusFan99 (88.1% CAPS2)<br>• Game 3 (QGD): Draw vs TacticalTiger (92.4% CAPS2)<br><b>Net:</b> +18 Elo, 85.6% average accuracy. Your opening stability is high (88%), but conversion drops in rook endgames.";
+  } else if (intent === 'most_mistakes') {
+    userText = "Where am I making the most mistakes?";
+    aiText = "<b>Vulnerability Hotspot:</b> 82% of your game-losing drops happen when your clock falls under <b>25 seconds</b>. Specifically, 4 out of your last 6 blunders were back-rank deflection tactics with pinned f-pawns. When your clock is healthy, your blunder rate is under 2%.";
+  } else if (intent === 'what_practice') {
+    userText = "What should I practice next?";
+    aiText = "<b>Targeted Curriculum:</b><br>1. Practice <b>Deflection Tactics</b> on Lichess (mapped to Move 28).<br>2. Complete Chapter 3 of <b>The Lucena Bridge</b> in your Curated Studies.<br>3. Practice the 1-second threat check rule whenever under 30s.";
+  } else if (intent === 'nav_progress') {
+    userText = "Take me to my Progress tracker";
+    aiText = "Navigating to your Student Progress & Leaks dashboard now...";
+    setTimeout(() => {
+      setPage('view-progress');
+      toggleDrawer();
+    }, 600);
+  }
+
+  const userBubble = document.createElement("div");
+  userBubble.className = "chat-bubble-user";
+  userBubble.textContent = userText;
+  thread.appendChild(userBubble);
+
+  const aiBubble = document.createElement("div");
+  aiBubble.className = "chat-bubble-ai";
+  aiBubble.innerHTML = aiText;
+  thread.appendChild(aiBubble);
+
+  thread.scrollTop = thread.scrollHeight;
+  playSound('move');
+}
+
+function sendCustomAIChat() {
+  const input = document.getElementById("aiCoachInput");
+  const text = input.value.trim();
+  if (!text) return;
+  
+  const thread = document.getElementById("aiChatThread");
+  const userBubble = document.createElement("div");
+  userBubble.className = "chat-bubble-user";
+  userBubble.textContent = text;
+  thread.appendChild(userBubble);
+  input.value = "";
+
+  const aiBubble = document.createElement("div");
+  aiBubble.className = "chat-bubble-ai";
+  aiBubble.innerHTML = `<b>Coach Analysis:</b> Based on your 14 games, when addressing "${text}", your best approach is maintaining king luft before activating heavy pieces. In your Najdorf lines, you convert +2.0 leads 82% of the time as long as you avoid rushed endgames.`;
+  thread.appendChild(aiBubble);
+
+  thread.scrollTop = thread.scrollHeight;
+  playSound('move');
+}
+
+const PIECES = {
+  'r': '♜', 'n': '♞', 'b': '♝', 'q': '♛', 'k': '♚', 'p': '♟',
+  'R': '♖', 'N': '♘', 'B': '♗', 'Q': '♕', 'K': '♔', 'P': '♙'
+};
+
+const FEN_BLUNDER = "r1b1r1k1/pp2qpbp/2p3p1/8/3QP3/1P4P1/PB3PBP/3RR1K1 w - - 3 20";
+const FEN_STRENGTH = "r1bq1rk1/1p2bppp/p1np1n2/4p3/4P3/1NN1BP2/PPP3PP/R2QKB1R w KQ - 0 10";
+
+function renderBoard(elemId, fen) {
+  const container = document.getElementById(elemId);
+  if (!container) return;
+  container.innerHTML = "";
+  const rows = fen.split(" ")[0].split("/");
+  for (let r = 0; r < 8; r++) {
+    let col = 0;
+    for (let char of rows[r]) {
+      if (/\d/.test(char)) {
+        const count = parseInt(char, 10);
+        for (let e = 0; e < count; e++) {
+          const sq = document.createElement("div");
+          sq.className = "sq " + ((r + col) % 2 === 0 ? "l" : "d");
+          container.appendChild(sq);
+          col++;
+        }
+      } else {
+        const sq = document.createElement("div");
+        sq.className = "sq " + ((r + col) % 2 === 0 ? "l" : "d");
+        if (r === 7 && col === 4) sq.classList.add("hl-blunder");
+        const piece = document.createElement("div");
+        piece.className = "pc " + (char === char.toUpperCase() ? "w" : "b");
+        piece.textContent = PIECES[char] || char;
+        piece.onclick = () => playSound('move');
+        sq.appendChild(piece);
+        container.appendChild(sq);
+        col++;
+      }
+    }
+  }
+}
+
+function renderMiniBoard(elemId, fen) {
+  const container = document.getElementById(elemId);
+  if (!container) return;
+  container.innerHTML = "";
+  const rows = fen.split(" ")[0].split("/");
+  for (let r = 0; r < 8; r++) {
+    let col = 0;
+    for (let char of rows[r]) {
+      if (/\d/.test(char)) {
+        const count = parseInt(char, 10);
+        for (let e = 0; e < count; e++) {
+          const sq = document.createElement("div");
+          sq.className = "mini-sq " + ((r + col) % 2 === 0 ? "l" : "d");
+          container.appendChild(sq);
+          col++;
+        }
+      } else {
+        const sq = document.createElement("div");
+        sq.className = "mini-sq " + ((r + col) % 2 === 0 ? "l" : "d");
+        if (r === 7 && col === 4) sq.classList.add("hl");
+        const piece = document.createElement("div");
+        piece.className = "mini-pc " + (char === char.toUpperCase() ? "w" : "b");
+        piece.textContent = PIECES[char] || char;
+        sq.appendChild(piece);
+        container.appendChild(sq);
+        col++;
+      }
+    }
+  }
+}
+
+// Page Navigation
+function setPage(pageId) {
+  document.querySelectorAll(".view-panel").forEach(p => p.classList.toggle("active", p.id === pageId));
+  
+  const hashKey = pageId.replace('view-', '');
+  window.location.hash = hashKey;
+
+  // Sync nav buttons
+  document.querySelectorAll(".nav-item").forEach(item => {
+    const text = item.textContent.toLowerCase();
+    const match = (pageId.includes('analysis') && text.includes('review')) ||
+                  (pageId.includes('progress') && text.includes('progress')) ||
+                  (pageId.includes('study') && text.includes('studies')) ||
+                  (pageId.includes('scout') && text.includes('scout')) ||
+                  (pageId.includes('coach') && text.includes('coach')) ||
+                  (pageId.includes('subscription') && text.includes('subscription')) ||
+                  (pageId.includes('history') && text.includes('history')) ||
+                  (pageId.includes('about') && text.includes('about')) ||
+                  (pageId.includes('faq') && text.includes('faq')) ||
+                  (pageId.includes('tactics') && text.includes('tactics'));
+    item.classList.toggle("active", match);
+  });
+
+  document.querySelectorAll(".dock-btn").forEach(btn => {
+    btn.classList.toggle("active", btn.getAttribute("onclick")?.includes(pageId));
+  });
+
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  playSound('move');
+}
+
+function handleScrub(e) {
+  const rect = e.currentTarget.getBoundingClientRect();
+  const pct = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
+  document.getElementById("mainScrubberCursor").style.left = pct + "%";
+  playSound('move');
+}
+
+let currentPly = 56;
+function stepMove(delta) {
+  currentPly = Math.max(1, Math.min(74, currentPly + delta));
+  document.getElementById("mainPly").textContent = currentPly;
+  playSound(delta > 0 ? 'move' : 'check');
+}
+
+function solveMainDrill(success) {
+  if (success) {
+    document.getElementById("mainDrillSuccess").style.display = "block";
+    playSound('brilliant');
+  }
+}
+
+function runDiagnosticDemo() {
+  document.getElementById("diagResult").style.display = "block";
+  playSound('brilliant');
+}
+
+function toggleDrawer() {
+  document.getElementById("sideDrawer").classList.toggle("open");
+  playSound('check');
+}
+
+function openPagesModal() {
+  document.getElementById("pagesModal").classList.add("open");
+  playSound('check');
+}
+
+function closePagesModal(e) {
+  document.getElementById("pagesModal").classList.remove("open");
+}
+
+let isFlipped = false;
+function flipMainBoard() {
+  isFlipped = !isFlipped;
+  const board = document.getElementById("mainAnalysisBoard");
+  board.style.transform = isFlipped ? "rotate(180deg)" : "none";
+  document.querySelectorAll("#mainAnalysisBoard .pc").forEach(p => {
+    p.style.transform = isFlipped ? "rotate(180deg)" : "none";
+  });
+  playSound('move');
+}
+
+function toggleAutoColor() {
+  playSound('move');
+}
+
+window.addEventListener("DOMContentLoaded", () => {
+  renderBoard("mainAnalysisBoard", FEN_BLUNDER);
+  renderBoard("studyBoardGrid", FEN_STRENGTH);
+  renderMiniBoard("miniBoardStrength", FEN_STRENGTH);
+  renderMiniBoard("miniBoardWeakness", FEN_BLUNDER);
+  renderMiniBoard("drillBoardInteractive", FEN_BLUNDER);
+
+  const hash = window.location.hash.replace('#', '');
+  if (hash && document.getElementById('view-' + hash)) {
+    setPage('view-' + hash);
+  }
+});
+
+window.addEventListener("hashchange", () => {
+  const hash = window.location.hash.replace('#', '');
+  if (hash && document.getElementById('view-' + hash)) {
+    setPage('view-' + hash);
+  }
+});
+
+window.addEventListener("keydown", (e) => {
+  if (e.key === "ArrowLeft") stepMove(-1);
+  if (e.key === "ArrowRight") stepMove(1);
+  if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+    e.preventDefault();
+    toggleDrawer();
+  }
+});
+</script>
+</body>
+</html>

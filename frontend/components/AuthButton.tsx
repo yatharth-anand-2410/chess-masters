@@ -3,6 +3,7 @@
 import { useCallback, useState } from "react";
 import { createClient } from "../lib/supabase-client";
 import type { User } from "@supabase/supabase-js";
+import { GoogleIcon } from "./ui/Topbar";
 
 type AuthButtonProps = {
   user: User | null;
@@ -75,8 +76,14 @@ export default function AuthButton({ user, onAuthChange, role, onToggleRole }: A
   }
 
   return (
-    <button type="button" className="btn" onClick={signIn} disabled={busy}>
-      {busy ? "Signing in..." : "Sign in with Google"}
+    <button
+      type="button"
+      className="btn inline-flex items-center gap-2"
+      onClick={signIn}
+      disabled={busy}
+    >
+      <GoogleIcon className="w-4 h-4 shrink-0" />
+      <span>{busy ? "Signing in..." : "Sign in with Google"}</span>
     </button>
   );
 }

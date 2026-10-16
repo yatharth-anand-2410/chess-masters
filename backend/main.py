@@ -24,12 +24,22 @@ from services import (
     batch_insights,
     billing,
     coach,
+    copilot,
     db,
+    draws,
     engine,
     extractor,
+    progress,
     recommendations,
+    scouting,
+    studies,
 )
 
+from pathlib import Path
+
+_backend_env = Path(__file__).resolve().parent / ".env"
+if _backend_env.exists():
+    load_dotenv(_backend_env)
 load_dotenv()
 
 logger = logging.getLogger("uvicorn.error")
@@ -127,6 +137,7 @@ def _upgrade_detail(feature: str) -> dict[str, str]:
     messages = {
         "analysis": "Your five free analyses have been used.",
         "qna": "Q&A coaching is available with a paid plan.",
+        "coach": "Coach mode and student rosters are available with a Coach Pro subscription.",
     }
     return {
         "code": "upgrade_required",
@@ -1253,6 +1264,14 @@ async def create_coach_student(
     payload: StudentCreateRequest,
     user: Dict[str, object] = Depends(get_current_user),
 ) -> dict:
+    user_id = str(user["id"])
+    usage = await asyncio.to_thread(db.get_usage, user_id)
+    raw_plan = str(usage.get("plan", "free"))
+    status = str(usage.get("subscription_status", "inactive"))
+    period_end = usage.get("current_period_end")
+    if not db.is_paid_plan(raw_plan, status, period_end):
+        raise HTTPException(status_code=402, detail=_upgrade_detail("coach"))
+
     try:
         data = {
             "display_name": coach.clean_display_name(payload.display_name),
@@ -1262,7 +1281,7 @@ async def create_coach_student(
         }
     except coach.CoachError as exc:
         raise _coach_error(exc) from exc
-    row = await asyncio.to_thread(db.create_student, str(user["id"]), data)
+    row = await asyncio.to_thread(db.create_student, user_id, data)
     return coach.student_payload(row)
 
 
@@ -1350,6 +1369,13 @@ async def create_student_share(
     link carries a fresh token.
     """
     user_id = str(user["id"])
+    usage = await asyncio.to_thread(db.get_usage, user_id)
+    raw_plan = str(usage.get("plan", "free"))
+    status = str(usage.get("subscription_status", "inactive"))
+    period_end = usage.get("current_period_end")
+    if not db.is_paid_plan(raw_plan, status, period_end):
+        raise HTTPException(status_code=402, detail=_upgrade_detail("coach"))
+
     student = await asyncio.to_thread(db.get_student, user_id, student_id)
     if not student:
         raise HTTPException(status_code=404, detail="Student not found.")
@@ -1848,3 +1874,123 @@ async def stream_message(
             "X-Accel-Buffering": "no",
         },
     )
+
+
+# =============================================================================
+# Draw Classification & Eval Swings
+# =============================================================================
+
+
+@app.post("/api/draws/classify", response_model=draws.DrawClassificationResult)
+async def classify_draw_endpoint(
+    payload: draws.DrawClassifyRequest,
+) -> draws.DrawClassificationResult:
+    """Classify a draw into 4 tactical/psychological quadrants with swing analysis."""
+    try:
+        return await asyncio.to_thread(draws.classify_draw, payload)
+    except Exception as exc:
+        logger.exception("Error classifying draw")
+        raise HTTPException(status_code=400, detail=f"Could not classify draw: {exc}")
+
+
+# =============================================================================
+# Lichess Studies Import
+# =============================================================================
+
+
+@app.get("/api/studies/import/{study_id}", response_model=studies.StudyImportResponse)
+async def import_study_endpoint(study_id: str) -> studies.StudyImportResponse:
+    """Import and parse a Lichess study with visual annotations and branches."""
+    try:
+        return await asyncio.to_thread(studies.import_lichess_study, study_id)
+    except studies.StudyNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    except (studies.StudyFetchError, studies.StudyParseError) as exc:
+        raise HTTPException(status_code=502, detail=str(exc))
+    except Exception as exc:
+        logger.exception("Unexpected error importing Lichess study %s", study_id)
+        raise HTTPException(status_code=500, detail=f"Internal error importing study: {exc}")
+
+
+# =============================================================================
+# Opponent Scouting Dossier
+# =============================================================================
+
+
+@app.get("/api/scout/{username}", response_model=scouting.ScoutingDossier)
+async def scout_opponent_endpoint(
+    username: str,
+    platform: Optional[str] = "lichess",
+    max_games: Optional[int] = 50,
+) -> scouting.ScoutingDossier:
+    """Generate an opponent scouting dossier with repertoire tree and clock vulnerability."""
+    cleaned = (username or "").strip()
+    if not cleaned:
+        raise HTTPException(status_code=400, detail="Opponent username is required.")
+    limit = max(5, min(100, max_games or 50))
+    try:
+        return await asyncio.to_thread(
+            scouting.generate_scouting_dossier,
+            cleaned,
+            platform=platform or "lichess",
+            max_games=limit,
+        )
+    except Exception as exc:
+        logger.exception("Unexpected error scouting opponent %s", username)
+        raise HTTPException(status_code=500, detail=f"Failed to generate scouting dossier: {exc}")
+
+
+# =============================================================================
+# Longitudinal Student Progress & 3-Pillar Mastery
+# =============================================================================
+
+
+@app.get("/api/student/{student_id}/progress", response_model=progress.StudentProgressReport)
+async def get_student_progress_endpoint(
+    student_id: str,
+    user: Optional[Dict[str, object]] = Depends(get_optional_user),
+) -> progress.StudentProgressReport:
+    """Generate longitudinal student progress with 3-pillar mastery and ACPL drift."""
+    cleaned = (student_id or "").strip()
+    if not cleaned:
+        raise HTTPException(status_code=400, detail="Student ID is required.")
+    coach_id = str(user["id"]) if user else None
+    try:
+        return await asyncio.to_thread(progress.build_student_progress, cleaned, coach_id=coach_id)
+    except Exception as exc:
+        logger.exception("Unexpected error building progress for student %s", student_id)
+        raise HTTPException(status_code=500, detail=f"Failed to load student progress: {exc}")
+
+
+# =============================================================================
+# Context-Aware AI Coach Copilot Query
+# =============================================================================
+
+
+@app.post("/api/copilot/query", response_model=copilot.CopilotQueryResponse)
+async def copilot_query_endpoint(
+    payload: copilot.CopilotQueryRequest,
+    user: Optional[Dict[str, object]] = Depends(get_optional_user),
+) -> copilot.CopilotQueryResponse:
+    """Context-aware AI coach query anchored to student data and blunder motifs."""
+    query = payload.query.strip()
+    if not query:
+        raise HTTPException(status_code=400, detail="Query cannot be empty.")
+
+    # Inject user_id if not explicitly provided
+    if not payload.user_id and user:
+        payload.user_id = str(user["id"])
+
+    # Obtain Gemini client if configured, otherwise None (fallback handles gracefully)
+    client: Optional[genai.Client] = None
+    try:
+        client = get_client()
+    except Exception:
+        pass
+
+    try:
+        return await copilot.answer_copilot_query(payload, client=client)
+    except Exception as exc:
+        logger.exception("Unexpected error in copilot query")
+        raise HTTPException(status_code=500, detail=f"Copilot query failed: {exc}")
+

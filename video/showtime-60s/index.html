@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Chessmasters - AI Chess Game Analyzer</title>
+<script src="/_st/stage.js"></script>
+<link rel="stylesheet" href="/_st/themes/bold.css">
+<script type="module" src="/_st/components/index.js"></script>
+<!-- Written by `showtime new --from-storyboard` (6 shots, 60 s planned). Each <section> is one shot of
+     storyboard.json, timed from its length. The dashed .brief is the storyboard's Visual as written: build
+     that shot's picture in its section and delete the brief (check warns while one is left). Words in
+     .copy are the storyboard's own card or on-screen text. data-silent marks a shot without narration.
+     After the voice (narration.md): showtime retime . --from-voice voice/timeline.json -->
+<style>
+  /* storyboard scaffold: every colour and face is the theme's, so a brand kit or another theme restyles it */
+  .stage { background: var(--bg); }
+  .scene { --s-label: 2.4cqh; --s-copy: 8.6cqh; --s-copy-sm: 6cqh; --s-brief: 5cqh; --s-brief-sm: 3.1cqh;
+           --s-note: 2.6cqh; font-family: var(--font-body, var(--font-display)); }
+  .world { position: absolute; inset: 0; overflow: hidden; pointer-events: none;
+           background: radial-gradient(70% 80% at 30% 35%, color-mix(in oklab, var(--accent) 9%, transparent), transparent 70%); }
+  .cam { position: absolute; inset: 0; }
+  .board { position: absolute; left: 8cqw; right: 8cqw; top: 50%; translate: 0 -50%; display: flex;
+           flex-direction: column; gap: 3cqh; }
+  .label { font: 500 var(--s-label)/1.3 var(--font-mono); letter-spacing: 0.12em; text-transform: uppercase;
+           color: var(--muted); margin: 0; }
+  .label b { color: var(--accent); font-weight: 600; }
+  .copy { font: var(--weight-display, 700) var(--s-copy)/1.05 var(--font-display); letter-spacing: var(--tracking-display, -0.03em);
+          color: var(--fg); margin: 0; max-width: 24em; text-wrap: balance; overflow-wrap: anywhere; }
+  .copy.many { font-size: var(--s-copy-sm); }
+  .brief { margin: 0; padding: 2.6cqh 3cqh; border-radius: 1.4cqh; max-width: 30em; align-self: flex-start;
+           border: max(2px, 0.25cqh) dashed color-mix(in oklab, var(--fg) 45%, transparent);
+           font: 450 var(--s-brief)/1.3 var(--font-body, var(--font-display)); color: var(--fg); overflow-wrap: anywhere; }
+  .copy + .brief, .copy ~ .brief { font-size: var(--s-brief-sm); color: var(--muted); }
+  .note { font: 450 var(--s-note)/1.35 var(--font-mono); color: var(--muted); margin: 0; max-width: 60em; }
+  :lang(zh) .copy, :lang(zh) .brief, :lang(ja) .copy, :lang(ja) .brief, :lang(ko) .copy, :lang(ko) .brief {
+    font-family: 'Noto Sans SC', 'Noto Sans KR', 'Noto Sans JP', sans-serif; letter-spacing: 0; }
+  @keyframes rise { from { opacity: 0; transform: translateY(0.4em); } to { opacity: 1; transform: none; } }
+  .board > * { animation: rise 0.6s cubic-bezier(0.16, 1, 0.3, 1) calc(0.1s + var(--i, 0) * 0.12s) both; }
+  .scene:first-of-type .board > * { animation: none; }   /* the first frame is the poster: complete at t=0 */
+  @container (max-aspect-ratio: 5/4) {
+    .scene { --s-label: 2.6cqw; --s-copy: 9cqw; --s-copy-sm: 6.4cqw; --s-brief: 4.6cqw; --s-brief-sm: 3.6cqw; --s-note: 3cqw; }
+    .board { left: 7cqw; right: 7cqw; }
+  }
+  @container (max-aspect-ratio: 3/4) {
+    .scene { --s-label: 4.2cqw; --s-copy: 10cqw; --s-copy-sm: 7.4cqw; --s-brief: 5.4cqw; --s-brief-sm: 4.6cqw; --s-note: 4.2cqw; }
+    .board { left: 9cqw; right: 16cqw; top: 42%; }
+  }
+</style>
+<!-- look signature: Gallery (gallery), picked by `showtime new`; another: showtime signature apply <project> <id> -->
+<link rel="stylesheet" href="/_st/themes/fonts/bebas-neue.css" data-st-look>
+<link rel="stylesheet" href="/_st/themes/fonts/inter.css" data-st-look>
+<link rel="stylesheet" href="/_st/themes/fonts/jetbrains-mono.css" data-st-look>
+<style id="st-look">
+  :root {
+    --bg: #f3f3f0;
+    --fg: #111111;
+    --muted: #53534e;
+    --accent: #bf2116;
+    --accent-ink: #ffffff;
+    --surface: #e7e7e3;
+    --win-bg: #111111;
+    --win-fg: #f3f3f0;
+    --win-muted: #a2a2a0;
+    --win-line: rgb(243 243 240 / 0.1);
+    --chip-bg: #111111;
+    --chip-fg: #f3f3f0;
+    --win-accent: #d7746d;
+    --chip-accent: #d7746d;
+    --line: rgb(17 17 17 / 0.1);
+    --key-light: rgb(191 33 22 / 0.02);
+    --rim-a: rgb(191 33 22 / 0.01);
+    --rim-b: transparent;
+    --vignette: rgb(17 17 17 / 0.1);
+    --win-shadow: 0 3cqh 8cqh rgb(17 17 17 / 0.2), 0 0.5cqh 1.4cqh rgb(17 17 17 / 0.08);
+    --win-shadow-tall: 0 1.2cqh 3cqh rgb(17 17 17 / 0.16);
+    color-scheme: light;
+    --surface-2: #dcdcd7;
+    --border: rgb(17 17 17 / 0.14);
+    --accent-2: #1d4ed8;
+    --font-display: 'Bebas Neue', 'Inter', sans-serif;
+    --font-body: 'Inter', 'Inter', sans-serif;
+    --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+    --weight-display: 400;
+    --tracking-display: 0.01em;
+    --leading-display: 0.95;
+    --case-display: uppercase;
+    --cap-font: 'Bebas Neue', 'Inter', sans-serif;
+    --cap-weight: 400;
+    --cap-case: uppercase;
+    --cap-ink: #111111;
+    --cap-outline: #f3f3f0;
+    --cap-accent: #bf2116;
+    --cap-active-ink: #ffffff;
+    --cap-plate: rgb(243 243 240 / 0.94);
+    --ground-glow: 0.15;
+    --ground-grid: 0;
+    --ground-vignette: 0.165;
+    --grain: 0.03;
+    --motion-energy: high;
+    --dur-in: 0.45s;
+    --dur-out: 0.28s;
+    --dur-beat: 0.3s;
+    --stagger: 0.04s;
+    --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+    --ease-move: cubic-bezier(0.65, 0, 0.35, 1);
+    --ease-emph: cubic-bezier(0.34, 1.4, 0.64, 1);
+    --shadow: 0 3cqmin 9cqmin rgb(17 17 17 / 0.18);
+  }
+</style>
+</head>
+<body>
+<div class="stage">
+  <div class="world" data-st-decor></div>
+  <section class="scene" id="shot-1" data-start="0" data-dur="8.00" data-storyboard-shot="Scene 1: The Hook">
+    <div class="cam" data-st="camera" data-path='[{"at": 0, "zoom": 1}, {"at": 0.15, "dur": 7.7, "zoom": 1.06, "focus": [50, 50], "to": "stay", "ease": "linear"}]'>
+      <div class="board">
+        <p class="label" style="--i:0">Shot Scene 1: The Hook <b>&middot;</b> 8 s <b>&middot;</b> to build</p>
+        <p class="copy" style="--i:1">&quot;Why does raw engine analysis fail chess players?&quot;</p>
+        <p class="brief" data-storyboard-brief style="--i:2">Close-up of a chessboard where White plays a natural-looking move (e.g. 14. Qxe4??). An ominous red Stockfish eval bar drops from +3.2 down to -4.5.</p>
+        <p class="note" data-storyboard-brief style="--i:3">Sound: Soft, subtle tension drone. Sharp chess piece click.</p>
+      </div>
+    </div>
+  </section>
+  <section class="scene" id="shot-2" data-start="#shot-1" data-dur="10.00" data-storyboard-shot="Scene 2: The Pain">
+    <div class="cam" data-st="camera" data-path='[{"at": 0, "zoom": 1}, {"at": 0.15, "dur": 9.7, "zoom": 1.06, "focus": [50, 50], "to": "stay", "ease": "linear"}]'>
+      <div class="board">
+        <p class="label" style="--i:0">Shot Scene 2: The Pain <b>&middot;</b> 10 s <b>&middot;</b> to build</p>
+        <p class="copy" style="--i:1">Stockfish gives numbers. You need coaching.</p>
+        <p class="brief" data-storyboard-brief style="--i:2">Split screen: Confused young player looking at raw engine numbers: Centipawn loss: 148. Blunder: Nd5. Quick red flashes on missed pins and forks.</p>
+        <p class="note" data-storyboard-brief style="--i:3">Sound: Synth tick rhythm builds up. Disappointment buzz sound.</p>
+      </div>
+    </div>
+  </section>
+  <section class="scene" id="shot-3" data-start="#shot-2" data-dur="10.00" data-storyboard-shot="Scene 3: The Reveal">
+    <div class="cam" data-st="camera" data-path='[{"at": 0, "zoom": 1}, {"at": 0.15, "dur": 9.7, "zoom": 1.06, "focus": [50, 50], "to": "stay", "ease": "linear"}]'>
+      <div class="board">
+        <p class="label" style="--i:0">Shot Scene 3: The Reveal <b>&middot;</b> 10 s <b>&middot;</b> to build</p>
+        <p class="copy" style="--i:1">Meet Chessmasters. Paste any game link.</p>
+        <p class="brief" data-storyboard-brief style="--i:2">Smooth transition to the sleek dark/gold Chessmasters interface. User pastes a Lichess or Chess.com game link. Status badge streams: Fetching game... Analyzing centipawn loss... Generating coaching report.</p>
+        <p class="note" data-storyboard-brief style="--i:3">Sound: Beat drop kicks in! Smooth whoosh as URL is pasted. Satisfying chime on stream start.</p>
+      </div>
+    </div>
+  </section>
+  <section class="scene" id="shot-4" data-start="#shot-3" data-dur="12.00" data-storyboard-shot="Scene 4: The Core Report">
+    <div class="cam" data-st="camera" data-path='[{"at": 0, "zoom": 1}, {"at": 0.15, "dur": 11.7, "zoom": 1.06, "focus": [50, 50], "to": "stay", "ease": "linear"}]'>
+      <div class="board">
+        <p class="label" style="--i:0">Shot Scene 4: The Core Report <b>&middot;</b> 12 s <b>&middot;</b> to build</p>
+        <p class="copy" style="--i:1">• Narrative Strengths &amp; Weaknesses • Critical Turning Point Board • Tilt &amp; Time Trouble Detection</p>
+        <p class="brief" data-storyboard-brief style="--i:2">Fast, dynamic zoom into the 5 core sections: Strengths (green badge), Weaknesses (amber badge), Turning Point with interactive board arrow showing the blunder, and Psychology radar showing time trouble.</p>
+        <p class="note" data-storyboard-brief style="--i:3">Sound: Rhythmic digital UI pulses, crisp card transition swooshes.</p>
+      </div>
+    </div>
+  </section>
+  <section class="scene" id="shot-5" data-start="#shot-4" data-dur="10.00" data-storyboard-shot="Scene 5: Targeted Drills">
+    <div class="cam" data-st="camera" data-path='[{"at": 0, "zoom": 1}, {"at": 0.15, "dur": 9.7, "zoom": 1.06, "focus": [50, 50], "to": "stay", "ease": "linear"}]'>
+      <div class="board">
+        <p class="label" style="--i:0">Shot Scene 5: Targeted Drills <b>&middot;</b> 10 s <b>&middot;</b> to build</p>
+        <p class="copy" style="--i:1">Instant Targeted Drills: Blunders → Mastery</p>
+        <p class="brief" data-storyboard-brief style="--i:2">The report generates one-click practice links directly to Lichess tactical drills: Deflection, Knight Fork, King Safety. A cursor clicks a drill and the exact puzzle appears ready to solve.</p>
+        <p class="note" data-storyboard-brief style="--i:3">Sound: Positive uplifting chord progression. Puzzle piece snap sound.</p>
+      </div>
+    </div>
+  </section>
+  <section class="scene" id="shot-6" data-start="#shot-5" data-dur="10.00" data-storyboard-shot="Scene 6: The Outro / CTA">
+    <div class="cam" data-st="camera" data-path='[{"at": 0, "zoom": 1}, {"at": 0.15, "dur": 9.7, "zoom": 1.06, "focus": [50, 50], "to": "stay", "ease": "linear"}]'>
+      <div class="board">
+        <p class="label" style="--i:0">Shot Scene 6: The Outro / CTA <b>&middot;</b> 10 s <b>&middot;</b> to build</p>
+        <p class="copy" style="--i:1">Stop guessing. Start improving. chessmasters.in</p>
+        <p class="brief" data-storyboard-brief style="--i:2">Wide shot of the complete dashboard on desktop and phone. Premium gold typography shines: Chessmasters. URL displays clearly with a badge: First 5 Analyses Free.</p>
+        <p class="note" data-storyboard-brief style="--i:3">Sound: Upbeat musical climax and clean acoustic reverb resolve.</p>
+      </div>
+    </div>
+  </section>
+</div>
+</body>
+</html>

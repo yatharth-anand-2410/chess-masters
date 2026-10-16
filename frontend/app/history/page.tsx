@@ -24,22 +24,27 @@ export default function HistoryPage() {
     const supabase = createClient();
     supabase.auth.getSession().then(async ({ data }) => {
       const session = data.session;
-      setUser(session?.user ?? null);
-      if (!session) {
+      const activeUser = session?.user ?? null;
+      setUser(activeUser);
+
+      if (!activeUser) {
         router.push("/");
         return;
       }
-      try {
-        const [list, batchList] = await Promise.all([
-          apiGet<AnalysisSummary[]>(
-            "/api/analyses?standalone=true",
-            session.access_token
-          ),
-          apiGet<BatchSummary[]>("/api/batches", session.access_token),
-        ]);
-        setEntries(mergeHistoryEntries(list, batchList));
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load history.");
+
+      if (session) {
+        try {
+          const [list, batchList] = await Promise.all([
+            apiGet<AnalysisSummary[]>(
+              "/api/analyses?standalone=true",
+              session.access_token
+            ),
+            apiGet<BatchSummary[]>("/api/batches", session.access_token),
+          ]);
+          setEntries(mergeHistoryEntries(list, batchList));
+        } catch (err) {
+          setError(err instanceof Error ? err.message : "Failed to load history.");
+        }
       }
     });
   }, [router]);

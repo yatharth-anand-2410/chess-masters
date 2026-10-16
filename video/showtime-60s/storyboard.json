@@ -1,0 +1,175 @@
+{
+  "_comment": "Written by `showtime new --from-storyboard`: the plan. Scene ids are the <section> ids in index.html and the ## headings in narration.md. `showtime retime --from-voice` reads it to say where the voice outgrew a shot's planned length.",
+  "generator": "showtime new --from-storyboard",
+  "source": "video/60s_product_video_script.md",
+  "lang": null,
+  "pad": 0.3,
+  "duration": 60.0,
+  "budget": {
+    "words_per_s": 2.8
+  },
+  "rows": [
+    {
+      "id": "shot-1",
+      "shot": "Scene 1: The Hook",
+      "start": 0.0,
+      "dur": 8.0,
+      "visual": "Close-up of a chessboard where White plays a natural-looking move (e.g. 14. Qxe4??). An ominous red Stockfish eval bar drops from +3.2 down to -4.5.",
+      "brief": "Close-up of a chessboard where White plays a natural-looking move (e.g. 14. Qxe4??). An ominous red Stockfish eval bar drops from +3.2 down to -4.5.",
+      "onscreen": [
+        "\"Why does raw engine analysis fail chess players?\""
+      ],
+      "vo": [
+        "shot-1"
+      ],
+      "narration": "\"Ever stared at a Stockfish evaluation of plus three point two... and had no idea what it actually means?\"",
+      "planned": {
+        "dur": 8.0,
+        "estimated": false,
+        "length": "0:00 - 0:08"
+      },
+      "speech": {
+        "words": 19,
+        "seconds": 6.79,
+        "rate": 2.47,
+        "fits": true
+      },
+      "sound": "Soft, subtle tension drone. Sharp chess piece click."
+    },
+    {
+      "id": "shot-2",
+      "shot": "Scene 2: The Pain",
+      "start": 8.0,
+      "dur": 10.0,
+      "visual": "Split screen: Confused young player looking at raw engine numbers: Centipawn loss: 148. Blunder: Nd5. Quick red flashes on missed pins and forks.",
+      "brief": "Split screen: Confused young player looking at raw engine numbers: Centipawn loss: 148. Blunder: Nd5. Quick red flashes on missed pins and forks.",
+      "onscreen": [
+        "Stockfish gives numbers. You need coaching."
+      ],
+      "vo": [
+        "shot-2"
+      ],
+      "narration": "\"Engines give cold numbers and computer lines no human would play. They don't teach you *why you blundered, or how to fix it.\"*",
+      "planned": {
+        "dur": 10.0,
+        "estimated": false,
+        "length": "0:08 - 0:18"
+      },
+      "speech": {
+        "words": 23,
+        "seconds": 8.21,
+        "rate": 2.37,
+        "fits": true
+      },
+      "sound": "Synth tick rhythm builds up. Disappointment buzz sound."
+    },
+    {
+      "id": "shot-3",
+      "shot": "Scene 3: The Reveal",
+      "start": 18.0,
+      "dur": 10.0,
+      "visual": "Smooth transition to the sleek dark/gold Chessmasters interface. User pastes a Lichess or Chess.com game link. Status badge streams: Fetching game... Analyzing centipawn loss... Generating coaching report.",
+      "brief": "Smooth transition to the sleek dark/gold Chessmasters interface. User pastes a Lichess or Chess.com game link. Status badge streams: Fetching game... Analyzing centipawn loss... Generating coaching report.",
+      "onscreen": [
+        "Meet Chessmasters. Paste any game link."
+      ],
+      "vo": [
+        "shot-3"
+      ],
+      "narration": "\"Meet Chessmasters. Just paste your Lichess or Chess.com game. In fifteen seconds, our AI Grandmaster breaks down your match in plain English.\"",
+      "planned": {
+        "dur": 10.0,
+        "estimated": false,
+        "length": "0:18 - 0:28"
+      },
+      "speech": {
+        "words": 22,
+        "seconds": 7.86,
+        "rate": 2.27,
+        "fits": true
+      },
+      "sound": "Beat drop kicks in! Smooth whoosh as URL is pasted. Satisfying chime on stream start."
+    },
+    {
+      "id": "shot-4",
+      "shot": "Scene 4: The Core Report",
+      "start": 28.0,
+      "dur": 12.0,
+      "visual": "Fast, dynamic zoom into the 5 core sections: Strengths (green badge), Weaknesses (amber badge), Turning Point with interactive board arrow showing the blunder, and Psychology radar showing time trouble.",
+      "brief": "Fast, dynamic zoom into the 5 core sections: Strengths (green badge), Weaknesses (amber badge), Turning Point with interactive board arrow showing the blunder, and Psychology radar showing time trouble.",
+      "onscreen": [
+        "• Narrative Strengths & Weaknesses • Critical Turning Point Board • Tilt & Time Trouble Detection"
+      ],
+      "vo": [
+        "shot-4"
+      ],
+      "narration": "\"Discover your exact strengths, your critical tactical blind spots, and the psychological moments where time trouble or tilt cost you the win.\"",
+      "planned": {
+        "dur": 12.0,
+        "estimated": false,
+        "length": "0:28 - 0:40"
+      },
+      "speech": {
+        "words": 22,
+        "seconds": 7.86,
+        "rate": 1.88,
+        "fits": true
+      },
+      "sound": "Rhythmic digital UI pulses, crisp card transition swooshes."
+    },
+    {
+      "id": "shot-5",
+      "shot": "Scene 5: Targeted Drills",
+      "start": 40.0,
+      "dur": 10.0,
+      "visual": "The report generates one-click practice links directly to Lichess tactical drills: Deflection, Knight Fork, King Safety. A cursor clicks a drill and the exact puzzle appears ready to solve.",
+      "brief": "The report generates one-click practice links directly to Lichess tactical drills: Deflection, Knight Fork, King Safety. A cursor clicks a drill and the exact puzzle appears ready to solve.",
+      "onscreen": [
+        "Instant Targeted Drills: Blunders → Mastery"
+      ],
+      "vo": [
+        "shot-5"
+      ],
+      "narration": "\"Best of all, Chessmasters turns your blunders into instant training drills. One click, and you're mastering the exact tactic you missed.\"",
+      "planned": {
+        "dur": 10.0,
+        "estimated": false,
+        "length": "0:40 - 0:50"
+      },
+      "speech": {
+        "words": 21,
+        "seconds": 7.5,
+        "rate": 2.16,
+        "fits": true
+      },
+      "sound": "Positive uplifting chord progression. Puzzle piece snap sound."
+    },
+    {
+      "id": "shot-6",
+      "shot": "Scene 6: The Outro / CTA",
+      "start": 50.0,
+      "dur": 10.0,
+      "visual": "Wide shot of the complete dashboard on desktop and phone. Premium gold typography shines: Chessmasters. URL displays clearly with a badge: First 5 Analyses Free.",
+      "brief": "Wide shot of the complete dashboard on desktop and phone. Premium gold typography shines: Chessmasters. URL displays clearly with a badge: First 5 Analyses Free.",
+      "onscreen": [
+        "Stop guessing. Start improving. chessmasters.in"
+      ],
+      "vo": [
+        "shot-6"
+      ],
+      "narration": "\"Stop guessing. Start mastering. Paste your first game free right now at chessmasters.in.\"",
+      "planned": {
+        "dur": 10.0,
+        "estimated": false,
+        "length": "0:50 - 1:00"
+      },
+      "speech": {
+        "words": 13,
+        "seconds": 4.64,
+        "rate": 1.34,
+        "fits": true
+      },
+      "sound": "Upbeat musical climax and clean acoustic reverb resolve."
+    }
+  ]
+}

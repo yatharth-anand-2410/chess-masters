@@ -1,0 +1,21 @@
+{
+  "_comment": "Written by `showtime new --from-storyboard`: a quiet documentary bed with a section on each shot; the storyboard names no other sound (its Sound notes are in storyboard.json). `showtime retime --from-voice` adds the voice lines and ducks the bed under them.",
+  "sample_rate": 48000,
+  "tracks": [
+    {
+      "id": "bed",
+      "kind": "music",
+      "compose": {
+        "style": "underscore",
+        "sections": "0:intro,8:verse,18:verse,28:verse,40:verse,50:outro",
+        "seed": 11
+      },
+      "gain_db": -4,
+      "fade_out": 1.5
+    }
+  ],
+  "master": {
+    "lufs": -14,
+    "true_peak": -1
+  }
+}

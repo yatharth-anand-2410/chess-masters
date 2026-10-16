@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 type UpgradePromptProps = {
-  feature?: "analysis" | "qna";
+  feature?: "analysis" | "qna" | "coach";
 };
 
 const COPY: Record<NonNullable<UpgradePromptProps["feature"]>, { title: string; description: string }> = {
@@ -12,6 +12,10 @@ const COPY: Record<NonNullable<UpgradePromptProps["feature"]>, { title: string; 
   qna: {
     title: "Ask your coach follow-up questions",
     description: "Q&A with your chess coach is available on the paid plan.",
+  },
+  coach: {
+    title: "Coach Pro Subscription Required",
+    description: "Manage student rosters, batch audits, and shareable progress links with Coach Pro.",
   },
 };
 

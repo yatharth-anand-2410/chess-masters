@@ -172,6 +172,27 @@ export default function CoachingReport({
   gamesAnalyzed = 0,
   analysisId,
 }: CoachingReportProps) {
+  const rawPsychology = insights?.psychology ?? null;
+  const psychologyProfile = isPsychologyProfile(rawPsychology)
+    ? rawPsychology
+    : null;
+  const showLockedPsychology = psychologyLocked && !psychologyProfile;
+
+  const renderPsychologyHeader = () => {
+    if (!psychologyProfile && !showLockedPsychology) {
+      return null;
+    }
+    return (
+      <div className="report-section psychology-top-slot mb-6" data-slot="psychology-header">
+        <PsychologySlot
+          profile={psychologyProfile}
+          locked={showLockedPsychology}
+          gamesAnalyzed={gamesAnalyzed}
+        />
+      </div>
+    );
+  };
+
   if (!content.trim()) {
     if (!pending) {
       return null;
@@ -181,6 +202,7 @@ export default function CoachingReport({
         className="report report-pending"
         aria-label="Generating coaching report"
       >
+        {renderPsychologyHeader()}
         <HeroRule rule={null} pending />
         <div className="report-skeleton" aria-hidden="true">
           {Array.from({ length: 7 }).map((_, index) => (
@@ -194,14 +216,6 @@ export default function CoachingReport({
   const normalized = normalizeCharts(hideIncompleteChartTag(content));
   const sections = orderSections(splitSections(normalized));
   const sectionClassName = pending ? "report report-pending" : "report";
-  const rawPsychology = insights?.psychology ?? null;
-  const psychologyProfile = isPsychologyProfile(rawPsychology)
-    ? rawPsychology
-    : null;
-  const showLockedPsychology = psychologyLocked && !psychologyProfile;
-  const hasPsychologySection = sections.some((section) =>
-    section.heading.toLowerCase().includes("psychology")
-  );
 
   const nextRule = resolveNextGameRule(sections, insights);
   const hasDrills = (insights?.weakness_moments ?? []).some(isDrillable);
@@ -217,23 +231,18 @@ export default function CoachingReport({
   if (sections.length === 0) {
     return (
       <section className={sectionClassName} data-surface="paper">
+        {renderPsychologyHeader()}
         <HeroRule rule={nextRule} pending={pending} drillAnchor={hasDrills ? "drills" : null} />
         <MemoizedMarkdown markdown={normalized} />
-        {(psychologyProfile || showLockedPsychology) && (
-          <div className="report-section">
-            <PsychologySlot
-              profile={psychologyProfile}
-              locked={showLockedPsychology}
-              gamesAnalyzed={gamesAnalyzed}
-            />
-          </div>
-        )}
       </section>
     );
   }
 
   return (
     <section className={sectionClassName} data-surface="paper">
+      {/* Prominently render Cognitive Psychology at the VERY TOP of the report canvas */}
+      {renderPsychologyHeader()}
+
       <HeroRule rule={nextRule} pending={pending} drillAnchor={hasDrills ? "drills" : null} />
 
       {sections.map((section, index) => {
@@ -298,26 +307,9 @@ export default function CoachingReport({
               ) : pending ? (
                 <SectionBoardsSkeleton />
               ) : null)}
-            {heading.includes("psychology") && (
-              <PsychologySlot
-                profile={psychologyProfile}
-                locked={showLockedPsychology}
-                gamesAnalyzed={gamesAnalyzed}
-              />
-            )}
           </div>
         );
       })}
-
-      {(psychologyProfile || showLockedPsychology) && !hasPsychologySection && (
-        <div className="report-section">
-          <PsychologySlot
-            profile={psychologyProfile}
-            locked={showLockedPsychology}
-            gamesAnalyzed={gamesAnalyzed}
-          />
-        </div>
-      )}
     </section>
   );
 }

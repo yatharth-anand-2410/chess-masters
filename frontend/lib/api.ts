@@ -60,13 +60,16 @@ export async function apiGet<T>(path: string, token?: string): Promise<T> {
   return response.json() as Promise<T>;
 }
 
-export async function apiPost<T>(path: string, token: string, body: unknown): Promise<T> {
+export async function apiPost<T>(path: string, token?: string, body?: unknown): Promise<T> {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
   const response = await fetch(`${API_BASE}${path}`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-    },
+    headers,
     body: JSON.stringify(body),
   });
   if (!response.ok) {
@@ -298,4 +301,76 @@ export function shareUrl(path: string): string {
     return path;
   }
   return `${window.location.origin}${path}`;
+}
+
+// ─── NEW EXPANDED CHESSMASTERS API CLIENTS ─────────────────────────────────
+
+export type DrawClassification = {
+  draw_type: "missed_win" | "heroic_fortress" | "premature_fear" | "standard_agreement" | "stalemate_swindle";
+  verdict: string;
+  eval_swings: Array<{ ply: number; eval: number }>;
+  psychological_factor?: string;
+  recommendation: string;
+};
+
+export type LichessStudyImport = {
+  study_id: string;
+  name: string;
+  chapters: Array<{
+    id: string;
+    name: string;
+    fen: string;
+    arrows: string[];
+    circles: string[];
+    coach_commentary: string;
+  }>;
+};
+
+export type OpponentScoutDossier = {
+  username: string;
+  platform: string;
+  rating_blitz?: number;
+  rating_rapid?: number;
+  tactical_leak_index: number;
+  time_trouble_vulnerability: number;
+  opening_repertoire: {
+    white: Array<{ name: string; win_rate: number; count: number }>;
+    black: Array<{ name: string; win_rate: number; count: number }>;
+  };
+  key_vulnerabilities: string[];
+};
+
+export type CopilotQueryResponse = {
+  answer: string;
+  turning_point_ply?: number;
+  prescribed_practice?: string;
+  suggested_action?: string;
+};
+
+export async function classifyDraw(pgn: string, color?: string): Promise<DrawClassification> {
+  const res = await fetch(`${API_BASE}/api/draws/classify`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ pgn, color }),
+  });
+  if (!res.ok) throw new Error("Draw classification failed");
+  return res.json();
+}
+
+export async function importStudy(studyId: string): Promise<LichessStudyImport> {
+  return apiGet<LichessStudyImport>(`/api/studies/import/${encodeURIComponent(studyId)}`);
+}
+
+export async function scoutOpponent(username: string, platform: string = "lichess"): Promise<OpponentScoutDossier> {
+  return apiGet<OpponentScoutDossier>(`/api/scout/${encodeURIComponent(username)}?platform=${platform}`);
+}
+
+export async function queryCopilot(query: string, studentId?: string, gameId?: string): Promise<CopilotQueryResponse> {
+  const res = await fetch(`${API_BASE}/api/copilot/query`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ query, student_id: studentId, game_id: gameId }),
+  });
+  if (!res.ok) throw new Error("AI Copilot query failed");
+  return res.json();
 }

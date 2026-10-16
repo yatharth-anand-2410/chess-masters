@@ -37,6 +37,7 @@ import {
   mergeHistoryEntries,
   type AnalysisSummary,
   type BatchSummary,
+  type StudentSummary,
   type Usage,
   type UserProfile,
   type UserRole,
@@ -65,6 +66,8 @@ export default function HomePage() {
   const [analysisId, setAnalysisId] = useState<string | null>(null);
   const [guestUsed, setGuestUsed] = useState(false);
   const [guestLimitHit, setGuestLimitHit] = useState(false);
+  const [coachStudents, setCoachStudents] = useState<StudentSummary[]>([]);
+  const [attachedStudentId, setAttachedStudentId] = useState<string>("");
   const pendingChunks = useRef("");
   const flushHandle = useRef<number | null>(null);
 
@@ -110,6 +113,15 @@ export default function HomePage() {
       setUsage(data);
     } catch (err) {
       console.error("Failed to load usage:", err);
+    }
+  }, []);
+
+  const refreshCoachStudents = useCallback(async (sessionToken: string) => {
+    try {
+      const list = await apiGet<StudentSummary[]>("/api/coach/students", sessionToken);
+      setCoachStudents(list || []);
+    } catch {
+      // not a coach or offline
     }
   }, []);
 
@@ -224,23 +236,30 @@ export default function HomePage() {
 
   useEffect(() => {
     const supabase = createClient();
+    const syncSession = (sessionUser?: User | null) => {
+      setUser(sessionUser ?? null);
+    };
+
     supabase.auth.getSession().then(({ data }) => {
       const session = data.session;
-      setUser(session?.user ?? null);
+      syncSession(session?.user);
       setToken(session?.access_token ?? "");
       if (session) {
         refreshHistory(session.access_token);
         refreshUsage(session.access_token);
+        refreshCoachStudents(session.access_token);
         loadProfile(session.access_token);
         claimGuestTrial(session.access_token);
       }
     });
+
     const { data: subscription } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
+      syncSession(session?.user);
       setToken(session?.access_token ?? "");
       if (session) {
         refreshHistory(session.access_token);
         refreshUsage(session.access_token);
+        refreshCoachStudents(session.access_token);
         loadProfile(session.access_token);
         claimGuestTrial(session.access_token);
       } else {
@@ -255,8 +274,26 @@ export default function HomePage() {
         setAnalysisId(null);
       }
     });
-    return () => subscription.subscription.unsubscribe();
-  }, [claimGuestTrial, loadProfile, refreshHistory, refreshUsage]);
+
+    const handleAuthChange = () => {
+      supabase.auth.getSession().then(({ data }) => {
+        syncSession(data.session?.user);
+        if (data.session?.access_token) {
+          refreshCoachStudents(data.session.access_token);
+        }
+      });
+    };
+    window.addEventListener("cm_auth_changed", handleAuthChange);
+    window.addEventListener("cm_students_changed", handleAuthChange);
+    window.addEventListener("storage", handleAuthChange);
+
+    return () => {
+      subscription.subscription.unsubscribe();
+      window.removeEventListener("cm_auth_changed", handleAuthChange);
+      window.removeEventListener("cm_students_changed", handleAuthChange);
+      window.removeEventListener("storage", handleAuthChange);
+    };
+  }, [claimGuestTrial, loadProfile, refreshHistory, refreshUsage, refreshCoachStudents]);
 
   const resetAnalysisState = useCallback(() => {
     if (flushHandle.current !== null) {
@@ -682,12 +719,57 @@ export default function HomePage() {
               <UpgradePrompt feature="analysis" />
             )
           ) : (
-            <AnalyzerForm
-              disabled={isAnalyzing}
-              maxGames={user ? batchGameLimit : 1}
-              onSubmit={startAnalysis}
-              onSubmitBatch={user ? startBatchAnalysis : undefined}
-            />
+            <>
+              {/* Coach Mode: Attach to Student (Pro Plan Only) */}
+              {user && usage?.plan === "paid" && (
+                <div className="mb-3.5 p-3 rounded-xl bg-[var(--ink-2)] border border-[var(--gold)]/30 flex flex-wrap items-center justify-between gap-2.5 shadow-xs">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-semibold text-[var(--gold-bright)] flex items-center gap-1.5">
+                      <span className="text-sm">👤</span>
+                      <span>Attach to Student:</span>
+                    </span>
+                    <select
+                      value={attachedStudentId}
+                      onChange={(e) => setAttachedStudentId(e.target.value)}
+                      className="px-2.5 py-1 text-xs rounded-lg bg-[var(--ink-3)] border border-[var(--line)] text-[var(--text)] focus:outline-hidden focus:border-[var(--gold)] cursor-pointer"
+                      aria-label="Attach analysis to student profile"
+                    >
+                      <option value="">Personal Analysis (No student attached)</option>
+                      {coachStudents.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.display_name} {s.chesscom_username ? `(@${s.chesscom_username})` : s.lichess_username ? `(@${s.lichess_username})` : ""}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (typeof window !== "undefined") {
+                        window.dispatchEvent(new CustomEvent("open-manage-students"));
+                      }
+                    }}
+                    className="inline-flex items-center gap-1 text-xs text-[var(--gold-bright)] hover:underline font-semibold cursor-pointer"
+                  >
+                    <span>+ Manage Students</span>
+                  </button>
+                </div>
+              )}
+
+              <AnalyzerForm
+                disabled={isAnalyzing}
+                maxGames={user ? batchGameLimit : 1}
+                defaultUsername={
+                  attachedStudentId
+                    ? coachStudents.find((s) => s.id === attachedStudentId)?.chesscom_username || undefined
+                    : undefined
+                }
+                studentId={attachedStudentId || undefined}
+                onSubmit={startAnalysis}
+                onSubmitBatch={user ? startBatchAnalysis : undefined}
+              />
+            </>
           )}
 
           {!user && (

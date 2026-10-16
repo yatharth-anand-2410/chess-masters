@@ -6,6 +6,8 @@ import "@lichess-org/chessground/assets/chessground.cburnett.css";
 import "./globals.css";
 import JsonLd from "../components/JsonLd";
 import SiteFooter from "../components/SiteFooter";
+import AICoachDrawer from "../components/AICoachDrawer";
+import ManageStudentsModal from "../components/ManageStudentsModal";
 import {
   ORGANIZATION_SCHEMA,
   schemaGraph,
@@ -68,6 +70,8 @@ export default function RootLayout({
       <body className={`${display.variable} ${body.variable}`}>
         <JsonLd data={schemaGraph([ORGANIZATION_SCHEMA, WEBSITE_SCHEMA])} />
         {children}
+        <AICoachDrawer />
+        <ManageStudentsModal />
         <SiteFooter />
       </body>
     </html>
