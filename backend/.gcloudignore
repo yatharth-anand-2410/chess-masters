@@ -1,0 +1,12 @@
+# Files excluded from `gcloud builds submit` uploads (and thus from the image).
+# Secrets and local caches must never enter the build context.
+.env
+.env.*
+*.pyc
+__pycache__/
+**/__pycache__/
+.pytest_cache/
+**/.pytest_cache/
+.venv/
+venv/
+.DS_Store

@@ -1,0 +1,15 @@
+# Files excluded from `gcloud builds submit` uploads.
+# .env.local carries server-side secrets (and the Vercel OIDC token); the
+# NEXT_PUBLIC_* values needed at build time are passed as --build-arg from
+# the command line instead.
+node_modules/
+.next/
+.env
+.env.*
+.env.local
+.env.local.*
+.vercel/
+e2e-screenshots/
+tsconfig.tsbuildinfo
+npm-debug.log*
+.DS_Store

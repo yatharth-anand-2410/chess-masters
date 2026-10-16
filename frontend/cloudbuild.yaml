@@ -1,0 +1,24 @@
+# Cloud Build pipeline for the frontend container.
+# Usage (from frontend/):
+#   gcloud builds submit . --config cloudbuild.yaml \
+#     --substitutions=_NEXT_PUBLIC_SUPABASE_URL=...,_NEXT_PUBLIC_SUPABASE_ANON_KEY=...
+substitutions:
+  _NEXT_PUBLIC_API_URL: 'https://api.chessmasterss.in'
+  _IMAGE: 'asia-south1-docker.pkg.dev/chessmasterss/chessmasters/frontend:latest'
+
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '--build-arg=NEXT_PUBLIC_API_URL=${_NEXT_PUBLIC_API_URL}'
+      - '--build-arg=NEXT_PUBLIC_SUPABASE_URL=${_NEXT_PUBLIC_SUPABASE_URL}'
+      - '--build-arg=NEXT_PUBLIC_SUPABASE_ANON_KEY=${_NEXT_PUBLIC_SUPABASE_ANON_KEY}'
+      - '--tag=${_IMAGE}'
+      - '.'
+
+images:
+  - '${_IMAGE}'
+
+options:
+  machineType: 'E2_HIGHCPU_8'
+  logging: CLOUD_LOGGING_ONLY
