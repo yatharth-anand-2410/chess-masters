@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Check, Loader2, Sparkles, Brain, FileText } from "lucide-react";
+import { ArrowDown, Check, Loader2, Sparkles, Brain, FileText, X } from "lucide-react";
 import { cn } from "../lib/utils";
 
 type AnalysisStatusProps = {
@@ -11,6 +11,10 @@ type AnalysisStatusProps = {
   onCancel?: () => void;
   /** Seconds since the run started, for the honest "no ETA" readout. */
   elapsedSeconds?: number;
+  /** Hides the "Analysis complete" panel. */
+  onDismiss?: () => void;
+  /** Scrolls the report into view from the completion panel. */
+  onViewReport?: () => void;
 };
 
 export default function AnalysisStatus({
@@ -18,6 +22,8 @@ export default function AnalysisStatus({
   isAnalyzing,
   onCancel,
   elapsedSeconds = 0,
+  onDismiss,
+  onViewReport,
 }: AnalysisStatusProps) {
   if (!status && !isAnalyzing) {
     return null;
@@ -35,6 +41,55 @@ export default function AnalysisStatus({
       >
         <span aria-hidden="true">✕</span>
         <span>{status}</span>
+      </div>
+    );
+  }
+
+  // The finished run announces itself: the peak moment gets a green check, the
+  // elapsed time, a jump to the report, and a way to close the panel.
+  if (!isAnalyzing && s.includes("complete")) {
+    const elapsedLabel =
+      elapsedSeconds >= 60
+        ? `${Math.floor(elapsedSeconds / 60)}m ${elapsedSeconds % 60}s`
+        : `${elapsedSeconds}s`;
+    return (
+      <div
+        role="status"
+        aria-live="polite"
+        className="w-full flex flex-wrap items-center justify-center gap-x-3 gap-y-2 p-3.5 sm:p-4 rounded-[var(--radius-card)] bg-[rgba(111,163,131,0.08)] border border-[rgba(111,163,131,0.45)] text-xs"
+      >
+        <span
+          className="w-5 h-5 rounded-full bg-[var(--green)] text-[#0c1214] flex items-center justify-center shrink-0"
+          aria-hidden="true"
+        >
+          <Check size={13} strokeWidth={3} />
+        </span>
+        <span className="font-semibold text-[var(--text)]">{status}</span>
+        {elapsedSeconds > 0 && (
+          <span className="text-[var(--text-muted)] font-mono">
+            took {elapsedLabel}
+          </span>
+        )}
+        {onViewReport && (
+          <button
+            type="button"
+            onClick={() => onViewReport()}
+            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-[var(--radius-control)] border border-[var(--line-strong)] text-[var(--text)] hover:border-[var(--gold)] hover:text-[var(--gold-bright)] transition-colors cursor-pointer"
+          >
+            View report
+            <ArrowDown size={13} aria-hidden="true" />
+          </button>
+        )}
+        {onDismiss && (
+          <button
+            type="button"
+            onClick={onDismiss}
+            className="p-1 rounded-md text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--ink-3)] transition-colors cursor-pointer"
+            aria-label="Dismiss"
+          >
+            <X size={14} />
+          </button>
+        )}
       </div>
     );
   }

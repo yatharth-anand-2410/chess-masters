@@ -12,14 +12,11 @@ import AnalyzerForm, {
 } from "./AnalyzerForm";
 import AnalysisStatus from "./AnalysisStatus";
 import AnalysisHistory from "./AnalysisHistory";
-import AnalyzerGuide from "./AnalyzerGuide";
 import AuthButton from "./AuthButton";
 import BatchProgress, {
   type BatchGameProgress,
 } from "./BatchProgress";
 import CoachingReport from "./CoachingReport";
-import CoachingPedigree from "./CoachingPedigree";
-import FaqSection from "./FaqSection";
 import GuestQnaPrompt from "./GuestQnaPrompt";
 import GuestSignInPrompt from "./GuestSignInPrompt";
 import HeroBoard from "./HeroBoard";
@@ -29,6 +26,8 @@ import UpgradePrompt from "./UpgradePrompt";
 import type { InsightsData } from "./insights";
 import { initAnalytics, trackEvent } from "../lib/analytics";
 import { warmBackend } from "../lib/backend-wake";
+import { PRODUCT_FACTS } from "../lib/site";
+import { Check } from "lucide-react";
 import {
   API_BASE,
   apiPost,
@@ -72,6 +71,14 @@ export default function HomePage() {
   const [attachedStudentId, setAttachedStudentId] = useState<string>("");
   const pendingChunks = useRef("");
   const flushHandle = useRef<number | null>(null);
+  const reportRef = useRef<HTMLDivElement | null>(null);
+  const hasScrolledToReport = useRef(false);
+  /** The last submitted request, kept so a failed run can be retried as-is. */
+  const retryableRef = useRef<
+    | { kind: "single"; request: AnalysisRequest }
+    | { kind: "batch"; request: BatchAnalysisRequest }
+    | null
+  >(null);
 
   const flushStreamContent = useCallback(() => {
     if (flushHandle.current !== null) {
@@ -94,6 +101,35 @@ export default function HomePage() {
       flushStreamContent();
     });
   }, [flushStreamContent]);
+
+  /**
+   * The report is the peak of the experience, so the first streamed chunk
+   * brings it into view once per run. The automatic reveal jumps instantly —
+   * a long smooth scroll races the streaming layout. The manual "View report"
+   * button scrolls smoothly instead.
+   */
+  const scrollToReport = useCallback((behavior: ScrollBehavior = "smooth") => {
+    const reduced =
+      typeof window !== "undefined" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    reportRef.current?.scrollIntoView({
+      behavior: reduced ? "auto" : behavior,
+      block: "start",
+    });
+  }, []);
+
+  const revealReport = useCallback(() => {
+    if (hasScrolledToReport.current) {
+      return;
+    }
+    hasScrolledToReport.current = true;
+    // "instant" deliberately bypasses the global `html { scroll-behavior:
+    // smooth }` — the reveal must land immediately so the streaming report
+    // is in view while it grows. The manual button scrolls smoothly instead.
+    scrollToReport("instant");
+  }, [scrollToReport]);
+
+  const dismissStatus = useCallback(() => setStatus(""), []);
 
   useEffect(() => {
     return () => {
@@ -323,6 +359,7 @@ export default function HomePage() {
       flushHandle.current = null;
     }
     pendingChunks.current = "";
+    hasScrolledToReport.current = false;
     setError("");
     setMarkdown("");
     setInsights(null);
@@ -352,6 +389,7 @@ export default function HomePage() {
     }
     abortRef.current?.abort();
     abortRef.current = null;
+    retryableRef.current = null;
     resetAnalysisState();
     setIsAnalyzing(false);
     setStatus(
@@ -375,6 +413,7 @@ export default function HomePage() {
       }
 
       resetAnalysisState();
+      retryableRef.current = { kind: "single", request };
       setStatus("Connecting...");
       setIsAnalyzing(true);
 
@@ -421,10 +460,12 @@ export default function HomePage() {
             } else if (eventName === "content_chunk" && payload.text) {
               pendingChunks.current += payload.text;
               scheduleStreamFlush();
+              revealReport();
             } else if (eventName === "insights") {
               setInsights(payload as unknown as InsightsData);
             } else if (eventName === "done") {
               flushStreamContent();
+              retryableRef.current = null;
               setStatus("Analysis complete");
               setIsAnalyzing(false);
               trackCompletion(true);
@@ -454,6 +495,7 @@ export default function HomePage() {
                   isBatch: false,
                   signedIn: Boolean(accessToken),
                 });
+                retryableRef.current = null;
                 setGuestLimitHit(true);
                 setStatus("");
                 setIsAnalyzing(false);
@@ -475,6 +517,7 @@ export default function HomePage() {
                 isBatch: false,
                 signedIn: Boolean(accessToken),
               });
+              retryableRef.current = null;
               setGuestLimitHit(true);
               setStatus("");
               setIsAnalyzing(false);
@@ -486,6 +529,7 @@ export default function HomePage() {
                 isBatch: false,
                 signedIn: Boolean(accessToken),
               });
+              retryableRef.current = null;
               if (accessToken) {
                 refreshUsage(accessToken, { force: true });
               }
@@ -499,6 +543,7 @@ export default function HomePage() {
                 isBatch: false,
                 signedIn: Boolean(accessToken),
               });
+              retryableRef.current = null;
               setError(message);
               if (accessToken) {
                 refreshUsage(accessToken, { force: true });
@@ -516,7 +561,7 @@ export default function HomePage() {
         { signal: controller.signal }
       );
     },
-    [flushStreamContent, guestUsed, refreshHistory, refreshUsage, resetAnalysisState, scheduleStreamFlush]
+    [flushStreamContent, guestUsed, refreshHistory, refreshUsage, resetAnalysisState, revealReport, scheduleStreamFlush]
   );
 
   const startBatchAnalysis = useCallback(
@@ -532,6 +577,7 @@ export default function HomePage() {
       const token = session.access_token;
 
       resetAnalysisState();
+      retryableRef.current = { kind: "batch", request };
       setBatchGames(
         request.games.map((game) => ({
           gameUrl: game.gameUrl,
@@ -658,10 +704,12 @@ export default function HomePage() {
             } else if (eventName === "content_chunk" && payload.text) {
               pendingChunks.current += payload.text;
               scheduleStreamFlush();
+              revealReport();
             } else if (eventName === "insights") {
               setInsights(payload as unknown as InsightsData);
             } else if (eventName === "done") {
               flushStreamContent();
+              retryableRef.current = null;
               setStatus("Analysis complete");
               setIsAnalyzing(false);
               trackCompletion(true);
@@ -693,6 +741,7 @@ export default function HomePage() {
                 isBatch: true,
                 signedIn: Boolean(token),
               });
+              retryableRef.current = null;
               refreshUsage(token, { force: true });
               setStatus("");
               setIsAnalyzing(false);
@@ -704,6 +753,7 @@ export default function HomePage() {
                 isBatch: true,
                 signedIn: Boolean(token),
               });
+              retryableRef.current = null;
               setError(message);
               refreshUsage(token, { force: true });
               setStatus("");
@@ -719,7 +769,7 @@ export default function HomePage() {
         { signal: controller.signal }
       );
     },
-    [flushStreamContent, refreshHistory, refreshUsage, resetAnalysisState, scheduleStreamFlush]
+    [flushStreamContent, refreshHistory, refreshUsage, resetAnalysisState, revealReport, scheduleStreamFlush]
   );
 
   const openAnalysis = useCallback((id: string) => {
@@ -729,6 +779,20 @@ export default function HomePage() {
   const openBatch = useCallback((id: string) => {
     window.location.href = `/batch/${id}`;
   }, []);
+
+  /** Re-run the failed submission exactly as it was entered — nothing is lost. */
+  const handleRetryAnalysis = useCallback(() => {
+    const pending = retryableRef.current;
+    retryableRef.current = null;
+    if (!pending) {
+      return;
+    }
+    if (pending.kind === "single") {
+      void startAnalysis(pending.request);
+    } else {
+      void startBatchAnalysis(pending.request);
+    }
+  }, [startAnalysis, startBatchAnalysis]);
 
   const clearSessionState = useCallback(() => {
     setAnalyses([]);
@@ -760,6 +824,7 @@ export default function HomePage() {
         user={user}
         usage={usage}
         role={profile?.role ?? null}
+        showUsagePill={false}
         onAuthChange={clearSessionState}
         onToggleRole={profile ? toggleRole : undefined}
       />
@@ -824,6 +889,7 @@ export default function HomePage() {
               <AnalyzerForm
                 disabled={isAnalyzing}
                 maxGames={user ? batchGameLimit : 1}
+                remainingCredits={user ? usage?.analyses_remaining ?? null : null}
                 defaultUsername={
                   attachedStudentId
                     ? coachStudents.find((s) => s.id === attachedStudentId)?.chesscom_username || undefined
@@ -873,12 +939,32 @@ export default function HomePage() {
               isAnalyzing={isAnalyzing}
               elapsedSeconds={elapsedSeconds}
               onCancel={isAnalyzing ? handleCancelAnalysis : undefined}
+              onDismiss={dismissStatus}
+              onViewReport={scrollToReport}
             />
           </div>
 
           {batchGames.length > 0 && <BatchProgress games={batchGames} />}
 
-          {error && <div className="error-banner">{error}</div>}
+          {error && (
+            <div className="error-banner" role="alert">
+              <span className="error-banner-text">{error}</span>
+              {retryableRef.current && (
+                <button
+                  type="button"
+                  className="btn-retry"
+                  onClick={handleRetryAnalysis}
+                >
+                  Try again
+                </button>
+              )}
+              <span className="error-credit-note">
+                {token
+                  ? "Your credit wasn't spent — failed analyses don't count toward your limit."
+                  : "This run didn't use your free analysis."}
+              </span>
+            </div>
+          )}
         </div>
 
         <aside className="hero-visual">
@@ -893,50 +979,17 @@ export default function HomePage() {
 
       {/* The report is the product: it renders immediately below the form, so a
           submitted game is visible without scrolling past the marketing bands.
-          The guide and the unlock band follow it instead of blocking it. */}
+          The first streamed chunk scrolls it into view (see revealReport). */}
       {(isAnalyzing || markdown) && (
-        <CoachingReport
-          content={markdown}
-          insights={insights}
-          pending={isAnalyzing}
-          analysisId={analysisId}
-        />
+        <div className="report-anchor" ref={reportRef}>
+          <CoachingReport
+            content={markdown}
+            insights={insights}
+            pending={isAnalyzing}
+            analysisId={analysisId}
+          />
+        </div>
       )}
-
-      <AnalyzerGuide />
-
-      <section className="mindset-callout" aria-labelledby="mindset-title">
-        <div className="mindset-copy">
-          <p className="mindset-kicker">Progressive unlock</p>
-          <h2 className="mindset-title" id="mindset-title">
-            Stockfish fixes your moves. We fix your mindset.
-          </h2>
-          <p className="mindset-lede">
-            Play 3 games to unlock your AI Psychological Profile. Discover your
-            Tilt Resistance, Composure, and unique Playing Style based on your
-            actual blunders.
-          </p>
-        </div>
-        <div className="mindset-emblem" aria-hidden="true">
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.7"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <rect x="4" y="10.5" width="16" height="9.5" rx="2" />
-            <path d="M8 10.5V8a4 4 0 0 1 8 0v2.5" />
-            <circle cx="12" cy="15.25" r="1.1" fill="currentColor" stroke="none" />
-          </svg>
-          <span className="mindset-pips">
-            <span className="mindset-pip" />
-            <span className="mindset-pip" />
-            <span className="mindset-pip" />
-          </span>
-        </div>
-      </section>
 
       {markdown && !user && <GuestQnaPrompt moveLabel={guestBlunderLabel} />}
 
@@ -970,9 +1023,23 @@ export default function HomePage() {
         </section>
       )}
 
-      <CoachingPedigree />
-
-      <FaqSection showMeta />
+      <section className="trust-strip" aria-label="About Chessmasters">
+        <span className="trust-strip-item">
+          <Check size={13} strokeWidth={3} aria-hidden="true" />
+          Stockfish-checked · reviewed by a FIDE International Master
+        </span>
+        <span className="trust-strip-dot" aria-hidden="true">·</span>
+        <span className="trust-strip-item">Psychology profile after 3 games</span>
+        <span className="trust-strip-dot" aria-hidden="true">·</span>
+        <span className="trust-strip-item">
+          Pro: &#8377;{PRODUCT_FACTS.proPriceInr}/month ·{" "}
+          {PRODUCT_FACTS.proAnalysesPerPeriod} analyses
+        </span>
+        <span className="trust-strip-dot" aria-hidden="true">·</span>
+        <span className="trust-strip-item">
+          <Link href="/faq">Read the FAQ</Link>
+        </span>
+      </section>
 
       <ReviewSection user={user} token={token} onAuthChange={clearSessionState} />
 

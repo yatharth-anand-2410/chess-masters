@@ -36,6 +36,8 @@ export type BatchAnalysisRequest = {
 type AnalyzerFormProps = {
   disabled?: boolean;
   maxGames?: number;
+  /** Signed-in credit count; drives the cost label and last-credits confirm. */
+  remainingCredits?: number | null;
   /** Prefilled Chess.com username (e.g. the selected student's handle). */
   defaultUsername?: string;
   /** Coach mode: analyses submitted here are tagged to this student. */
@@ -70,9 +72,28 @@ function detectColorFromUrl(url: string): PlayerColor | null {
   return match[1].toLowerCase() === "white" ? "white" : "black";
 }
 
+/** Non-blocking format precheck: a malformed link would otherwise burn a round-trip. */
+function validateUrlFormat(url: string, platform: Platform): string | null {
+  const value = url.trim();
+  if (!value) {
+    return null;
+  }
+  if (platform === "lichess") {
+    if (!/lichess\.org\/[A-Za-z0-9]{8}/i.test(value)) {
+      return "That doesn't look like a Lichess game link — it should start with lichess.org/ followed by 8 characters.";
+    }
+    return null;
+  }
+  if (!/chess\.com\/(game|analysis\/game|live)\//i.test(value)) {
+    return "That doesn't look like a Chess.com game link — it should start with chess.com/game/ or chess.com/analysis/game/.";
+  }
+  return null;
+}
+
 export default function AnalyzerForm({
   disabled,
   maxGames,
+  remainingCredits,
   defaultUsername,
   studentId,
   onSubmit,
@@ -85,6 +106,11 @@ export default function AnalyzerForm({
   const [platform, setPlatform] = useState<Platform>("lichess");
   const [username, setUsername] = useState(defaultUsername ?? "");
   const [formError, setFormError] = useState<FormError | null>(null);
+  const [urlHint, setUrlHint] = useState<{ rowId: number; message: string } | null>(
+    null
+  );
+  /** Set when the run would spend every remaining credit; the next click confirms. */
+  const [lastCreditsConfirm, setLastCreditsConfirm] = useState<number | null>(null);
   const nextRowId = useRef(2);
   const inputRefs = useRef(new Map<number, HTMLInputElement>());
   const usernameRef = useRef<HTMLInputElement>(null);
@@ -138,6 +164,8 @@ export default function AnalyzerForm({
   const handlePlatformChange = (next: Platform) => {
     setPlatform(next);
     setFormError(null);
+    setUrlHint(null);
+    setLastCreditsConfirm(null);
     if (next === "lichess") {
       setRows((current) =>
         current.map((row) => {
@@ -171,6 +199,15 @@ export default function AnalyzerForm({
           : row
       )
     );
+    // The format precheck retires as soon as the value changes.
+    setUrlHint((current) => (current?.rowId === id ? null : current));
+    setLastCreditsConfirm(null);
+  };
+
+  /** On blur, warn about a malformed link before the backend round-trip. */
+  const checkUrlOnBlur = (id: number, value: string) => {
+    const message = validateUrlFormat(value, platform);
+    setUrlHint(message ? { rowId: id, message } : null);
   };
 
   const updateRowColor = (id: number, color: PlayerColor) => {
@@ -198,6 +235,7 @@ export default function AnalyzerForm({
   };
 
   const addRow = () => {
+    setLastCreditsConfirm(null);
     setRows((current) => {
       if (current.length >= rowLimit) {
         return current;
@@ -209,6 +247,7 @@ export default function AnalyzerForm({
   };
 
   const removeRow = (id: number) => {
+    setLastCreditsConfirm(null);
     setRows((current) => {
       if (current.length <= 1) {
         return current;
@@ -279,6 +318,20 @@ export default function AnalyzerForm({
       setFormError({ kind: "username" });
       usernameRef.current?.focus();
       return;
+    }
+
+    // Spending every remaining credit is a one-way step: the first click asks,
+    // the second one confirms. The button relabels so the stakes are named.
+    if (
+      remainingCredits !== null &&
+      remainingCredits !== undefined &&
+      games.length >= remainingCredits
+    ) {
+      if (lastCreditsConfirm !== games.length) {
+        setLastCreditsConfirm(games.length);
+        return;
+      }
+      setLastCreditsConfirm(null);
     }
 
     if (games.length === 1) {
@@ -459,6 +512,7 @@ export default function AnalyzerForm({
                     onChange={(event) => updateRowUrl(row.id, event.target.value)}
                     onFocus={() => warmBackend()}
                     onPaste={() => warmBackend()}
+                    onBlur={(event) => checkUrlOnBlur(row.id, event.target.value)}
                     placeholder={
                       platform === "lichess"
                         ? "https://lichess.org/abc12345"
@@ -466,6 +520,11 @@ export default function AnalyzerForm({
                     }
                     disabled={disabled}
                     aria-label={`Game ${index + 1} URL`}
+                    aria-describedby={
+                      urlHint?.rowId === row.id
+                        ? `game-${row.id}-url-hint`
+                        : undefined
+                    }
                     autoComplete="off"
                     spellCheck={false}
                     inputMode="url"
@@ -596,10 +655,20 @@ export default function AnalyzerForm({
           </button>
           <span className="game-rows-hint text-[var(--text-muted)] font-mono">
             {validGames.length === 0
-              ? `Up to ${rowLimit} games per run · 1 analysis each`
-              : `${validGames.length} of ${rowLimit} games · 1 analysis each`}
+              ? `Up to ${rowLimit} ${rowLimit === 1 ? "game" : "games"} per run · 1 analysis each`
+              : `${validGames.length} of ${rowLimit} ${rowLimit === 1 ? "game" : "games"} · 1 analysis each`}
           </span>
         </div>
+
+        {urlHint && (
+          <p
+            id={`game-${urlHint.rowId}-url-hint`}
+            className="analyzer-error"
+            role="status"
+          >
+            {urlHint.message}
+          </p>
+        )}
 
         {psychologyHintAvailable && (
           <p
@@ -627,10 +696,26 @@ export default function AnalyzerForm({
       <button type="submit" className="btn" disabled={submitDisabled}>
         {disabled
           ? "Analyzing..."
-          : multiGame
-            ? `Analyze ${validGames.length} games`
-            : "Analyze game"}
+          : lastCreditsConfirm === validGames.length
+            ? `Use my last ${validGames.length} ${
+                validGames.length === 1 ? "credit" : "credits"
+              }`
+            : multiGame
+              ? remainingCredits !== null && remainingCredits !== undefined
+                ? `Analyze ${validGames.length} games · uses ${validGames.length} of ${remainingCredits} credits`
+                : `Analyze ${validGames.length} games`
+              : remainingCredits !== null && remainingCredits !== undefined
+                ? `Analyze game · uses 1 of ${remainingCredits} credits`
+                : "Analyze game"}
       </button>
+      {lastCreditsConfirm === validGames.length &&
+        validGames.length > 0 &&
+        (remainingCredits !== null && remainingCredits !== undefined) && (
+          <p className="analyzer-error" role="status">
+            This uses every remaining credit in your plan — there&apos;s no undo.
+            Click again to confirm.
+          </p>
+        )}
     </form>
   );
 }

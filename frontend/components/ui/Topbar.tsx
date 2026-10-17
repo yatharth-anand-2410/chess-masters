@@ -18,6 +18,8 @@ export type TopbarProps = {
   user?: User | null;
   usage?: Usage | null;
   role?: "player" | "coach" | null;
+  /** Hide the free-plan credit pill (the homepage shows the quota next to the form). */
+  showUsagePill?: boolean;
   onAuthChange?: () => void;
   onToggleRole?: () => Promise<void> | void;
   onOpenAIDrawer?: () => void;
@@ -78,6 +80,7 @@ export function Topbar({
   user,
   usage,
   role,
+  showUsagePill = true,
   onAuthChange,
   onToggleRole,
   onOpenAIDrawer,
@@ -348,7 +351,7 @@ export function Topbar({
           <SoundToggle />
 
           {/* Free Tier Usage Pill */}
-          {usage?.plan === "free" && (
+          {showUsagePill && usage?.plan === "free" && (
             <Pill tone="neutral" size="sm">
               Free: {usage.analyses_remaining}/{usage.free_analysis_limit}
             </Pill>
@@ -518,8 +521,9 @@ export function Topbar({
           )}
         </div>
 
-        {/* Mobile Actions Container (< 560px required by e2e-audit) */}
-        <div className="flex sm:hidden items-center gap-2">
+        {/* Mobile Actions Container (< 720px: the nav links hide below md, so the
+            hamburger owns navigation for the 560–719px band too) */}
+        <div className="flex md:hidden items-center gap-2">
           {/* Ask AI Pill Mobile */}
           <button
             type="button"
@@ -551,7 +555,7 @@ export function Topbar({
         </div>
       </div>
 
-      {/* Mobile Drawer Navigation (< 560px) */}
+      {/* Mobile Drawer Navigation (< 720px) */}
       <AnimatePresence>
         {menuOpen && (
           <motion.div
@@ -560,7 +564,7 @@ export function Topbar({
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
             transition={{ duration: 0.2, ease: "easeOut" }}
-            className="sm:hidden overflow-hidden border-t border-[var(--line-soft)] mt-3 pt-3 flex flex-col gap-3 pb-3"
+            className="md:hidden overflow-hidden border-t border-[var(--line-soft)] mt-3 pt-3 flex flex-col gap-3 pb-3"
           >
             {usage?.plan === "free" && (
               <div className="px-1">
@@ -613,6 +617,13 @@ export function Topbar({
 
             {/* Mobile Actions: Ask AI & Google Sign-in / User State */}
             <div className="pt-3 border-t border-[var(--line-soft)] flex flex-col gap-2">
+              <div className="flex items-center justify-between px-1">
+                <span className="text-xs font-semibold text-[var(--text-muted)]">
+                  Interface sounds
+                </span>
+                <SoundToggle withLabel />
+              </div>
+
               <button
                 type="button"
                 onClick={handleOpenAI}

@@ -10,16 +10,18 @@ type SoundToggleProps = {
 };
 
 /**
- * Interface-sound switch shared by the top bar and the bottom dock.
+ * Interface-sound switch used by the top bar and the mobile drawer.
  * The preference lives in localStorage (`cm_sound_enabled`) via lib/sound.
  */
 export default function SoundToggle({
   withLabel = false,
   className = "",
 }: SoundToggleProps) {
-  // Read the persisted preference synchronously so a muted user never sees a
-  // flash of "sound on" before the effect below re-syncs.
-  const [on, setOn] = useState(() => isSoundEnabled());
+  // SSR determinism: render the server default (muted) on the first pass and
+  // sync the persisted preference after mount. Reading localStorage during
+  // render made the server HTML disagree with sound-on clients and forced a
+  // client-side tree regeneration on every load.
+  const [on, setOn] = useState(false);
 
   useEffect(() => {
     setOn(isSoundEnabled());

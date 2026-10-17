@@ -173,7 +173,7 @@ async function runAudit() {
     const topbar = page.locator("header");
     const topbarDisplay = await topbar.evaluate((el) => {
       const desktopNav = el.querySelector("nav[data-nav=\"primary\"]");
-      const mobileNav = el.querySelector("div.flex.sm\\:hidden");
+      const mobileNav = el.querySelector("div.flex.md\\:hidden, div.flex.sm\\:hidden");
       const desktopNavDisplay = desktopNav ? window.getComputedStyle(desktopNav).display : null;
       const mobileNavDisplay = mobileNav ? window.getComputedStyle(mobileNav).display : null;
       return { desktopNavDisplay, mobileNavDisplay };
@@ -265,7 +265,7 @@ async function runAudit() {
 
     const mobileNavDisplay = await mobilePage.locator("header").evaluate((el) => {
       const desktopNav = el.querySelector("nav[data-nav=\"primary\"]");
-      const mobileNav = el.querySelector("div.flex.sm\\:hidden");
+      const mobileNav = el.querySelector("div.flex.md\\:hidden, div.flex.sm\\:hidden");
       return {
         desktop: desktopNav ? window.getComputedStyle(desktopNav).display : null,
         mobile: mobileNav ? window.getComputedStyle(mobileNav).display : null,

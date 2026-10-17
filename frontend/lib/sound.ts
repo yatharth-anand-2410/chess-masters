@@ -3,7 +3,8 @@
  *
  * Mirrors the showcase synthesizer (design-ideas/full-design-showcase.html):
  * tiny WebAudio oscillator blips for move / check / brilliant feedback, with a
- * persisted mute state so the dock toggle survives reloads.
+ * persisted mute state so the toggle survives reloads. Sound stays off until
+ * the player switches it on — audio never plays without consent.
  */
 
 export type SoundType = "move" | "check" | "brilliant" | "click";
@@ -16,13 +17,15 @@ const listeners = new Set<(enabled: boolean) => void>();
 
 function readStored(): boolean {
   if (typeof window === "undefined") {
-    return true;
+    return false;
   }
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
-    return raw === null ? true : raw !== "0";
+    // Sounds never play without consent: first-time visitors are muted until
+    // they explicitly switch sound on.
+    return raw === null ? false : raw !== "0";
   } catch {
-    return true;
+    return false;
   }
 }
 

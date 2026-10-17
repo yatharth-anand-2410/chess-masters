@@ -13,7 +13,6 @@ import JsonLd from "../components/JsonLd";
 import SiteFooter from "../components/SiteFooter";
 import AICoachDrawer from "../components/AICoachDrawer";
 import ManageStudentsModal from "../components/ManageStudentsModal";
-import Dock from "../components/ui/Dock";
 import {
   ORGANIZATION_SCHEMA,
   schemaGraph,
@@ -80,13 +79,12 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
-      <body className={`${display.variable} ${body.variable} ${mono.variable} has-dock`}>
+      <body className={`${display.variable} ${body.variable} ${mono.variable}`}>
         <JsonLd data={schemaGraph([ORGANIZATION_SCHEMA, WEBSITE_SCHEMA])} />
         {children}
         <AICoachDrawer />
         <ManageStudentsModal />
         <SiteFooter />
-        <Dock />
       </body>
     </html>
   );

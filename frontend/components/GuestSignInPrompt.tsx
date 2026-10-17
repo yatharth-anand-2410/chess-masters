@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import AuthButton from "./AuthButton";
 
 type GuestSignInPromptProps = {
@@ -7,6 +8,20 @@ type GuestSignInPromptProps = {
 };
 
 export default function GuestSignInPrompt({ onClose }: GuestSignInPromptProps) {
+  const closeRef = useRef<HTMLButtonElement>(null);
+
+  // A modal dialog gets a keyboard exit and starts focus on its close control.
+  useEffect(() => {
+    closeRef.current?.focus();
+    const handleKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        onClose();
+      }
+    };
+    document.addEventListener("keydown", handleKey);
+    return () => document.removeEventListener("keydown", handleKey);
+  }, [onClose]);
+
   return (
     <div
       className="guest-modal-backdrop"
@@ -21,6 +36,7 @@ export default function GuestSignInPrompt({ onClose }: GuestSignInPromptProps) {
     >
       <div className="guest-modal">
         <button
+          ref={closeRef}
           type="button"
           className="guest-modal-close"
           onClick={onClose}

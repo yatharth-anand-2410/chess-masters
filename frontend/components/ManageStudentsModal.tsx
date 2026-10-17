@@ -67,7 +67,7 @@ export default function ManageStudentsModal({
     }
   }, [isControlled, controlledOnClose]);
 
-  /** The roster, the progress page and the Dock all listen for this. */
+  /** The roster and the progress page both listen for this. */
   const notifyStudentsChanged = useCallback(() => {
     if (typeof window !== "undefined") {
       window.dispatchEvent(new CustomEvent("cm_students_changed"));

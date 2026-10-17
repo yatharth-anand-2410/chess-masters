@@ -160,53 +160,56 @@ async function main() {
     });
 
     /* ---------------------------------------------------------------- */
-    /* 1. Home + global bottom dock                                      */
+    /* 1. Home + single-surface navigation                               */
     /* ---------------------------------------------------------------- */
-    console.log("\n🔍 Home page & bottom dock (/)");
+    console.log("\n🔍 Home page & navigation (/)");
     await page.goto(`${BASE_URL}/`, { waitUntil: "domcontentloaded" });
     await page.waitForTimeout(900);
 
-    const dock = page.locator("nav.app-dock").first();
-    const dockVisible = await dock.isVisible().catch(() => false);
-    const dockLabelText = (
-      (await dock
-        .locator(".app-dock-label")
-        .first()
-        .textContent()
-        .catch(() => "")) || ""
-    ).trim();
-    const dockButtonCount = await dock.locator("a.app-dock-btn").count();
-    const dockSoundCount = await dock
-      .locator("button[aria-pressed]")
-      .count()
-      .catch(() => 0);
+    // The dock was removed: navigation lives only in the topbar. The body no
+    // longer reserves padding for a floating bar.
+    const dockCount = await page.locator("nav.app-dock").count();
+    const topbarNavCount = await page
+      .locator("header nav[data-nav='primary'] a")
+      .count();
     record(
-      "Bottom dock: desktop-only quick nav (no dev label, no sound control)",
-      dockVisible && dockLabelText === "" && dockSoundCount === 0 && dockButtonCount >= 4
+      "Single nav surface: topbar owns navigation, no duplicate dock",
+      dockCount === 0 && topbarNavCount >= 4
         ? "PASS"
         : "FAIL",
-      `dock: ${dockVisible}, label: "${dockLabelText}", page links: ${dockButtonCount}, dock sound controls: ${dockSoundCount}`
+      `dock elements: ${dockCount}, topbar nav links: ${topbarNavCount}`
     );
-    await capture(page, "01-home-dock");
+    await capture(page, "01-home-single-nav");
 
-    // Dock is phone-only chrome? No: phones use the hamburger. Hidden < 768px.
-    await page.setViewportSize({ width: 390, height: 844 });
+    // The 560–719px band used to have no navigation at all (nav links hid at
+    // 720px while the hamburger hid below 560px). The hamburger now owns the
+    // whole sub-720px range.
+    await page.setViewportSize({ width: 600, height: 844 });
     await page.waitForTimeout(300);
-    const mobileDock = page.locator("nav.app-dock").first();
-    const mobileDockHidden =
-      (await mobileDock.isHidden().catch(() => false)) ||
-      (await mobileDock
-        .evaluate((el) => getComputedStyle(el).display === "none")
-        .catch(() => false));
+    const hamburgerVisible = await page
+      .locator("button[aria-controls='mobile-nav-panel']")
+      .first()
+      .isVisible()
+      .catch(() => false);
+    const desktopNavHidden = await page
+      .locator("nav[data-nav='primary']")
+      .first()
+      .isHidden()
+      .catch(() => false);
     const bodyBottomPadding = await page
       .evaluate(() => getComputedStyle(document.body).paddingBottom)
       .catch(() => "");
     record(
-      "Bottom dock hidden on mobile (hamburger owns navigation)",
-      mobileDockHidden && bodyBottomPadding === "0px" ? "PASS" : "FAIL",
-      `dock hidden: ${mobileDockHidden}, body padding-bottom: ${bodyBottomPadding}`
+      "Navigation reachable at 600px (hamburger visible, no dead zone)",
+      hamburgerVisible && desktopNavHidden ? "PASS" : "FAIL",
+      `hamburger visible: ${hamburgerVisible}, desktop nav hidden: ${desktopNavHidden}`
     );
-    await capture(page, "01b-home-mobile-no-dock");
+    record(
+      "No body padding reserved for the removed dock",
+      bodyBottomPadding === "0px" ? "PASS" : "FAIL",
+      `body padding-bottom: ${bodyBottomPadding}`
+    );
+    await capture(page, "01b-home-600px-hamburger");
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.waitForTimeout(300);
 

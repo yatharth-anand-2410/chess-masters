@@ -314,119 +314,6 @@ main.progress-page > .app-topbar {
   line-height: 1.65;
 }
 
-.mindset-callout {
-  display: flex;
-  align-items: center;
-  gap: 2.5rem;
-  margin: 0.5rem auto 0;
-  padding: 1.75rem 2rem;
-  background: var(--ink-2);
-  border: 1px solid var(--line-soft);
-  border-radius: 16px;
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
-  text-align: left;
-}
-
-.mindset-copy {
-  flex: 1;
-  min-width: 0;
-}
-
-.mindset-kicker {
-  display: inline-block;
-  margin: 0 0 0.75rem;
-  padding: 0.25rem 0.75rem;
-  background: rgba(201, 153, 63, 0.12);
-  border-radius: 999px;
-  color: var(--gold-bright);
-  font-size: 0.7rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.mindset-title {
-  max-width: 30ch;
-  margin: 0 0 0.5rem;
-  color: var(--text);
-  font-family: var(--font-display);
-  font-size: clamp(1.45rem, 2.6vw, 1.85rem);
-  font-weight: 600;
-  line-height: 1.15;
-  letter-spacing: -0.015em;
-  text-wrap: balance;
-}
-
-.mindset-lede {
-  margin: 0;
-  max-width: 68ch;
-  color: var(--text-muted);
-  font-size: 1rem;
-  line-height: 1.6;
-}
-
-.mindset-emblem {
-  display: flex;
-  flex-shrink: 0;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 0.65rem;
-  width: 108px;
-  height: 108px;
-  color: var(--gold-bright);
-  background: radial-gradient(
-    circle at 50% 24%,
-    rgba(201, 153, 63, 0.16),
-    rgba(19, 28, 31, 0) 72%
-  );
-  border: 1px solid rgba(201, 153, 63, 0.3);
-  border-radius: 999px;
-}
-
-.mindset-emblem svg {
-  width: 30px;
-  height: 30px;
-}
-
-.mindset-pips {
-  display: inline-flex;
-  gap: 0.3rem;
-}
-
-.mindset-pip {
-  width: 6px;
-  height: 6px;
-  border: 1px solid rgba(226, 182, 95, 0.55);
-  border-radius: 999px;
-}
-
-@media (max-width: 720px) {
-  .mindset-callout {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 1.25rem;
-    padding: 1.5rem 1.25rem;
-  }
-
-  .mindset-emblem {
-    order: -1;
-    width: 84px;
-    height: 84px;
-    gap: 0.45rem;
-  }
-
-  .mindset-emblem svg {
-    width: 22px;
-    height: 22px;
-  }
-
-  .mindset-pip {
-    width: 5px;
-    height: 5px;
-  }
-}
-
 .hero-visual {
   display: flex;
   flex-direction: column;
@@ -649,6 +536,10 @@ main.progress-page > .app-topbar {
 }
 
 .error-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
   margin-top: 1rem;
   padding: 0.9rem 1.1rem;
   background: rgba(201, 106, 90, 0.12);
@@ -656,6 +547,88 @@ main.progress-page > .app-topbar {
   border-radius: var(--radius-control);
   color: #e8a89c;
   font-size: 0.95rem;
+}
+
+.error-banner-text {
+  flex: 1 1 22rem;
+  min-width: 0;
+  overflow-wrap: break-word;
+}
+
+.error-credit-note {
+  flex: 1 1 100%;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
+.btn-retry {
+  flex-shrink: 0;
+  padding: 0.45rem 0.95rem;
+  background: transparent;
+  border: 1px solid rgba(201, 106, 90, 0.55);
+  border-radius: var(--radius-control);
+  color: #f0bcb2;
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.btn-retry:hover {
+  background: rgba(201, 106, 90, 0.16);
+  border-color: #e8a89c;
+  color: #fff;
+}
+
+.btn-retry:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
+/* The report anchors scrolls so the topbar never covers its first heading. */
+.report-anchor {
+  scroll-margin-top: 1rem;
+}
+
+/* One-line trust strip: the compressed homepage pitch for new visitors.
+   Returning players skip past it in a single glance. */
+.trust-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem 1.4rem;
+  margin: 3rem auto 0;
+  padding: 0.9rem 1.25rem;
+  border-top: 1px solid var(--line-soft);
+  border-bottom: 1px solid var(--line-soft);
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.trust-strip-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  white-space: nowrap;
+}
+
+.trust-strip-item a {
+  color: var(--gold);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.trust-strip-item a:hover {
+  color: var(--gold-bright);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.trust-strip-dot {
+  color: var(--line-strong);
 }
 
 .review-error {
@@ -3405,16 +3378,10 @@ main.progress-page > .app-topbar {
 }
 
 @media (max-width: 560px) {
-  .game-row {
-    flex-wrap: wrap;
-  }
-
-  .game-row input {
-    flex-basis: calc(100% - 2.5rem);
-  }
-
+  /* The color group stays on the same line as the URL field at every width:
+     wrapping it onto its own row orphaned the control from its input. */
   .game-row-color {
-    margin-left: 2rem;
+    margin-left: 0;
   }
 }
 
@@ -3427,59 +3394,6 @@ main.progress-page > .app-topbar {
   font-size: 0.8rem;
   font-weight: 600;
   white-space: nowrap;
-}
-
-.pedigree-card {
-  max-width: none;
-  margin: 2.75rem auto 0;
-  padding: 1.75rem 1.5rem;
-  background: var(--ink-2);
-  border: 1px solid var(--line-soft);
-  border-radius: 16px;
-  box-shadow: 0 12px 30px -24px rgba(0, 0, 0, 0.7);
-  text-align: left;
-}
-
-.pedigree-badge {
-  display: inline-block;
-  width: fit-content;
-  margin-bottom: 0.75rem;
-  padding: 0.25rem 0.75rem;
-  background: rgba(201, 153, 63, 0.12);
-  color: var(--gold-bright);
-  border-radius: 999px;
-  font-size: 0.7rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-}
-
-.pedigree-title {
-  margin: 0 0 0.75rem;
-  font-family: var(--font-display);
-  font-size: 1.6rem;
-  font-weight: 600;
-  letter-spacing: -0.015em;
-}
-
-.pedigree-body {
-  max-width: 72ch;
-  margin: 0 0 1.25rem;
-  color: var(--text-muted);
-}
-
-.pedigree-metrics {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-}
-
-.pedigree-metrics span {
-  padding: 0.3rem 0.7rem;
-  border: 1px solid rgba(201, 153, 63, 0.35);
-  border-radius: 999px;
-  color: var(--gold);
-  font-size: 0.75rem;
-  font-weight: 600;
 }
 
 .guest-note {
@@ -5070,83 +4984,6 @@ main.progress-page > .app-topbar {
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   APP DOCK (DESKTOP QUICK NAVIGATION)
-   Desktop-only chrome: on phones the hamburger owns navigation, and the bar is
-   suspended entirely while a modal dialog is open so it can never cover a
-   composer or intercept taps meant for a dialog.
-   ──────────────────────────────────────────────────────────────────────────── */
-body.has-dock {
-  padding-bottom: 4.75rem;
-}
-
-.app-dock {
-  position: fixed;
-  bottom: 16px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 200;
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-  background: rgba(8, 12, 14, 0.96);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  padding: 0.35rem 0.55rem;
-  border-radius: 999px;
-  border: 1px solid var(--line-strong);
-  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.75);
-  max-width: 96vw;
-  overflow-x: auto;
-  scrollbar-width: thin;
-}
-
-.app-dock-btn {
-  padding: 0.28rem 0.6rem;
-  border: none;
-  border-radius: 999px;
-  background: transparent;
-  color: var(--text-muted);
-  font: inherit;
-  font-size: 0.75rem;
-  font-weight: 500;
-  cursor: pointer;
-  white-space: nowrap;
-  text-decoration: none;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
-  transition: color 0.15s ease, background 0.15s ease;
-}
-
-.app-dock-btn:hover {
-  color: var(--text);
-  background: rgba(255, 255, 255, 0.06);
-}
-
-.app-dock-btn.is-active {
-  background: var(--gold);
-  color: #141712;
-  font-weight: 700;
-}
-
-/* The dock is desktop-only chrome. On phones the hamburger owns navigation and
-   the bar would sit on top of content and any dialog's composer. */
-@media (max-width: 767px) {
-  body.has-dock {
-    padding-bottom: 0;
-  }
-
-  .app-dock {
-    display: none;
-  }
-}
-
-/* Never let the dock float over an open modal dialog. */
-body:has([role="dialog"][aria-modal="true"]) .app-dock {
-  display: none;
-}
-
-/* ─────────────────────────────────────────────────────────────────────────────
    AI COACH DRAWER — compact markdown inside chat bubbles
    ──────────────────────────────────────────────────────────────────────────── */
 .coach-bubble-md {
@@ -5245,7 +5082,7 @@ body:has([role="dialog"][aria-modal="true"]) .app-dock {
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   SOUND TOGGLE (shared by the Topbar and the Dock)
+   SOUND TOGGLE (topbar and mobile drawer)
    ──────────────────────────────────────────────────────────────────────────── */
 .sound-toggle {
   display: inline-flex;
