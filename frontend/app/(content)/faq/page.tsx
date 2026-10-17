@@ -77,7 +77,7 @@ export default function FaqPage() {
         question is not here, <Link href="/contact">contact us</Link> — we read
         everything.
       </p>
-      <FaqSection items={ALL_FAQS} showMoreLink={false} />
+      <FaqSection items={ALL_FAQS} showMoreLink={false} showTitle={false} />
       <div className="content-cta">
         <Link className="btn" href="/">
           Analyze a game free

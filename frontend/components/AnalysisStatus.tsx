@@ -7,17 +7,42 @@ import { cn } from "../lib/utils";
 type AnalysisStatusProps = {
   status?: string;
   isAnalyzing?: boolean;
+  /** Shown while an analysis runs; lets the player stop and get the credit back. */
+  onCancel?: () => void;
+  /** Seconds since the run started, for the honest "no ETA" readout. */
+  elapsedSeconds?: number;
 };
 
 export default function AnalysisStatus({
   status,
   isAnalyzing,
+  onCancel,
+  elapsedSeconds = 0,
 }: AnalysisStatusProps) {
   if (!status && !isAnalyzing) {
     return null;
   }
 
   const s = (status || "").toLowerCase();
+
+  // Cancelled runs get a plain, muted close-out instead of the pipeline steps.
+  if (s.includes("cancel")) {
+    return (
+      <div
+        role="status"
+        aria-live="polite"
+        className="w-full flex items-center justify-center gap-2 p-3.5 sm:p-4 rounded-[var(--radius-card)] bg-[var(--ink-2)] border border-[var(--line-soft)] text-xs text-[var(--text-muted)] font-mono"
+      >
+        <span aria-hidden="true">✕</span>
+        <span>{status}</span>
+      </div>
+    );
+  }
+
+  const elapsedLabel =
+    elapsedSeconds >= 60
+      ? `${Math.floor(elapsedSeconds / 60)}m ${elapsedSeconds % 60}s elapsed`
+      : `${elapsedSeconds}s elapsed`;
 
   // Determine current pipeline stage (1: Extract, 2: Engine, 3: AI Lesson)
   let currentStep = 1;
@@ -116,6 +141,16 @@ export default function AnalysisStatus({
             />
           )}
           <span>{status}</span>
+          {isAnalyzing && elapsedSeconds > 0 && <span>· {elapsedLabel}</span>}
+          {isAnalyzing && onCancel && (
+            <button
+              type="button"
+              onClick={onCancel}
+              className="ml-1 px-2 py-0.5 rounded-[var(--radius-control)] border border-[var(--line-strong)] text-[var(--text-muted)] hover:text-[var(--text)] hover:border-[rgba(201,106,90,0.6)] hover:bg-[rgba(201,106,90,0.08)] transition-colors cursor-pointer"
+            >
+              Cancel
+            </button>
+          )}
         </div>
       )}
     </div>

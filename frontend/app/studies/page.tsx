@@ -105,7 +105,7 @@ export default function StudiesPage() {
     <div className="min-h-screen bg-[var(--ink-1)] text-[var(--text)] flex flex-col">
       <Topbar />
 
-      <main className="flex-1 w-full max-w-[1440px] mx-auto px-4 sm:px-6 py-8">
+      <main className="flex-1 w-full max-w-[var(--shell-max)] mx-auto px-4 sm:px-6 py-8">
         <div className="studies-head-row">
           <div>
             <div className="flex items-center gap-2 mb-1.5">

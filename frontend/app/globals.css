@@ -85,6 +85,12 @@
 
   --radius-card: 12px; /* showcase --radius */
   --radius-control: 8px; /* showcase --radius-ctl */
+
+  /* SINGLE APP SHELL — every page chrome and the footer share this width, and
+     long-form prose is capped at this measure (research: 50–75ch optimal,
+     WCAG 1.4.8 asks ≤80). */
+  --shell-max: 1280px;
+  --measure: 68ch;
   --input-bg: #0f1518;
   --input-line: rgba(255, 255, 255, 0.16);
   --font-display: Georgia, "Times New Roman", serif;
@@ -134,13 +140,13 @@ body {
 }
 
 .dashboard {
-  width: min(1440px, 100%);
+  width: min(var(--shell-max), 100%);
   margin: 0 auto;
   padding: 1.25rem 1.5rem 2.5rem;
 }
 
 .analysis-dashboard {
-  width: min(1440px, 100%);
+  width: min(var(--shell-max), 100%);
 }
 
 .topbar {
@@ -151,6 +157,27 @@ body {
   flex-wrap: wrap;
   padding: 0.6rem 0 1rem;
   border-bottom: 1px solid var(--line-soft);
+}
+
+/* The app topbar must occupy an identical position on every page. Pages that
+   render it inside a padded shell (main.dashboard / main.progress-page) get a
+   full-bleed breakout and the shell's top padding is reclaimed, so the nav no
+   longer jumps ~24px horizontally and ~20px vertically between sections.
+   These rules no-op when the header is already a body child.
+   (width: auto lets the negative margins stretch the box to the viewport;
+   with width: 100% they would merely shift it and leave the right edge short.) */
+.app-topbar {
+  width: auto;
+  margin-left: calc(50% - 50vw);
+  margin-right: calc(50% - 50vw);
+}
+
+main.dashboard > .app-topbar {
+  margin-top: -1.25rem;
+}
+
+main.progress-page > .app-topbar {
+  margin-top: -1rem;
 }
 
 .wordmark {
@@ -294,7 +321,7 @@ body {
   margin: 0.5rem auto 0;
   padding: 1.75rem 2rem;
   background: var(--ink-2);
-  border: 1px solid var(--line);
+  border: 1px solid var(--line-soft);
   border-radius: 16px;
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
   text-align: left;
@@ -471,12 +498,17 @@ body {
 }
 
 .analyzer-form {
+  /* The primary action surface: the one card on the page that earns a gold edge. */
   display: flex;
   flex-direction: column;
   gap: 1.1rem;
   padding: 1.6rem;
-  background: var(--ink-2);
-  border: 1px solid var(--line);
+  background: linear-gradient(
+    180deg,
+    rgba(226, 182, 95, 0.06) 0%,
+    var(--ink-2) 30%
+  );
+  border: 1px solid rgba(226, 182, 95, 0.32);
   border-radius: var(--radius-card);
   box-shadow: 0 26px 50px -40px rgba(0, 0, 0, 0.95);
 }
@@ -901,7 +933,7 @@ body {
   padding: 1.2rem 1.25rem 1.35rem;
   background: var(--paper-2);
   border: 1px solid var(--paper-line);
-  border-left: 3px solid var(--teal);
+  border-left: 2px solid var(--teal);
   border-radius: 8px;
 }
 
@@ -1346,7 +1378,7 @@ body {
   padding: 0.9rem 1rem;
   background: rgba(255, 255, 255, 0.4);
   border: 1px solid var(--paper-line);
-  border-left: 3px solid var(--red);
+  border-left: 2px solid var(--red);
   border-radius: 8px;
 }
 
@@ -1493,7 +1525,6 @@ body {
   padding: 1.1rem 1.15rem;
   background: var(--paper-2);
   border: 1px solid var(--paper-line);
-  border-left: 3px solid var(--ink-muted);
   border-radius: 8px;
 }
 
@@ -2078,6 +2109,8 @@ body {
 
 .review-panel {
   margin-top: 3.5rem;
+  /* Three comfortable columns; a 4th would leave the grid ragged. */
+  max-width: 1080px;
 }
 
 .review-summary {
@@ -2201,7 +2234,7 @@ body {
 
 .review-list {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
   gap: 1rem;
 }
 
@@ -2246,6 +2279,12 @@ body {
   margin: 0;
   font-size: 0.92rem;
   overflow-wrap: anywhere;
+}
+
+/* A rating without a written comment — honest instead of a bare emoji. */
+.review-comment-empty {
+  color: var(--text-muted);
+  font-style: italic;
 }
 
 .analysis-workspace {
@@ -2366,11 +2405,11 @@ body {
 }
 
 .thread-message.role-user {
-  border-left: 3px solid var(--gold);
+  border-left: 2px solid var(--gold);
 }
 
 .thread-message.role-assistant {
-  border-left: 3px solid var(--teal-light);
+  border-left: 2px solid var(--teal-light);
 }
 
 .thread-author {
@@ -2431,7 +2470,7 @@ body {
   padding: 1.5rem;
   background: var(--ink-2);
   border: 1px solid var(--line);
-  border-left: 3px solid var(--gold);
+  border-left: 2px solid var(--gold);
   border-radius: var(--radius-card);
 }
 
@@ -2583,17 +2622,9 @@ body {
 }
 
 .site-footer {
-  width: min(1180px, 100%);
+  width: min(var(--shell-max), 100%);
   margin: 0 auto;
   padding: 0 1.5rem 2.5rem;
-}
-
-body:has(.legal-dashboard) .site-footer {
-  width: min(860px, 100%);
-}
-
-body:has(.analysis-dashboard) .site-footer {
-  width: min(1440px, 100%);
 }
 
 .site-footer-inner {
@@ -2670,15 +2701,15 @@ body:has(.analysis-dashboard) .site-footer {
 
 .site-footer-badges img {
   display: block;
-  width: 256px;
-  height: 80px;
+  height: 56px;
+  width: auto;
   border-radius: 12px;
 }
 
-/* Product Hunt badge ships at 250x54 — override the tool badge sizing. */
+/* Product Hunt badge ships at 250x54 — match the tool badge's visual height. */
 .site-footer-badges img.site-footer-badge-ph {
-  width: 250px;
-  height: 54px;
+  height: 56px;
+  width: auto;
 }
 
 .site-footer-disclaimer {
@@ -2690,7 +2721,7 @@ body:has(.analysis-dashboard) .site-footer {
 .legal-dashboard {
   /* Same shell as every other page — the reading column below keeps its own
      measure so long-form text stays readable at the wider width. */
-  width: min(1440px, 100%);
+  width: min(var(--shell-max), 100%);
 }
 
 .legal-page {
@@ -2719,14 +2750,14 @@ body:has(.analysis-dashboard) .site-footer {
 .legal-page p {
   margin: 0 0 1rem;
   color: var(--text-muted);
-  max-width: 92ch;
+  max-width: var(--measure);
 }
 
 .legal-page ul {
   margin: 0 0 1rem;
   padding-left: 1.3rem;
   color: var(--text-muted);
-  max-width: 92ch;
+  max-width: var(--measure);
 }
 
 .legal-page li {
@@ -2945,6 +2976,19 @@ body:has(.analysis-dashboard) .site-footer {
   background: var(--ink-3);
   border: 1px solid var(--line);
   border-radius: 999px;
+}
+
+/* The row that blocks submission — called out with a red ring until fixed. */
+.game-row-color.is-error {
+  border-color: rgba(201, 106, 90, 0.65);
+  box-shadow: 0 0 0 3px rgba(201, 106, 90, 0.14);
+}
+
+.analyzer-error {
+  margin: 0.55rem 0 0;
+  color: var(--red-bright);
+  font-size: 0.8rem;
+  line-height: 1.45;
 }
 
 .color-chip {
@@ -3387,12 +3431,12 @@ body:has(.analysis-dashboard) .site-footer {
 
 .pedigree-card {
   max-width: none;
-  margin: 3.5rem auto 0;
+  margin: 2.75rem auto 0;
   padding: 1.75rem 1.5rem;
   background: var(--ink-2);
-  border: 1px solid var(--line);
+  border: 1px solid var(--line-soft);
   border-radius: 16px;
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 12px 30px -24px rgba(0, 0, 0, 0.7);
   text-align: left;
 }
 
@@ -3451,7 +3495,7 @@ body:has(.analysis-dashboard) .site-footer {
 .guest-modal-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 50;
+  z-index: 300;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -3467,7 +3511,6 @@ body:has(.analysis-dashboard) .site-footer {
   padding: 1.75rem 1.5rem;
   background: var(--ink-2);
   border: 1px solid var(--line);
-  border-top: 3px solid var(--gold);
   border-radius: var(--radius-card);
   box-shadow: 0 30px 80px rgba(0, 0, 0, 0.55);
   text-align: center;
@@ -3783,12 +3826,12 @@ body:has(.analysis-dashboard) .site-footer {
 
 .focus-cell.focus-dont {
   padding-left: 0.7rem;
-  border-left: 3px solid var(--dont);
+  border-left: 2px solid var(--dont);
 }
 
 .focus-cell.focus-do {
   padding-left: 0.7rem;
-  border-left: 3px solid var(--do);
+  border-left: 2px solid var(--do);
 }
 
 .focus-tag {
@@ -3942,7 +3985,6 @@ body:has(.analysis-dashboard) .site-footer {
   padding: 0.95rem 1rem;
   background: var(--paper-2);
   border: 1px solid var(--paper-line);
-  border-left: 3px solid var(--ink-muted-2);
   border-radius: 8px;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
@@ -4420,7 +4462,7 @@ body:has(.analysis-dashboard) .site-footer {
 
 .content-dashboard {
   /* Same shell width as the app pages. */
-  width: min(1440px, 100%);
+  width: min(var(--shell-max), 100%);
 }
 
 .content-page {
@@ -4429,7 +4471,7 @@ body:has(.analysis-dashboard) .site-footer {
 
 .content-page p,
 .content-page li {
-  max-width: 92ch;
+  max-width: var(--measure);
 }
 
 .content-page h3 {
@@ -4477,6 +4519,12 @@ body:has(.analysis-dashboard) .site-footer {
 
 .faq-panel {
   margin: 3rem 0 1rem;
+}
+
+/* On the FAQ page the H1 already introduces the list — tighten the gap left by
+   the removed duplicate section heading. */
+.content-dashboard .faq-panel {
+  margin-top: 1.75rem;
 }
 
 .faq-list {
@@ -5022,8 +5070,10 @@ body:has(.analysis-dashboard) .site-footer {
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   APP DOCK (BOTTOM PAGE SWITCHER + SOUND)
-   Mirrors .showcase-dock in design-ideas/full-design-showcase.html.
+   APP DOCK (DESKTOP QUICK NAVIGATION)
+   Desktop-only chrome: on phones the hamburger owns navigation, and the bar is
+   suspended entirely while a modal dialog is open so it can never cover a
+   composer or intercept taps meant for a dialog.
    ──────────────────────────────────────────────────────────────────────────── */
 body.has-dock {
   padding-bottom: 4.75rem;
@@ -5048,17 +5098,6 @@ body.has-dock {
   max-width: 96vw;
   overflow-x: auto;
   scrollbar-width: thin;
-}
-
-.app-dock-label {
-  font-family: var(--font-mono);
-  font-size: 0.65rem;
-  color: var(--gold-bright);
-  font-weight: 700;
-  padding: 0 0.35rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  white-space: nowrap;
 }
 
 .app-dock-btn {
@@ -5090,51 +5129,119 @@ body.has-dock {
   font-weight: 700;
 }
 
-.app-dock-divider {
-  width: 1px;
-  height: 16px;
-  background: var(--line);
-  margin: 0 0.15rem;
-  flex-shrink: 0;
-}
-
-.app-dock-sound {
-  display: flex;
-  align-items: center;
-  gap: 0.3rem;
-  padding: 0.28rem 0.55rem;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  color: var(--text-muted);
-  font: inherit;
-  font-size: 0.72rem;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: opacity 0.15s ease, color 0.15s ease;
-}
-
-.app-dock-sound:hover {
-  color: var(--text);
-}
-
-.app-dock-sound.is-muted {
-  opacity: 0.5;
-}
-
-@media (max-width: 560px) {
+/* The dock is desktop-only chrome. On phones the hamburger owns navigation and
+   the bar would sit on top of content and any dialog's composer. */
+@media (max-width: 767px) {
   body.has-dock {
-    padding-bottom: 4.25rem;
+    padding-bottom: 0;
   }
 
   .app-dock {
-    bottom: 10px;
-    padding: 0.3rem 0.4rem;
-  }
-
-  .app-dock-label {
     display: none;
   }
+}
+
+/* Never let the dock float over an open modal dialog. */
+body:has([role="dialog"][aria-modal="true"]) .app-dock {
+  display: none;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   AI COACH DRAWER — compact markdown inside chat bubbles
+   ──────────────────────────────────────────────────────────────────────────── */
+.coach-bubble-md {
+  font-size: 0.78rem;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.coach-bubble-md > :first-child {
+  margin-top: 0;
+}
+
+.coach-bubble-md > :last-child {
+  margin-bottom: 0;
+}
+
+.coach-bubble-md p {
+  margin: 0 0 0.5rem;
+}
+
+.coach-bubble-md h1,
+.coach-bubble-md h2,
+.coach-bubble-md h3,
+.coach-bubble-md h4 {
+  margin: 0.75rem 0 0.35rem;
+  color: var(--gold-bright);
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.coach-bubble-md h1,
+.coach-bubble-md h2 {
+  font-size: 0.95rem;
+}
+
+.coach-bubble-md h3,
+.coach-bubble-md h4 {
+  font-size: 0.85rem;
+}
+
+.coach-bubble-md ul,
+.coach-bubble-md ol {
+  margin: 0 0 0.5rem;
+  padding-left: 1.1rem;
+}
+
+.coach-bubble-md li {
+  margin-bottom: 0.25rem;
+}
+
+.coach-bubble-md strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.coach-bubble-md code {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  background: var(--ink-3);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 0.05rem 0.3rem;
+}
+
+.coach-bubble-md a {
+  color: var(--gold-bright);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.coach-bubble-md blockquote {
+  margin: 0.5rem 0;
+  padding-left: 0.6rem;
+  border-left: 2px solid var(--line-strong);
+  color: var(--text-muted);
+}
+
+.coach-bubble-md table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.5rem 0;
+  font-size: 0.72rem;
+}
+
+.coach-bubble-md th,
+.coach-bubble-md td {
+  border: 1px solid var(--line);
+  padding: 0.25rem 0.4rem;
+  text-align: left;
+}
+
+.coach-bubble-md hr {
+  border: none;
+  border-top: 1px solid var(--line);
+  margin: 0.6rem 0;
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -5171,8 +5278,4 @@ body.has-dock {
 
 .sound-toggle[aria-pressed="false"] {
   opacity: 0.5;
-}
-
-.app-dock .sound-toggle {
-  border-color: var(--line);
 }

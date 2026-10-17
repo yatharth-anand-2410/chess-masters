@@ -31,6 +31,8 @@ function statusLabel(status: string): string {
       return "Processing";
     case "failed":
       return "Failed";
+    case "cancelled":
+      return "Cancelled";
     default:
       return status;
   }

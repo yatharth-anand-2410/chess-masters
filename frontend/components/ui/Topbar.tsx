@@ -280,7 +280,7 @@ export function Topbar({
     .toUpperCase();
 
   return (
-    <header className={`relative w-full border-b border-[var(--line-soft)] py-2.5 px-3 sm:px-6 bg-[var(--ink-1)]/95 backdrop-blur-md z-40 ${className}`}>
+    <header className={`app-topbar relative w-full border-b border-[var(--line-soft)] py-2.5 px-3 sm:px-6 bg-[var(--ink-1)]/95 backdrop-blur-md z-40 ${className}`}>
       {/* Top Banner Notice for Auth Alerts */}
       <AnimatePresence>
         {authNotice && (
@@ -306,7 +306,7 @@ export function Topbar({
         )}
       </AnimatePresence>
 
-      <div className="flex items-center justify-between gap-2 md:gap-4 max-w-[1440px] mx-auto flex-wrap">
+      <div className="flex items-center justify-between gap-2 md:gap-4 max-w-[var(--shell-max)] mx-auto flex-wrap">
         {/* Left: Brand Wordmark */}
         <div className="flex items-center gap-3 lg:gap-6 min-w-0 flex-1 xl:flex-none">
           <Link
@@ -317,7 +317,7 @@ export function Topbar({
             <span className="w-7 h-7 rounded-md bg-[var(--gold)]/10 border border-[var(--gold)]/30 flex items-center justify-center text-[var(--gold-bright)] text-sm group-hover:scale-105 transition-transform">
               ♜
             </span>
-            <span className="hidden sm:inline">Chessmasters</span>
+            <span className="inline">Chessmasters</span>
           </Link>
         </div>
 
@@ -364,7 +364,7 @@ export function Topbar({
           >
             <span className="text-[var(--gold-bright)] text-xs">✦</span>
             <span className="font-medium text-xs">Ask AI</span>
-            <kbd className="px-1.5 py-0.2 text-[9px] font-mono bg-[var(--ink-3)] border border-[var(--line)] rounded text-[var(--text-muted)] group-hover:text-[var(--gold-bright)]">
+            <kbd className="px-1 py-0.5 text-[10px] font-mono bg-[var(--ink-3)] border border-[var(--line)] rounded text-[var(--text-muted)] group-hover:text-[var(--gold-bright)]">
               ⌘K
             </kbd>
           </button>
@@ -375,7 +375,7 @@ export function Topbar({
               href="/subscription"
               className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-[var(--radius-control)] bg-[var(--gold)]/15 border border-[var(--gold)]/40 text-[var(--gold-bright)] hover:bg-[var(--gold)]/25 transition-all whitespace-nowrap cursor-pointer"
             >
-              <span>👑 Pro Active</span>
+              <span>👑 Pro Student</span>
             </Link>
           ) : (
             <Link
@@ -446,7 +446,7 @@ export function Topbar({
                         </span>
                         {usage?.plan === "paid" && (
                           <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-[var(--gold)]/15 text-[var(--gold-bright)] border border-[var(--gold)]/30">
-                            👑 Pro Active
+                            👑 Pro Student
                           </span>
                         )}
                       </div>

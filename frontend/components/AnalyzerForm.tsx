@@ -53,6 +53,15 @@ type BatchRow = {
   color: PlayerColor | null;
 };
 
+/**
+ * A blocking problem surfaced by submit. We keep the button live and explain
+ * what's missing instead of disabling it silently (Lichess links frequently
+ * arrive without /white or /black).
+ */
+type FormError =
+  | { kind: "color"; rowId: number; index: number }
+  | { kind: "username" };
+
 function detectColorFromUrl(url: string): PlayerColor | null {
   const match = url.match(/\/(white|black)(?:[#?]|$)/i);
   if (!match) {
@@ -75,8 +84,13 @@ export default function AnalyzerForm({
   );
   const [platform, setPlatform] = useState<Platform>("lichess");
   const [username, setUsername] = useState(defaultUsername ?? "");
+  const [formError, setFormError] = useState<FormError | null>(null);
   const nextRowId = useRef(2);
   const inputRefs = useRef(new Map<number, HTMLInputElement>());
+  const usernameRef = useRef<HTMLInputElement>(null);
+  const colorGroupRefs = useRef(new Map<number, HTMLDivElement>());
+  const lichessTabRef = useRef<HTMLButtonElement>(null);
+  const chesscomTabRef = useRef<HTMLButtonElement>(null);
   const [rows, setRows] = useState<BatchRow[]>([
     { id: 1, url: "", color: null },
   ]);
@@ -93,8 +107,37 @@ export default function AnalyzerForm({
     );
   }, [rowLimit]);
 
+  // The AI Coach drawer's "Open analyzer" action asks us to focus the URL field.
+  useEffect(() => {
+    const focusUrl = () => {
+      document
+        .querySelector<HTMLInputElement>('input[aria-label="Game 1 URL"]')
+        ?.focus();
+    };
+    window.addEventListener("cm_focus_analyzer_url", focusUrl);
+    return () => window.removeEventListener("cm_focus_analyzer_url", focusUrl);
+  }, []);
+
+  // Once the blocking problem is fixed, retire the message that called it out.
+  useEffect(() => {
+    if (!formError) {
+      return;
+    }
+    if (formError.kind === "username" && username.trim()) {
+      setFormError(null);
+      return;
+    }
+    if (
+      formError.kind === "color" &&
+      rows.every((row) => !row.url.trim() || row.color)
+    ) {
+      setFormError(null);
+    }
+  }, [formError, rows, username]);
+
   const handlePlatformChange = (next: Platform) => {
     setPlatform(next);
+    setFormError(null);
     if (next === "lichess") {
       setRows((current) =>
         current.map((row) => {
@@ -103,6 +146,19 @@ export default function AnalyzerForm({
         })
       );
     }
+  };
+
+  /** Tabs move with the arrow keys, as a tablist should. */
+  const handlePlatformKeyDown = (
+    event: React.KeyboardEvent<HTMLDivElement>
+  ) => {
+    if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") {
+      return;
+    }
+    event.preventDefault();
+    const next: Platform = platform === "lichess" ? "chess.com" : "lichess";
+    handlePlatformChange(next);
+    (next === "lichess" ? lichessTabRef : chesscomTabRef).current?.focus();
   };
 
   const updateRowUrl = (id: number, value: string) => {
@@ -121,6 +177,24 @@ export default function AnalyzerForm({
     setRows((current) =>
       current.map((row) => (row.id === id ? { ...row, color } : row))
     );
+  };
+
+  /** Arrow keys move between the two chips, as a radiogroup should. */
+  const handleColorKeyDown = (
+    event: React.KeyboardEvent<HTMLDivElement>,
+    rowId: number,
+    current: PlayerColor | null
+  ) => {
+    if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") {
+      return;
+    }
+    event.preventDefault();
+    const next: PlayerColor = current === "white" ? "black" : "white";
+    updateRowColor(rowId, next);
+    colorGroupRefs.current
+      .get(rowId)
+      ?.querySelector<HTMLButtonElement>(`[data-color="${next}"]`)
+      ?.focus();
   };
 
   const addRow = () => {
@@ -167,6 +241,9 @@ export default function AnalyzerForm({
 
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
+    if (disabled) {
+      return;
+    }
     const games: BatchGameInput[] = rows
       .map((row) => ({
         gameUrl: row.url.trim(),
@@ -177,6 +254,33 @@ export default function AnalyzerForm({
     if (games.length === 0) {
       return;
     }
+
+    // Never fail silently: name the missing side and move focus to the control
+    // that fixes it, instead of leaving a dead button with no explanation.
+    if (platform === "lichess") {
+      const missingIndex = rows.findIndex(
+        (row) => row.url.trim() && !row.color
+      );
+      if (missingIndex !== -1) {
+        const missing = rows[missingIndex];
+        setFormError({
+          kind: "color",
+          rowId: missing.id,
+          index: missingIndex,
+        });
+        colorGroupRefs.current
+          .get(missing.id)
+          ?.querySelector<HTMLButtonElement>("button")
+          ?.focus();
+        return;
+      }
+    }
+    if (platform === "chess.com" && !username.trim()) {
+      setFormError({ kind: "username" });
+      usernameRef.current?.focus();
+      return;
+    }
+
     if (games.length === 1) {
       onSubmit({
         platform,
@@ -198,9 +302,6 @@ export default function AnalyzerForm({
   };
 
   const validGames = rows.filter((row) => row.url.trim());
-  const colorReady =
-    platform !== "lichess" || rows.every((row) => !row.url.trim() || row.color);
-  const usernameReady = platform !== "chess.com" || Boolean(username.trim());
   const multiGame = validGames.length > 1;
   const psychologyUnlocked = validGames.length >= PSYCHOLOGY_MIN_GAMES;
   const gamesToPsychology = Math.max(
@@ -208,21 +309,30 @@ export default function AnalyzerForm({
     0
   );
   const psychologyHintAvailable = rowLimit >= PSYCHOLOGY_MIN_GAMES;
+  // The missing side / username is surfaced on submit (handleSubmit) rather
+  // than disabling the button without a reason.
   const submitDisabled =
     disabled ||
     validGames.length === 0 ||
-    !colorReady ||
-    !usernameReady ||
     (multiGame && !onSubmitBatch);
 
   return (
     <form className="analyzer-form" onSubmit={handleSubmit}>
       {/* Platform Switch with spring sliding indicator */}
-      <div className="platform-toggle relative flex p-1 rounded-full bg-[var(--ink-3)] border border-[var(--line-soft)]" role="tablist" aria-label="Chess platform">
+      <div
+        className="platform-toggle relative flex p-1 rounded-full bg-[var(--ink-3)] border border-[var(--line-soft)]"
+        role="tablist"
+        aria-label="Chess platform"
+        onKeyDown={handlePlatformKeyDown}
+      >
         <button
+          ref={lichessTabRef}
           type="button"
           role="tab"
+          id="platform-tab-lichess"
           aria-selected={platform === "lichess"}
+          aria-controls="platform-panel"
+          tabIndex={platform === "lichess" ? 0 : -1}
           className={cn(
             "tap-hit-y relative z-10 flex-1 py-1.5 px-4 text-xs sm:text-sm font-medium rounded-full transition-colors cursor-pointer text-center",
             platform === "lichess"
@@ -243,9 +353,13 @@ export default function AnalyzerForm({
         </button>
 
         <button
+          ref={chesscomTabRef}
           type="button"
           role="tab"
+          id="platform-tab-chesscom"
           aria-selected={platform === "chess.com"}
+          aria-controls="platform-panel"
+          tabIndex={platform === "chess.com" ? 0 : -1}
           className={cn(
             "tap-hit-y relative z-10 flex-1 py-1.5 px-4 text-xs sm:text-sm font-medium rounded-full transition-colors cursor-pointer text-center",
             platform === "chess.com"
@@ -266,6 +380,14 @@ export default function AnalyzerForm({
         </button>
       </div>
 
+      <div
+        role="tabpanel"
+        id="platform-panel"
+        aria-labelledby={
+          platform === "lichess" ? "platform-tab-lichess" : "platform-tab-chesscom"
+        }
+      >
+
       {platform === "chess.com" && (
         <motion.div
           initial={{ opacity: 0, y: -6 }}
@@ -277,13 +399,19 @@ export default function AnalyzerForm({
           <label htmlFor="chesscom-username">Chess.com Username</label>
           <input
             id="chesscom-username"
+            ref={usernameRef}
             type="text"
             value={username}
             onChange={(event) => setUsername(event.target.value)}
             placeholder="e.g. magnuscarlsen"
-            required
             disabled={disabled}
+            aria-invalid={formError?.kind === "username" || undefined}
           />
+          {formError?.kind === "username" && (
+            <p className="analyzer-error" role="alert">
+              Add your Chess.com username so we can find your side of the game.
+            </p>
+          )}
         </motion.div>
       )}
 
@@ -355,12 +483,36 @@ export default function AnalyzerForm({
 
                 {platform === "lichess" && (
                   <div
-                    className="game-row-color relative flex p-1 rounded-full bg-[var(--ink-3)] border border-[var(--line-soft)] shrink-0"
-                    role="group"
-                    aria-label={`Color played in game ${index + 1}`}
+                    ref={(element) => {
+                      if (element) {
+                        colorGroupRefs.current.set(row.id, element);
+                      } else {
+                        colorGroupRefs.current.delete(row.id);
+                      }
+                    }}
+                    className={cn(
+                      "game-row-color relative flex p-1 rounded-full bg-[var(--ink-3)] border border-[var(--line-soft)] shrink-0",
+                      formError?.kind === "color" &&
+                        formError.rowId === row.id &&
+                        "is-error"
+                    )}
+                    role="radiogroup"
+                    aria-label={`Side you played in game ${index + 1}`}
+                    aria-describedby={
+                      formError?.kind === "color" && formError.rowId === row.id
+                        ? `game-${row.id}-color-error`
+                        : undefined
+                    }
+                    onKeyDown={(event) =>
+                      handleColorKeyDown(event, row.id, row.color)
+                    }
                   >
                     <button
                       type="button"
+                      role="radio"
+                      aria-checked={row.color === "white"}
+                      tabIndex={row.color === "black" ? -1 : 0}
+                      data-color="white"
                       className={cn(
                         "tap-hit-y relative z-10 w-7 h-7 rounded-full text-xs font-mono font-bold flex items-center justify-center transition-colors cursor-pointer",
                         row.color === "white"
@@ -382,6 +534,10 @@ export default function AnalyzerForm({
                     </button>
                     <button
                       type="button"
+                      role="radio"
+                      aria-checked={row.color === "black"}
+                      tabIndex={row.color === "black" ? 0 : -1}
+                      data-color="black"
                       className={cn(
                         "tap-hit-y relative z-10 w-7 h-7 rounded-full text-xs font-mono font-bold flex items-center justify-center transition-colors cursor-pointer",
                         row.color === "black"
@@ -418,6 +574,17 @@ export default function AnalyzerForm({
           </AnimatePresence>
         </div>
 
+        {formError?.kind === "color" && (
+          <p
+            id={`game-${formError.rowId}-color-error`}
+            className="analyzer-error"
+            role="alert"
+          >
+            Tell us which side you played — this link doesn&apos;t say. Pick W or
+            B on game {formError.index + 1}.
+          </p>
+        )}
+
         <div className="game-rows-footer flex items-center justify-between mt-2 text-xs">
           <button
             type="button"
@@ -428,7 +595,9 @@ export default function AnalyzerForm({
             + Add another game
           </button>
           <span className="game-rows-hint text-[var(--text-muted)] font-mono">
-            {validGames.length} of {rowLimit} games · 1 credit per game
+            {validGames.length === 0
+              ? `Up to ${rowLimit} games per run · 1 analysis each`
+              : `${validGames.length} of ${rowLimit} games · 1 analysis each`}
           </span>
         </div>
 
@@ -452,6 +621,7 @@ export default function AnalyzerForm({
             )}
           </p>
         )}
+      </div>
       </div>
 
       <button type="submit" className="btn" disabled={submitDisabled}>

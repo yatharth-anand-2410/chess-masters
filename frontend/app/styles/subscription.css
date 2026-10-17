@@ -188,6 +188,7 @@
 
 .subscription-plan-name {
   display: block;
+  margin: 0;
   font-family: var(--font-display);
   font-size: 1.15rem;
   font-weight: 700;

@@ -4,6 +4,8 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "motion/react";
 import { X, Sparkles, Send, Bot, User as UserIcon, RotateCcw, ChevronRight, Zap } from "lucide-react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 export type AICoachDrawerProps = {
   isOpen?: boolean;
@@ -94,9 +96,13 @@ export function AICoachDrawer({
   const [internalOpen, setInternalOpen] = useState(false);
   const [inputMessage, setInputMessage] = useState("");
   const [isTyping, setIsTyping] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(true);
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const panelRef = useRef<HTMLElement | null>(null);
+  const threadRef = useRef<HTMLDivElement>(null);
 
   const isControlled = controlledIsOpen !== undefined;
   const open = isControlled ? controlledIsOpen : internalOpen;
@@ -159,20 +165,38 @@ export function AICoachDrawer({
     };
   }, [open, setOpen]);
 
-  // Auto scroll to bottom of chat thread
+  // Auto scroll to bottom of the thread once a conversation is underway.
   useEffect(() => {
-    if (open) {
+    if (open && !showSuggestions) {
       messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }
-  }, [messages, open, isTyping]);
+  }, [messages, open, isTyping, showSuggestions]);
+
+  // When the suggestions panel is (re)opened, reveal it: scroll to the top.
+  useEffect(() => {
+    if (open && showSuggestions) {
+      threadRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  }, [open, showSuggestions]);
+
+  // Land focus inside the dialog when it opens, so the ⌘K keyboard path ends
+  // somewhere useful instead of staying on <body> behind the modal.
+  useEffect(() => {
+    if (open) {
+      const timer = window.setTimeout(() => inputRef.current?.focus(), 250);
+      return () => window.clearTimeout(timer);
+    }
+  }, [open]);
 
   const handleReset = () => {
     setMessages([initialMessage]);
+    setShowSuggestions(true);
     playAudioFeedback("click");
   };
 
   const executeCopilotQuery = async (queryText: string) => {
     playAudioFeedback("move");
+    setShowSuggestions(false);
     const userMsg: ChatMessage = {
       id: `user-${Date.now()}`,
       sender: "user",
@@ -247,10 +271,58 @@ export function AICoachDrawer({
     executeCopilotQuery(text);
   };
 
+  /** Keep Tab/Shift+Tab inside the dialog while it is open. */
+  const handleDialogKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== "Tab") {
+      return;
+    }
+    const panel = panelRef.current;
+    if (!panel) {
+      return;
+    }
+    const focusables = Array.from(
+      panel.querySelectorAll<HTMLElement>(
+        'button:not(:disabled), input:not(:disabled), textarea:not(:disabled), a[href], [tabindex]:not([tabindex="-1"])'
+      )
+    );
+    if (focusables.length === 0) {
+      return;
+    }
+    const first = focusables[0];
+    const last = focusables[focusables.length - 1];
+    const active = document.activeElement;
+    if (event.shiftKey) {
+      if (active === first || !panel.contains(active)) {
+        event.preventDefault();
+        last.focus();
+      }
+    } else if (active === last || !panel.contains(active)) {
+      event.preventDefault();
+      first.focus();
+    }
+  };
+
+  /** Honest CTA for the empty-context strip: go to the analyzer, focus its URL field. */
+  const handleStartAnalysis = () => {
+    setOpen(false);
+    if (window.location.pathname !== "/") {
+      router.push("/");
+    }
+    window.setTimeout(() => {
+      window.dispatchEvent(new CustomEvent("cm_focus_analyzer_url"));
+    }, 450);
+  };
+
   return (
     <AnimatePresence>
       {open && (
-        <div className="fixed inset-0 z-50 overflow-hidden flex justify-end" role="dialog" aria-modal="true" aria-label="AI Coach Assistant">
+        <div
+          className="fixed inset-0 z-[300] overflow-hidden flex justify-end"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="ai-coach-title"
+          onKeyDown={handleDialogKeyDown}
+        >
           {/* Backdrop */}
           <motion.div
             initial={{ opacity: 0 }}
@@ -264,6 +336,7 @@ export function AICoachDrawer({
 
           {/* Slide-over Drawer Panel */}
           <motion.aside
+            ref={panelRef}
             initial={{ x: "100%" }}
             animate={{ x: 0 }}
             exit={{ x: "100%" }}
@@ -278,16 +351,22 @@ export function AICoachDrawer({
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <h2 className="text-sm font-semibold tracking-tight text-[var(--text)]">
+                    <h2 id="ai-coach-title" className="text-sm font-semibold tracking-tight text-[var(--text)]">
                       AI Coach & Copilot
                     </h2>
-                    <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded font-mono bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                      Live
-                    </span>
+                    {currentGameId && (
+                      <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded font-mono bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                        Live
+                      </span>
+                    )}
                   </div>
                   <p className="text-[11px] font-mono text-[var(--gold-bright)] tracking-tight">
-                    {user ? `${user.user_metadata?.full_name || user.email?.split("@")[0] || "Player"} · Live Context` : "Real-time Telemetry & Guidance"}
+                    {user
+                      ? user.user_metadata?.full_name ||
+                        user.email?.split("@")[0] ||
+                        "Player"
+                      : "Coaching assistant"}
                   </p>
                 </div>
               </div>
@@ -314,42 +393,50 @@ export function AICoachDrawer({
               </div>
             </header>
 
-            {/* Current Game Telemetry Strip */}
-            <div className="px-5 py-2 bg-[var(--ink-0)] border-b border-[var(--line-soft)] flex items-center justify-between text-xs font-mono">
-              <div className="flex items-center gap-2 text-[var(--text-muted)]">
-                <Zap size={13} className="text-[var(--gold)]" />
-                <span>Najdorf #842</span>
-                <span className="text-emerald-400">+4.8 → Move 28</span>
+            {/* Game context strip — honest when no game is loaded */}
+            <div className="px-5 py-2 bg-[var(--ink-0)] border-b border-[var(--line-soft)] flex items-center justify-between gap-3 text-xs font-mono">
+              <div className="flex items-center gap-2 text-[var(--text-muted)] min-w-0">
+                <Zap size={13} className="text-[var(--gold)] shrink-0" />
+                <span className="truncate">
+                  {currentGameId
+                    ? `Game loaded · ${currentGameId.slice(0, 8)}`
+                    : "No game loaded — paste a link in the analyzer, then ask me about it."}
+                </span>
               </div>
-              <span className="text-rose-400 bg-rose-500/10 px-1.5 py-0.5 rounded border border-rose-500/20 text-[10px]">
-                Re8?? (14s)
-              </span>
+              <button
+                type="button"
+                onClick={handleStartAnalysis}
+                className="shrink-0 text-[var(--gold-bright)] hover:underline cursor-pointer"
+              >
+                Open analyzer
+              </button>
             </div>
 
-            {/* Quick Action Chips Section */}
-            <div className="p-4 border-b border-[var(--line-soft)] bg-[var(--ink-2)]/60">
-              <span className="block text-[11px] font-mono uppercase tracking-wider text-[var(--text-muted)] mb-2 font-medium">
-                Suggested Queries with Your Data:
-              </span>
-              <div className="flex flex-col gap-1.5">
-                {QUICK_QUERY_CHIPS.map((chip) => (
-                  <button
-                    key={chip.id}
-                    type="button"
-                    onClick={() => handleQueryChip(chip.id)}
-                    className="flex items-center justify-between text-left px-3 py-2 text-xs rounded-lg bg-[var(--ink-3)] hover:bg-[var(--ink)] border border-[var(--line-soft)] hover:border-[var(--gold)]/40 text-[var(--text)] hover:text-white transition-all group cursor-pointer"
-                  >
-                    <span className="font-medium text-[var(--text)] group-hover:text-[var(--gold-bright)]">
-                      {chip.label}
-                    </span>
-                    <ChevronRight size={13} className="text-[var(--gold)] opacity-70 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all" />
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Interactive Chat Message Thread */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            {/* Interactive Chat Message Thread (suggestions live inside it, so
+                they scroll away once a conversation starts) */}
+            <div ref={threadRef} className="flex-1 overflow-y-auto p-4 space-y-4">
+              {showSuggestions && (
+                <div className="rounded-lg border border-[var(--line-soft)] bg-[var(--ink-2)]/70 p-3">
+                  <span className="block text-[11px] font-mono uppercase tracking-wider text-[var(--text-muted)] mb-2 font-medium">
+                    Suggested queries with your data
+                  </span>
+                  <div className="flex flex-col gap-1.5">
+                    {QUICK_QUERY_CHIPS.map((chip) => (
+                      <button
+                        key={chip.id}
+                        type="button"
+                        onClick={() => handleQueryChip(chip.id)}
+                        className="flex items-center justify-between text-left px-3 py-2 text-xs rounded-lg bg-[var(--ink-3)] hover:bg-[var(--ink)] border border-[var(--line-soft)] hover:border-[var(--gold)]/40 text-[var(--text)] hover:text-white transition-all group cursor-pointer"
+                      >
+                        <span className="font-medium text-[var(--text)] group-hover:text-[var(--gold-bright)]">
+                          {chip.label}
+                        </span>
+                        <ChevronRight size={13} className="text-[var(--gold)] opacity-70 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all" />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
               {messages.map((msg) => (
                 <div
                   key={msg.id}
@@ -377,18 +464,15 @@ export function AICoachDrawer({
                       </div>
                     )}
 
-                    <div className="space-y-1.5 whitespace-pre-wrap">
-                      {msg.content.split("\n\n").map((para, i) => {
-                        if (para.startsWith("### ")) {
-                          return (
-                            <h4 key={i} className="text-sm font-semibold text-[var(--gold-bright)] mt-1">
-                              {para.replace("### ", "")}
-                            </h4>
-                          );
-                        }
-                        return <p key={i}>{para}</p>;
-                      })}
-                    </div>
+                    {msg.sender === "coach" ? (
+                      <div className="coach-bubble-md">
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                          {msg.content}
+                        </ReactMarkdown>
+                      </div>
+                    ) : (
+                      <p className="whitespace-pre-wrap break-words">{msg.content}</p>
+                    )}
                   </div>
 
                   {msg.sender === "user" && (
@@ -411,6 +495,16 @@ export function AICoachDrawer({
 
             {/* Bottom Input Form */}
             <footer className="p-3.5 border-t border-[var(--line-soft)] bg-[var(--ink-2)]">
+              {!showSuggestions && (
+                <button
+                  type="button"
+                  onClick={() => setShowSuggestions(true)}
+                  className="mb-2 inline-flex items-center gap-1 text-[11px] font-mono text-[var(--gold-bright)] hover:underline cursor-pointer"
+                >
+                  <Sparkles size={11} />
+                  Suggested queries
+                </button>
+              )}
               <form
                 onSubmit={(e) => {
                   e.preventDefault();
@@ -419,6 +513,7 @@ export function AICoachDrawer({
                 className="flex items-center gap-2"
               >
                 <input
+                  ref={inputRef}
                   type="text"
                   value={inputMessage}
                   onChange={(e) => setInputMessage(e.target.value)}
@@ -436,7 +531,15 @@ export function AICoachDrawer({
               </form>
               <div className="flex items-center justify-between mt-2 px-1 text-[10px] text-[var(--text-muted)] font-mono">
                 <span>Press ↵ to send</span>
-                <span>{user ? `User: ${user.email}` : "Context: Active Game"}</span>
+                <span>
+                  {user
+                    ? `Signed in as ${
+                        user.user_metadata?.full_name ||
+                        user.email?.split("@")[0] ||
+                        "Player"
+                      }`
+                    : "Guest — sign in to save your conversations"}
+                </span>
               </div>
             </footer>
           </motion.aside>

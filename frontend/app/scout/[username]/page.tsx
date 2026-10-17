@@ -258,7 +258,7 @@ function DossierBody({ dossier }: { dossier: OpponentScoutDossier }) {
               key={blindspot.motif}
               surface="shell"
               pad="md"
-              className={`border-l-4 ${
+              className={`border-l-2 ${
                 index === 0
                   ? "border-l-[var(--red)]"
                   : index === 1

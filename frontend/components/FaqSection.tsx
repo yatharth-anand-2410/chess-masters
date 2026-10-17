@@ -10,16 +10,25 @@ export default function FaqSection({
   items = FAQS,
   showMoreLink = true,
   showMeta = false,
+  showTitle = true,
 }: {
   items?: { question: string; answer: string }[];
   showMoreLink?: boolean;
   showMeta?: boolean;
+  /** /faq already carries its own H1 — skip the duplicate section heading. */
+  showTitle?: boolean;
 }) {
   return (
-    <section className="faq-panel" aria-labelledby="faq-title">
-      <div className="section-head">
-        <h2 id="faq-title">Frequently asked questions</h2>
-      </div>
+    <section
+      className="faq-panel"
+      aria-labelledby={showTitle ? "faq-title" : undefined}
+      aria-label={showTitle ? undefined : "Frequently asked questions"}
+    >
+      {showTitle && (
+        <div className="section-head">
+          <h2 id="faq-title">Frequently asked questions</h2>
+        </div>
+      )}
       {showMeta && (
         <p className="article-meta faq-meta">
           Reviewed by{" "}

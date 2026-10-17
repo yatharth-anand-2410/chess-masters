@@ -17,7 +17,9 @@ export default function SoundToggle({
   withLabel = false,
   className = "",
 }: SoundToggleProps) {
-  const [on, setOn] = useState(true);
+  // Read the persisted preference synchronously so a muted user never sees a
+  // flash of "sound on" before the effect below re-syncs.
+  const [on, setOn] = useState(() => isSoundEnabled());
 
   useEffect(() => {
     setOn(isSoundEnabled());

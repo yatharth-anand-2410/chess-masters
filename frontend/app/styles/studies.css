@@ -174,9 +174,9 @@
 .studies-tactic-aliases {
   margin: 0;
   font-family: var(--font-mono);
-  font-size: 0.68rem;
+  font-size: 0.75rem;
   color: var(--text-muted);
-  opacity: 0.85;
+  opacity: 0.9;
 }
 
 .studies-tactic-aliases code {

@@ -4,8 +4,9 @@
  *
  * Covers (no session required — every surface is public and degrades honestly):
  *
- *   1. Global bottom dock          — PAGE SWITCHER label + Sound ON/Muted toggle
- *                                    with persistence in localStorage (cm_sound_enabled).
+ *   1. Global bottom dock          — desktop-only quick nav (no dev label, no sound
+ *                                    control); sound ON/Muted lives in the topbar with
+ *                                    persistence in localStorage (cm_sound_enabled).
  *   2. /tactics                    — live catalog grid from GET /api/tactics,
  *                                    or the honest fallback note + static motif grid.
  *   3. /subscription               — exactly two pricing cards: Pro Student ₹399
@@ -175,43 +176,76 @@ async function main() {
         .catch(() => "")) || ""
     ).trim();
     const dockButtonCount = await dock.locator("a.app-dock-btn").count();
+    const dockSoundCount = await dock
+      .locator("button[aria-pressed]")
+      .count()
+      .catch(() => 0);
     record(
-      "Bottom dock: PAGE SWITCHER",
-      dockVisible && /page switcher/i.test(dockLabelText) && dockButtonCount >= 4
+      "Bottom dock: desktop-only quick nav (no dev label, no sound control)",
+      dockVisible && dockLabelText === "" && dockSoundCount === 0 && dockButtonCount >= 4
         ? "PASS"
         : "FAIL",
-      `dock: ${dockVisible}, label: "${dockLabelText}", page links: ${dockButtonCount}`
+      `dock: ${dockVisible}, label: "${dockLabelText}", page links: ${dockButtonCount}, dock sound controls: ${dockSoundCount}`
     );
     await capture(page, "01-home-dock");
 
-    // Sound ON / Muted toggle + localStorage persistence.
-    const soundBtn = dock.locator("button[aria-pressed]").first();
-    const initialLabel = ((await soundBtn.innerText().catch(() => "")) || "").trim();
-    const initialOn = /sound\s*on/i.test(initialLabel);
+    // Dock is phone-only chrome? No: phones use the hamburger. Hidden < 768px.
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.waitForTimeout(300);
+    const mobileDock = page.locator("nav.app-dock").first();
+    const mobileDockHidden =
+      (await mobileDock.isHidden().catch(() => false)) ||
+      (await mobileDock
+        .evaluate((el) => getComputedStyle(el).display === "none")
+        .catch(() => false));
+    const bodyBottomPadding = await page
+      .evaluate(() => getComputedStyle(document.body).paddingBottom)
+      .catch(() => "");
+    record(
+      "Bottom dock hidden on mobile (hamburger owns navigation)",
+      mobileDockHidden && bodyBottomPadding === "0px" ? "PASS" : "FAIL",
+      `dock hidden: ${mobileDockHidden}, body padding-bottom: ${bodyBottomPadding}`
+    );
+    await capture(page, "01b-home-mobile-no-dock");
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.waitForTimeout(300);
+
+    // Sound ON / Muted toggle + localStorage persistence (topbar).
+    const soundBtn = page.locator("header .sound-toggle").first();
+    const pressedAttr = await soundBtn.getAttribute("aria-pressed").catch(() => "");
+    const initialOn = pressedAttr === "true";
     const expectedStored = initialOn ? "0" : "1";
 
     await soundBtn.click();
     await page.waitForTimeout(300);
-    const toggledLabel = ((await soundBtn.innerText().catch(() => "")) || "").trim();
+    const toggledPressed = await soundBtn.getAttribute("aria-pressed").catch(() => "");
     const storedAfterClick = await page.evaluate(() =>
       window.localStorage.getItem("cm_sound_enabled")
     );
-    const labelToggled = initialOn
-      ? /muted/i.test(toggledLabel)
-      : /sound\s*on/i.test(toggledLabel);
+    const labelToggled = toggledPressed === (initialOn ? "false" : "true");
 
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForTimeout(700);
-    const reloadSoundBtn = page.locator("nav.app-dock button[aria-pressed]").first();
-    const labelAfterReload = (
-      (await reloadSoundBtn.innerText().catch(() => "")) || ""
-    ).trim();
+    const expectedPressed = initialOn ? "false" : "true";
+    // The toggle syncs from storage right after hydration — poll for the
+    // settled state instead of racing a fixed timeout.
+    await page
+      .waitForFunction(
+        (pressed) =>
+          document
+            .querySelector("header .sound-toggle")
+            ?.getAttribute("aria-pressed") === pressed,
+        expectedPressed,
+        { timeout: 8000 }
+      )
+      .catch(() => {});
+    const reloadSoundBtn = page.locator("header .sound-toggle").first();
+    const pressedAfterReload = await reloadSoundBtn
+      .getAttribute("aria-pressed")
+      .catch(() => "");
     const storedAfterReload = await page.evaluate(() =>
       window.localStorage.getItem("cm_sound_enabled")
     );
-    const labelPersisted = initialOn
-      ? /muted/i.test(labelAfterReload)
-      : /sound\s*on/i.test(labelAfterReload);
+    const labelPersisted = pressedAfterReload === (initialOn ? "false" : "true");
     const persisted =
       storedAfterReload === expectedStored && labelPersisted && labelToggled;
 
@@ -220,11 +254,11 @@ async function main() {
     await page.waitForTimeout(200);
 
     record(
-      "Dock sound toggle + persistence (cm_sound_enabled)",
+      "Sound toggle + persistence (cm_sound_enabled)",
       persisted ? "PASS" : "FAIL",
-      `initial: "${initialLabel}", after click: "${toggledLabel}" (localStorage=${JSON.stringify(
+      `initial aria-pressed: "${pressedAttr}", after click: "${toggledPressed}" (localStorage=${JSON.stringify(
         storedAfterClick
-      )}), after reload: "${labelAfterReload}" (localStorage=${JSON.stringify(
+      )}), after reload: "${pressedAfterReload}" (localStorage=${JSON.stringify(
         storedAfterReload
       )})`
     );

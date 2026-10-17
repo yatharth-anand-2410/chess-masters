@@ -7,7 +7,6 @@ import { createClient } from "../../lib/supabase-client";
 import { apiGetCached, CACHE_TTL } from "../../lib/api-cache";
 import type { UserProfile } from "../../lib/api";
 import { playSound } from "../../lib/sound";
-import SoundToggle from "./SoundToggle";
 
 type DockItem = {
   href: string;
@@ -81,8 +80,7 @@ export default function Dock() {
   }
 
   return (
-    <nav className="app-dock" aria-label="Quick page switcher">
-      <span className="app-dock-label">Page Switcher:</span>
+    <nav className="app-dock" aria-label="Quick navigation">
       {items.map((item) => {
         const active = item.active(pathname);
         return (
@@ -97,8 +95,6 @@ export default function Dock() {
           </Link>
         );
       })}
-      <span className="app-dock-divider" aria-hidden="true" />
-      <SoundToggle withLabel />
     </nav>
   );
 }

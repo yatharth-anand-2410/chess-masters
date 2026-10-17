@@ -12,10 +12,22 @@
 
 .review-workspace {
   display: grid;
-  grid-template-columns: 480px minmax(0, 1fr);
+  /* The report is the product: it leads in the primary column while the board
+     instrument supports it as a sticky rail. DOM order keeps the board first
+     (so mobile collapses board-above-report and the tab order starts with the
+     instrument), CSS order puts the report first visually on desktop. */
+  grid-template-columns: minmax(0, 1fr) 400px;
   gap: 1.75rem;
   align-items: start;
   margin-top: 1.5rem;
+}
+
+.review-workspace .review-canvas-column {
+  order: 1;
+}
+
+.review-workspace .review-instrument {
+  order: 2;
 }
 
 .review-workspace.is-solo {
@@ -32,6 +44,12 @@
 @media (max-width: 1080px) {
   .review-workspace {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* Single column: board above the report (DOM order). */
+  .review-workspace .review-canvas-column,
+  .review-workspace .review-instrument {
+    order: 0;
   }
 }
 
@@ -563,12 +581,17 @@
    =========================================================================== */
 
 .report.review-canvas {
+  /* The paper fills its column; without an explicit width it can resolve
+     against intrinsic sizing and overflow the column on small screens. */
+  width: 100%;
   padding: clamp(1.25rem, 3vw, 2.25rem);
   border-radius: var(--radius-card);
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
   display: flex;
   flex-direction: column;
   gap: 1.75rem;
+  /* Let the paper shrink to its column instead of forcing mobile overflow. */
+  min-width: 0;
 }
 
 /* Inside the dual workspace the grid already spaces the canvas. */
@@ -740,7 +763,7 @@
 }
 
 .review-verdict {
-  border-left: 3px solid var(--accent);
+  border-left: 2px solid var(--accent);
   padding: 0.15rem 0 0.15rem 0.85rem;
 }
 
@@ -772,7 +795,7 @@
 
 .review-hero-wedge {
   background: var(--paper-2);
-  border-left: 5px solid var(--accent);
+  border-left: 3px solid var(--accent);
   padding: 1.5rem;
   border-radius: 0 var(--radius-control) var(--radius-control) 0;
 }
@@ -989,7 +1012,7 @@
 
 .review-choke {
   background: var(--paper-inset);
-  border-left: 4px solid var(--accent);
+  border-left: 2px solid var(--accent);
   padding: 1rem 1.25rem;
   border-radius: 0 var(--radius-control) var(--radius-control) 0;
 }
@@ -1592,7 +1615,7 @@
 
 .review-focus-dont {
   background: rgba(125, 53, 39, 0.08);
-  border-left: 3px solid var(--alert);
+  border-left: 2px solid var(--alert);
   padding: 0.65rem 0.85rem;
   border-radius: 0 4px 4px 0;
   font-size: 0.88rem;
@@ -1606,7 +1629,7 @@
 
 .review-focus-do {
   background: rgba(47, 107, 98, 0.08);
-  border-left: 3px solid var(--accent);
+  border-left: 2px solid var(--accent);
   padding: 0.65rem 0.85rem;
   border-radius: 0 4px 4px 0;
   font-size: 0.88rem;

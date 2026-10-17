@@ -32,6 +32,7 @@ export const STREAM_TIMING = {
 
 type PostOutcome =
   | { kind: "response"; response: Response }
+  | { kind: "aborted" }
   | {
       kind: "failure";
       message: string;
@@ -49,7 +50,12 @@ type PostOutcome =
  * safe to retry, because a request that never arrived cannot have consumed an
  * analysis credit.
  */
-async function postOnce(url: string, token: string, body: unknown): Promise<PostOutcome> {
+async function postOnce(
+  url: string,
+  token: string,
+  body: unknown,
+  signal?: AbortSignal
+): Promise<PostOutcome> {
   const startedAt = Date.now();
 
   let response: Response;
@@ -61,8 +67,15 @@ async function postOnce(url: string, token: string, body: unknown): Promise<Post
         Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify(body),
+      signal,
     });
-  } catch {
+  } catch (error) {
+    if (
+      signal?.aborted ||
+      (error instanceof DOMException && error.name === "AbortError")
+    ) {
+      return { kind: "aborted" };
+    }
     return {
       kind: "failure",
       message: "Lost connection to the server.",
@@ -111,7 +124,11 @@ async function postOnce(url: string, token: string, body: unknown): Promise<Post
   };
 }
 
-async function readStream(response: Response, handlers: StreamHandlers): Promise<void> {
+async function readStream(
+  response: Response,
+  handlers: StreamHandlers,
+  signal?: AbortSignal
+): Promise<void> {
   if (!response.body) {
     handlers.onError?.("Server returned an empty response.");
     return;
@@ -156,6 +173,10 @@ async function readStream(response: Response, handlers: StreamHandlers): Promise
       }
     }
   } catch {
+    if (signal?.aborted) {
+      // Cancelled by the player — the backend refunds and marks the row.
+      return;
+    }
     // Past this point the request has been received and may have been charged,
     // so a dropped connection is reported rather than retried automatically.
     handlers.onError?.("Lost connection while streaming.");
@@ -166,23 +187,34 @@ export async function streamPost(
   url: string,
   token: string,
   body: unknown,
-  handlers: StreamHandlers
+  handlers: StreamHandlers,
+  options?: { signal?: AbortSignal }
 ): Promise<void> {
+  const signal = options?.signal;
   for (let attempt = 1; ; attempt += 1) {
+    if (signal?.aborted) {
+      return;
+    }
     // Wait for the container *before* sending a request that spends a credit:
     // the player sees a status instead of a dead tab, and the retry below stays
     // safe because an unanswered request never reached the app.
     const awake = await ensureBackendAwake(() =>
       handlers.onEvent?.("status_update", { message: WAKING_MESSAGE })
     );
+    if (signal?.aborted) {
+      return;
+    }
     if (!awake) {
       handlers.onError?.(UNREACHABLE_MESSAGE, "backend_unreachable");
       return;
     }
 
-    const outcome = await postOnce(url, token, body);
+    const outcome = await postOnce(url, token, body, signal);
+    if (outcome.kind === "aborted") {
+      return;
+    }
     if (outcome.kind === "response") {
-      await readStream(outcome.response, handlers);
+      await readStream(outcome.response, handlers, signal);
       return;
     }
 

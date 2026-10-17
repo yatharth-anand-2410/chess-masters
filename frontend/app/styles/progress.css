@@ -8,7 +8,7 @@
 /* ---- Page shell ---------------------------------------------------------- */
 
 .progress-page {
-  width: min(1360px, 100%);
+  width: min(var(--shell-max), 100%);
   margin: 0 auto;
   padding: 1rem 1.5rem 3rem;
   display: flex;

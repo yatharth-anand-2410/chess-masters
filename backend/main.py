@@ -589,6 +589,48 @@ async def stream_analysis(
         analysis_id: Optional[str] = None
         pool: Optional[engine.EnginePool] = None
         create_task: Optional[asyncio.Task] = None
+        description_task: Optional[asyncio.Task] = None
+
+        async def _client_gone() -> bool:
+            """True when the player cancelled or closed the page mid-analysis."""
+            return await request.is_disconnected()
+
+        async def _cancel_analysis() -> None:
+            """Player cancelled: stop work, return the credit, mark the row so
+            History shows the truth instead of a stuck "processing" entry."""
+            nonlocal create_task, description_task
+            if create_task is not None and not create_task.done():
+                create_task.cancel()
+            if description_task is not None and not description_task.done():
+                description_task.cancel()
+            if user_id is not None:
+                try:
+                    await _refund_analysis_credits(user_id, 1)
+                except Exception:  # pragma: no cover — best effort
+                    logger.exception(
+                        "Failed to refund credit for a cancelled analysis"
+                    )
+                if analysis_id is not None:
+                    try:
+                        await asyncio.to_thread(
+                            db.update_analysis,
+                            user_id,
+                            analysis_id,
+                            {
+                                "status": "cancelled",
+                                "error_message": "Cancelled by player.",
+                            },
+                        )
+                    except Exception:  # pragma: no cover — best effort
+                        logger.exception(
+                            "Failed to mark analysis %s cancelled", analysis_id
+                        )
+            logger.info(
+                "Analysis cancelled (client disconnected) user_id=%s analysis_id=%s",
+                user_id,
+                analysis_id,
+            )
+
         try:
             yield sse_event("status_update", {"message": "Extracting game PGN..."})
             game = await asyncio.to_thread(
@@ -598,6 +640,9 @@ async def stream_analysis(
                 payload.username,
                 payload.player_color,
             )
+            if await _client_gone():
+                await _cancel_analysis()
+                return
 
             if user_id is None:
                 guest_usage = await asyncio.to_thread(
@@ -667,6 +712,10 @@ async def stream_analysis(
             finally:
                 _release_engine_slot()
 
+            if await _client_gone():
+                await _cancel_analysis()
+                return
+
             description_task = asyncio.create_task(
                 analyzer.describe_moments(get_client(), engine_data)
             )
@@ -679,6 +728,9 @@ async def stream_analysis(
             async for chunk in analyzer.stream_coaching_report(
                 get_client(), game, engine_data
             ):
+                if await _client_gone():
+                    await _cancel_analysis()
+                    return
                 report_parts.append(chunk)
                 yield sse_event("content_chunk", {"text": chunk})
 
@@ -822,6 +874,7 @@ class BatchAnalysisRequest(BaseModel):
 @app.post("/api/stream-batch-analysis")
 async def stream_batch_analysis(
     payload: BatchAnalysisRequest,
+    request: Request,
     user: Dict[str, object] = Depends(get_current_user),
 ) -> StreamingResponse:
     games = [game for game in payload.games if game.game_url.strip()]
@@ -857,6 +910,41 @@ async def stream_batch_analysis(
         pool: Optional[engine.EnginePool] = None
         extract_tasks: list[asyncio.Task] = []
         engine_slot_held = False
+
+        async def _client_gone() -> bool:
+            """True when the player cancelled or closed the page mid-batch."""
+            return await request.is_disconnected()
+
+        async def _cancel_batch() -> None:
+            """Player cancelled: stop work, return the credits for the games
+            that never finished, and mark the batch cancelled."""
+            remaining = len(games) - len(completed) - credits_refunded
+            if remaining > 0:
+                try:
+                    await _refund_analysis_credits(user_id, remaining)
+                except Exception:  # pragma: no cover — best effort
+                    logger.exception(
+                        "Failed to refund credits for a cancelled batch"
+                    )
+            if batch_id:
+                try:
+                    await asyncio.to_thread(
+                        db.update_batch,
+                        user_id,
+                        batch_id,
+                        {
+                            "status": "cancelled",
+                            "error_message": "Cancelled by player.",
+                        },
+                    )
+                except Exception:  # pragma: no cover — best effort
+                    logger.exception("Failed to mark batch %s cancelled", batch_id)
+            logger.info(
+                "Batch %s cancelled (client disconnected) — %s credit(s) refunded",
+                batch_id,
+                remaining,
+            )
+
         try:
             batch_row = await asyncio.to_thread(
                 db.create_batch,
@@ -892,6 +980,9 @@ async def stream_batch_analysis(
                     "games": [{"game_url": game.game_url} for game in games],
                 },
             )
+            if await _client_gone():
+                await _cancel_batch()
+                return
             if _engine_slots.locked():
                 yield sse_event(
                     "batch_status",
@@ -910,6 +1001,9 @@ async def stream_batch_analysis(
                 label = f"Game {index + 1}"
                 analysis_id: Optional[str] = None
                 try:
+                    if await _client_gone():
+                        await _cancel_batch()
+                        return
                     yield sse_event(
                         "game_status",
                         {
@@ -1109,6 +1203,9 @@ async def stream_batch_analysis(
             async for chunk in analyzer.stream_batch_coaching_report(
                 get_client(), prompt_payload
             ):
+                if await _client_gone():
+                    await _cancel_batch()
+                    return
                 report_parts.append(chunk)
                 yield sse_event("content_chunk", {"text": chunk})
 

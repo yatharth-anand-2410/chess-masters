@@ -54,6 +54,8 @@ export default function HomePage() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [usage, setUsage] = useState<Usage | null>(null);
   const [status, setStatus] = useState("");
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const abortRef = useRef<AbortController | null>(null);
   const [markdown, setMarkdown] = useState("");
   const [insights, setInsights] = useState<InsightsData | null>(null);
   const [error, setError] = useState("");
@@ -329,6 +331,37 @@ export default function HomePage() {
     setAnalysisId(null);
   }, []);
 
+  // Elapsed-time readout while an analysis runs.
+  useEffect(() => {
+    if (!isAnalyzing) {
+      setElapsedSeconds(0);
+      return;
+    }
+    setElapsedSeconds(0);
+    const started = Date.now();
+    const timer = window.setInterval(() => {
+      setElapsedSeconds(Math.floor((Date.now() - started) / 1000));
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [isAnalyzing]);
+
+  /** Stop the running analysis; the backend refunds the credit and marks it cancelled. */
+  const handleCancelAnalysis = useCallback(() => {
+    if (!isAnalyzing) {
+      return;
+    }
+    abortRef.current?.abort();
+    abortRef.current = null;
+    resetAnalysisState();
+    setIsAnalyzing(false);
+    setStatus(
+      token
+        ? "Cancelled — your analysis credit was returned."
+        : "Cancelled — no analysis was saved."
+    );
+    trackEvent("analysis_cancelled", { signedIn: Boolean(token) });
+  }, [isAnalyzing, resetAnalysisState, token]);
+
   const startAnalysis = useCallback(
     async (request: AnalysisRequest) => {
       const supabase = createClient();
@@ -346,6 +379,8 @@ export default function HomePage() {
       setIsAnalyzing(true);
 
       const startedAt = Date.now();
+      const controller = new AbortController();
+      abortRef.current = controller;
       let completionTracked = false;
       const trackCompletion = (success: boolean) => {
         if (completionTracked) {
@@ -477,7 +512,8 @@ export default function HomePage() {
             setStatus("");
             setIsAnalyzing(false);
           },
-        }
+        },
+        { signal: controller.signal }
       );
     },
     [flushStreamContent, guestUsed, refreshHistory, refreshUsage, resetAnalysisState, scheduleStreamFlush]
@@ -506,6 +542,8 @@ export default function HomePage() {
       setIsAnalyzing(true);
 
       const startedAt = Date.now();
+      const controller = new AbortController();
+      abortRef.current = controller;
       let completionTracked = false;
       const trackCompletion = (success: boolean) => {
         if (completionTracked) {
@@ -677,7 +715,8 @@ export default function HomePage() {
             setStatus("");
             setIsAnalyzing(false);
           },
-        }
+        },
+        { signal: controller.signal }
       );
     },
     [flushStreamContent, refreshHistory, refreshUsage, resetAnalysisState, scheduleStreamFlush]
@@ -808,7 +847,7 @@ export default function HomePage() {
             <div className="quota-panel">
               {usage.plan === "paid" ? (
                 <span>
-                  Paid plan: {usage.analyses_used} of {usage.paid_analysis_limit}{" "}
+                  Pro Student plan: {usage.analyses_used} of {usage.paid_analysis_limit}{" "}
                   analyses used this billing period
                   {usage.analyses_remaining > 0
                     ? `, ${usage.analyses_remaining} remaining`
@@ -829,7 +868,12 @@ export default function HomePage() {
           )}
 
           <div className="status-slot">
-            <AnalysisStatus status={status} isAnalyzing={isAnalyzing} />
+            <AnalysisStatus
+              status={status}
+              isAnalyzing={isAnalyzing}
+              elapsedSeconds={elapsedSeconds}
+              onCancel={isAnalyzing ? handleCancelAnalysis : undefined}
+            />
           </div>
 
           {batchGames.length > 0 && <BatchProgress games={batchGames} />}

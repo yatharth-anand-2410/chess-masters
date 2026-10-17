@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState, type ReactNode } from "react";
-import { Topbar } from "../../components/ui/Topbar";
+import { Topbar, GoogleIcon } from "../../components/ui/Topbar";
 import { Pill } from "../../components/ui/Pill";
 import { API_BASE } from "../../lib/api";
 import { createClient } from "../../lib/supabase-client";
@@ -235,6 +235,7 @@ export default function SubscriptionPage() {
   const [config, setConfig] = useState<BillingConfig | null>(null);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [busy, setBusy] = useState(false);
+  const [signInBusy, setSignInBusy] = useState(false);
   const [pendingPlan, setPendingPlan] = useState<PlanId | null>(null);
   const [managing, setManaging] = useState(false);
   const [message, setMessage] = useState("");
@@ -302,6 +303,32 @@ export default function SubscriptionPage() {
       hydrateSession(data.session?.access_token ?? "", data.session?.user ?? null);
     });
   }, [hydrateSession]);
+
+  /** A signed-out visitor has decided to pay — this button must be live. */
+  const handleGoogleSignIn = useCallback(async () => {
+    setSignInBusy(true);
+    try {
+      const supabase = createClient();
+      const origin = window.location.origin;
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: `${origin}/auth/callback?next=${encodeURIComponent("/subscription")}`,
+        },
+      });
+      if (error) {
+        setError(error.message);
+      }
+    } catch (signInError) {
+      setError(
+        signInError instanceof Error
+          ? signInError.message
+          : "Could not start Google sign-in."
+      );
+    } finally {
+      setSignInBusy(false);
+    }
+  }, []);
 
   const openCheckout = async (plan: PlanId, existingId: string | null) => {
     let keyId: string | null;
@@ -480,9 +507,20 @@ export default function SubscriptionPage() {
 
     if (!token) {
       return (
-        <button className="btn btn-ghost subscription-plan-btn" type="button" disabled>
-          Sign in to subscribe
-        </button>
+        <>
+          <button
+            className="btn subscription-plan-btn"
+            type="button"
+            onClick={handleGoogleSignIn}
+            disabled={signInBusy}
+          >
+            <GoogleIcon className="w-3.5 h-3.5 shrink-0" />
+            {signInBusy ? "Connecting to Google..." : "Continue with Google to subscribe"}
+          </button>
+          <p className="subscription-plan-helper">
+            14-day money-back guarantee · Secure checkout via Razorpay · Cancel anytime
+          </p>
+        </>
       );
     }
 
@@ -509,18 +547,25 @@ export default function SubscriptionPage() {
     }
 
     return (
-      <button
-        className={`btn subscription-plan-btn ${card.id === "coach" ? "btn-ghost" : ""}`.trim()}
-        type="button"
-        onClick={() => startCheckout(card.id)}
-        disabled={busy}
-      >
-        {pendingPlan === card.id
-          ? "Opening checkout..."
-          : card.id === "coach"
-            ? "Upgrade to Coach Tier"
-            : `Subscribe for ${priceFor(card)} / mo`}
-      </button>
+      <>
+        <button
+          className={`btn subscription-plan-btn ${card.id === "coach" ? "btn-ghost" : ""}`.trim()}
+          type="button"
+          onClick={() => startCheckout(card.id)}
+          disabled={busy}
+        >
+          {pendingPlan === card.id
+            ? "Opening checkout..."
+            : card.id === "coach"
+              ? "Upgrade to Coach Tier"
+              : `Subscribe for ${priceFor(card)} / mo`}
+        </button>
+        {card.id === "student" && (
+          <p className="subscription-plan-helper">
+            14-day money-back guarantee · Secure checkout via Razorpay · Cancel anytime
+          </p>
+        )}
+      </>
     );
   };
 
@@ -536,10 +581,14 @@ export default function SubscriptionPage() {
         className="subscription-plan-card"
         data-featured={featured ? "true" : "false"}
       >
-        {active && <span className="subscription-plan-badge">Active Plan</span>}
+        {active ? (
+          <span className="subscription-plan-badge">Active Plan</span>
+        ) : featured ? (
+          <span className="subscription-plan-badge">Recommended</span>
+        ) : null}
 
         <header className="subscription-plan-head">
-          <b className="subscription-plan-name">{card.name}</b>
+          <h2 className="subscription-plan-name">{card.name}</h2>
           <p className="subscription-plan-blurb">{card.blurb}</p>
         </header>
 

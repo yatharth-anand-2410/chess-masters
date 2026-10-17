@@ -13,7 +13,7 @@ export const FAQS: FaqItem[] = [
   {
     question: "Is Chessmasters free?",
     answer:
-      "The first analysis is free and does not require an account. Signing in unlocks four more free analyses, five in total. After that, the Pro plan is ₹399 per month and includes 100 analyses per billing period.",
+      "The first analysis is free and does not require an account. Signing in unlocks four more free analyses, five in total. After that, the Pro Student plan is ₹399 per month and includes 100 analyses per billing period.",
   },
   {
     question: "Does it work with both Chess.com and Lichess?",

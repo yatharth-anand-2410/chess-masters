@@ -15,6 +15,8 @@ supabase/.temp/
 
 .claude/
 .codex/
+# Impeccable critique snapshots are local trend archives, not source.
+.impeccable/
 # Chess book PDFs: never commit. In-copyright material; derived index only.
 books/
 e2e-screenshots/

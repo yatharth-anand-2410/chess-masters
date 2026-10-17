@@ -39,6 +39,7 @@ export type AnalyticsEventName =
   | "app_open"
   | "analysis_complete"
   | "analysis_blocked"
+  | "analysis_cancelled"
   | "drill_opened"
   | "drill_attempt"
   | "drill_outcome"
@@ -71,6 +72,9 @@ export type AnalyticsEventProps = {
   analysis_blocked: {
     code: AnalysisBlockCode;
     isBatch: boolean;
+    signedIn: boolean;
+  };
+  analysis_cancelled: {
     signedIn: boolean;
   };
   drill_opened: {

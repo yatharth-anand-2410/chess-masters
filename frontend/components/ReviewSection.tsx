@@ -236,7 +236,9 @@ export default function ReviewSection({ user, token, onAuthChange }: ReviewSecti
                 <span className="review-author">{review.display_name}</span>
                 {review.is_mine && <span className="review-mine-badge">Your review</span>}
               </div>
-              <p className="review-comment">{review.comment}</p>
+              <p className={`review-comment${review.comment ? "" : " review-comment-empty"}`}>
+                {review.comment || "Rated without a comment."}
+              </p>
             </article>
           ))}
         </div>
