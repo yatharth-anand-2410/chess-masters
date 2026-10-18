@@ -1465,6 +1465,26 @@
   color: var(--text-muted);
 }
 
+/* The theme's own definition: the same line the motif directory shows, so a
+   study card says what it teaches, not just what it is called. */
+.studies-library-card-desc {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.studies-library-card-chip {
+  align-self: flex-start;
+}
+
+.studies-library-card-note {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-style: italic;
+  line-height: 1.45;
+}
+
 .studies-library-card .studies-card-actions {
   margin-top: auto;
   padding-top: 0.35rem;

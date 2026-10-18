@@ -175,6 +175,10 @@ function StudyLibrary({ library }: { library: StudyLibrary }) {
 
   const activeGroup = groups.find((entry) => entry.key === group);
   const filtering = query.trim() !== "" || group !== "all" || onlyOpen;
+  const groupByKey = useMemo(
+    () => new Map(groups.map((entry) => [entry.key, entry])),
+    [groups]
+  );
 
   return (
     <section
@@ -302,7 +306,11 @@ function StudyLibrary({ library }: { library: StudyLibrary }) {
       ) : (
         <div className="studies-library-grid">
           {filtered.map((study) => (
-            <LibraryStudyCard key={study.id} study={study} />
+            <LibraryStudyCard
+              key={study.id}
+              study={study}
+              group={groupByKey.get(study.group)}
+            />
           ))}
         </div>
       )}
@@ -310,10 +318,27 @@ function StudyLibrary({ library }: { library: StudyLibrary }) {
   );
 }
 
-function LibraryStudyCard({ study }: { study: LibraryStudy }) {
+/**
+ * One study, described as fully as the payload allows.
+ *
+ * Everything here comes from the library response: the theme it teaches and
+ * that theme's own one-line definition, how often the caller's games hit that
+ * theme, whether it is a Lichess puzzle theme or a coaching-only group, and the
+ * study's last-updated date. Chapter counts are deliberately absent — Lichess
+ * does not report them without reading each study in full, and a guess would be
+ * worse than no number.
+ */
+function LibraryStudyCard({
+  study,
+  group,
+}: {
+  study: LibraryStudy;
+  group?: StudyGroup;
+}) {
   const openHref = `/study/${encodeURIComponent(study.id)}${
     study.group ? `?motif=${encodeURIComponent(study.group)}` : ""
   }`;
+  const observed = group?.observed_count ?? 0;
 
   return (
     <article className={`studies-library-card${study.locked ? " is-locked" : ""}`}>
@@ -323,13 +348,49 @@ function LibraryStudyCard({ study }: { study: LibraryStudy }) {
           <span className="studies-library-lock" title="Available with a paid plan">
             🔒
           </span>
+        ) : observed > 0 ? (
+          <span
+            className="studies-observed-chip"
+            title="This theme appears in your analyzed games"
+          >
+            yours ×{observed}
+          </span>
         ) : null}
       </header>
+
       <p className="studies-library-card-meta">
         {study.group_label}
+        {group
+          ? group.kind === "lichess"
+            ? " · Lichess puzzle theme"
+            : group.kind === "unfiled"
+              ? " · not filed yet"
+              : " · coaching theme"
+          : ""}
         {study.updated_at ? ` · updated ${formatDate(study.updated_at)}` : ""}
         {study.indexed ? "" : " · not in the live index"}
       </p>
+
+      {group?.description ? (
+        <p className="studies-library-card-desc">{group.description}</p>
+      ) : null}
+
+      {group?.training_url ? (
+        <a
+          className="studies-tactic-chip-link studies-library-card-chip"
+          href={group.training_url}
+          target="_blank"
+          rel="noopener"
+        >
+          Drill {group.label} on Lichess ↗
+        </a>
+      ) : group ? (
+        <span className="studies-library-card-note">
+          Lichess has no puzzle theme with this name — it is taught here and
+          nowhere else.
+        </span>
+      ) : null}
+
       <div className="studies-card-actions">
         {study.locked ? (
           <Link className="btn btn-sm studies-card-primary" href="/subscription">
