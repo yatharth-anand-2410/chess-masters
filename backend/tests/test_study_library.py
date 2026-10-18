@@ -335,6 +335,8 @@ def test_library_joins_the_overlay_with_the_live_index():
     titles = {item["title"] for item in payload["studies"]}
     assert payload["owner"] == "TestCoach"
     assert payload["configured"] is True
+    assert payload["index_checked"] is True
+    assert all(item["indexed"] for item in payload["studies"] if item["id"] != "tmpGone1")
     # The overlay's curated title is refreshed from the live index…
     assert "Advanced Pins" in titles
     # …a study the overlay has never seen still appears, unfiled…
@@ -432,6 +434,8 @@ def test_anonymous_tactics_offer_a_shop_window():
     assert preview["unlocked_ids"] == sorted(study["id"] for study in open_studies)
     assert preview["locked_count"] == preview["total_studies"] - len(open_studies)
     assert preview["groups"], "the teaser still groups the studies"
+    # Nothing consulted the live index, so the payload must not imply it did.
+    assert preview["index_checked"] is False
 
 
 def test_the_open_preview_studies_are_readable_without_an_account(

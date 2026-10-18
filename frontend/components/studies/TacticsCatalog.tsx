@@ -157,6 +157,7 @@ function StudyLibrary({
     });
   }, [studies, query, group, onlyOpen]);
 
+  const indexChecked = Boolean(library.index_checked);
   const activeGroup = groups.find((entry) => entry.key === group);
   const filtering = query.trim() !== "" || group !== "all" || onlyOpen;
   const groupByKey = useMemo(
@@ -320,6 +321,7 @@ function StudyLibrary({
               study={study}
               group={groupByKey.get(study.group)}
               preview={preview}
+              indexChecked={indexChecked}
               shareToken={shareToken}
               students={students}
             />
@@ -344,12 +346,15 @@ function LibraryStudyCard({
   study,
   group,
   preview,
+  indexChecked,
   shareToken,
   students,
 }: {
   study: LibraryStudy;
   group?: StudyGroup;
   preview: boolean;
+  /** True when the payload actually consulted the Lichess index. */
+  indexChecked: boolean;
   shareToken: string;
   students: Array<{ id: string; display_name: string }>;
 }) {
@@ -389,7 +394,7 @@ function LibraryStudyCard({
               : " · coaching theme"
           : ""}
         {study.updated_at ? ` · updated ${formatDate(study.updated_at)}` : ""}
-        {study.indexed ? "" : " · not in the live index"}
+        {indexChecked && !study.indexed ? " · not in the live index" : ""}
       </p>
 
       {group?.description ? (

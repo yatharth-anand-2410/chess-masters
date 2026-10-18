@@ -342,6 +342,7 @@ def anonymous_library(tier: str = "free") -> Dict[str, Any]:
     """
     return {
         "configured": studies.lichess_configured(),
+        "index_checked": False,
         "owner": None,
         "tier": tier,
         "free_limit": FREE_STUDY_LIMIT,
@@ -517,6 +518,9 @@ def build_library(
 
     return {
         "configured": configured,
+        # False when nothing consulted the live index, so a reader never sees
+        # "not in the live index" about a study nobody looked up.
+        "index_checked": bool(fresh_index and configured and resolved_owner),
         "owner": resolved_owner or None,
         "tier": tier,
         "free_limit": free_limit,

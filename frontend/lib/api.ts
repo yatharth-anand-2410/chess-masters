@@ -730,6 +730,8 @@ export type LibraryStudy = {
 export type StudyLibrary = {
   /** False when this deployment has no Lichess token: nothing private is readable. */
   configured: boolean;
+  /** True only when the payload consulted the live Lichess index. */
+  index_checked?: boolean;
   signed_in?: boolean;
   /**
    * True for the signed-out teaser on the public tactics page: the catalogue is
