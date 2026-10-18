@@ -19,7 +19,15 @@ We are building a full-stack web application that allows users to paste a chess 
 2.  **SSE Streaming:** Use `EventSource` to listen to the backend `/api/stream-analysis` endpoint. 
 3.  **Real-Time Rendering:** Display `status_update` events as UI loading badges, and pass `content_chunk` events into `react-markdown` to stream the text onto the screen.
 
+## Lichess Study Library (curated studies & tactics)
+*   **Two layers, no database.** `backend/data/study_library.json` is the hand-curated overlay (which motif or coach group each study teaches, order, hidden, titles as a fallback). Lichess itself is the content layer: `GET /api/study/by/{owner}` returns every study the account owns in one request, private and unlisted included, cached in memory. Nothing about the library is ever persisted.
+*   **Vocabulary.** `backend/data/lichess_themes.json` is the only vocabulary the app may speak: every slug there exists at `lichess.org/training/<slug>`. Coach-made groups (Weak Squares, Happy Pieces, Mate Patterns, …) are declared in the overlay with no external link. A study that matches neither is *unfiled* — never silently dropped, never given a link on a guess.
+*   **Maintenance.** `scripts/sync_study_library.py` refreshes titles and reports new studies to file. It never overwrites a curation decision and never deletes an entry Lichess stops returning.
+*   **Access.** `LICHESS_TOKEN` (scope `study:read`) lives server-side only and must never reach the browser bundle. Reading a study through `/api/studies/import/{id}` requires a signed-in account; a free tier opens `LIBRARY_FREE_STUDY_LIMIT` studies (chosen from the caller's own leaks) and gets HTTP 402 with `feature: "studies"` for the rest. Signed-out callers get no library data at all — no titles, no ids.
+*   **Chapter honesty.** A chapter is one of: a puzzle (moves stored → drillable), a lesson (position + author's comment), or a bare position (nothing stored → shown as a diagram, never as a drill with an invented answer).
+
 ## Coding Conventions
 *   Write clean, modular Python with strict type hinting.
 *   Keep the FastAPI SSE logic isolated from the external API fetching logic.
 *   Use functional React components with Hooks.
+*   The backend suite runs offline: `backend/tests/conftest.py` refuses outbound HTTP and hides any local `LICHESS_TOKEN`. Patch the transport a test needs, or run with `LIVE_TESTS=1` for the three deliberate live smoke tests.

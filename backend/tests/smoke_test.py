@@ -1,17 +1,28 @@
-"""Offline regression tests for the player-color resolution logic.
+"""Regression tests for the player-color resolution logic.
 
 Run from the backend directory:
-    ../.venv/bin/python -m tests.smoke_test
+    ../.venv/bin/python -m pytest tests/smoke_test.py -q
+
+Most of this file is offline. The three tests whose names end in ``_live`` make
+real requests to lichess.org, so they are opt-in: the rest of the suite refuses
+outbound HTTP (see conftest.py), and these skip unless ``LIVE_TESTS=1`` is set::
+
+    LIVE_TESTS=1 python -m pytest tests/smoke_test.py -q
 """
 
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
+
+import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from services import extractor
+
+LIVE_TESTS = os.environ.get("LIVE_TESTS", "").strip() not in {"", "0", "false"}
 
 
 def test_lichess_url_color():
@@ -293,6 +304,9 @@ def _lichess_reachable() -> bool:
         return False
 
 
+@pytest.mark.skipif(
+    not LIVE_TESTS, reason="live lichess.org call; set LIVE_TESTS=1"
+)
 def test_lichess_casual_game_recovered_live():
     """Live: a real casual game refused by the export endpoint is recovered."""
     if not _lichess_reachable():
@@ -306,6 +320,9 @@ def test_lichess_casual_game_recovered_live():
     assert times, "recovered live PGN has no clock-bearing player moves"
 
 
+@pytest.mark.skipif(
+    not LIVE_TESTS, reason="live lichess.org call; set LIVE_TESTS=1"
+)
 def test_lichess_rated_game_still_uses_export_live():
     """Live: a rated game still takes the fast export path unchanged."""
     if not _lichess_reachable():
@@ -399,6 +416,9 @@ def test_fetch_game_requires_lichess_color():
         pass
 
 
+@pytest.mark.skipif(
+    not LIVE_TESTS, reason="live lichess.org call; set LIVE_TESTS=1"
+)
 def test_fetch_game_explicit_color_wins():
     try:
         extractor.fetch_game(

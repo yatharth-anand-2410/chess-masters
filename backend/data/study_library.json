@@ -1,0 +1,754 @@
+{
+  "_comment": "The coach's study library: which motif or coach group each Lichess study teaches. Maintained by scripts/sync_study_library.py — run it after adding studies on Lichess. 'group' may be a slug from data/lichess_themes.json (any slug there opens at lichess.org/training/<slug>) or a key declared in 'groups' below, which carries no external link. Titles are a fallback for when the live index is unreachable; the live name always wins.",
+  "owner": "MentalCarlsen",
+  "groups": {
+    "weakSquares": {
+      "label": "Weak Squares",
+      "description": "Colour complexes, holes and outposts: how a square becomes permanently weak, and how to occupy or trade into it."
+    },
+    "spaceAdvantage": {
+      "label": "Space Advantage",
+      "description": "What extra space actually buys, and how to convert it before the opponent catches up."
+    },
+    "pawnPlay": {
+      "label": "Pawn Play",
+      "description": "Pawn structure, breaks, passed pawns and the plans that follow from them."
+    },
+    "pieceActivity": {
+      "label": "Piece Activity",
+      "description": "Getting every piece to a square where it does something: the Happy Pieces series."
+    },
+    "trading": {
+      "label": "Trading & Captures",
+      "description": "When a trade helps and when it hands the opponent the game: choosing what to exchange."
+    },
+    "endgamePlay": {
+      "label": "Endgame Play",
+      "description": "Converting winning endgames, and the technique that turns an advantage into a result."
+    },
+    "matePatterns": {
+      "label": "Mate Patterns",
+      "description": "The mating nets and piece combinations worth knowing by heart, and how to prepare them."
+    },
+    "attack": {
+      "label": "Attacking Play",
+      "description": "Choosing a target and building the attack before the opponent can organise a defence."
+    },
+    "blocking": {
+      "label": "Blocking",
+      "description": "Blocking checks and lines: when interposing a piece is the only move that holds."
+    },
+    "quizzes": {
+      "label": "Test Yourself",
+      "description": "Positions with no stored solution — they are meant to be solved cold, or discussed with a coach."
+    },
+    "fundamentals": {
+      "label": "Fundamentals",
+      "description": "Rules, checks and the basics everything else is built on."
+    }
+  },
+  "studies": [
+    {
+      "id": "OaqBnEoc",
+      "title": "Alex Game",
+      "hidden": true
+    },
+    {
+      "id": "a0XbGA1T",
+      "title": "EMILIO DAY 4",
+      "hidden": true
+    },
+    {
+      "id": "jzhgmvjs",
+      "title": "EMILIO DAY 9",
+      "hidden": true
+    },
+    {
+      "id": "XaNQGJgC",
+      "title": "FORK",
+      "group": "fork",
+      "order": 0
+    },
+    {
+      "id": "2alCkNgR",
+      "title": "Joshua",
+      "hidden": true
+    },
+    {
+      "id": "Mg39pE5v",
+      "title": "Magnus Carlsen EWC CHampionship",
+      "hidden": true
+    },
+    {
+      "id": "8nBWGeRZ",
+      "title": "MentalCarlsen's Study",
+      "hidden": true
+    },
+    {
+      "id": "JNklVEG3",
+      "title": "MentalCarlsen's Study",
+      "hidden": true
+    },
+    {
+      "id": "RJAkl7lu",
+      "title": "MentalCarlsen's Study",
+      "hidden": true
+    },
+    {
+      "id": "cIBikCb7",
+      "title": "MentalCarlsen's Study",
+      "hidden": true
+    },
+    {
+      "id": "dua4z5wi",
+      "title": "MentalCarlsen's Study",
+      "hidden": true
+    },
+    {
+      "id": "frbCTnPp",
+      "title": "MentalCarlsen's Study",
+      "hidden": true
+    },
+    {
+      "id": "u5YxaMFS",
+      "title": "my most insane game",
+      "hidden": true
+    },
+    {
+      "id": "VBqQuiEw",
+      "title": "FORK WITH PAWN",
+      "group": "fork",
+      "order": 1
+    },
+    {
+      "id": "lRI17fCk",
+      "title": "FORK WITH QUEEN, ROOK, BISHOP",
+      "group": "fork",
+      "order": 2
+    },
+    {
+      "id": "jh4NzqHa",
+      "title": "ULTIMATE FORKS PUZZLES",
+      "group": "fork",
+      "order": 3
+    },
+    {
+      "id": "5dIRdqer",
+      "title": "Advanced Pins",
+      "group": "pin",
+      "order": 100
+    },
+    {
+      "id": "y7BRMswt",
+      "title": "Pins",
+      "group": "pin",
+      "order": 101
+    },
+    {
+      "id": "JjklXWFR",
+      "title": "PINS ULTIMATE PUZZLES",
+      "group": "pin",
+      "order": 102
+    },
+    {
+      "id": "9ygvnUOH",
+      "title": "CHALLENGE YOURSELF FOR SKEWERS",
+      "group": "skewer",
+      "order": 200
+    },
+    {
+      "id": "jnZafe9V",
+      "title": "SKEWERS",
+      "group": "skewer",
+      "order": 201
+    },
+    {
+      "id": "v1FQGJwQ",
+      "title": "ULTIMATE SKEWER PUZZLES",
+      "group": "skewer",
+      "order": 202
+    },
+    {
+      "id": "7FZjxOmU",
+      "title": "DISCOVERED ATTACK",
+      "group": "discoveredAttack",
+      "order": 300
+    },
+    {
+      "id": "OsUHzMu6",
+      "title": "DISCOVERED ATTACK 2",
+      "group": "discoveredAttack",
+      "order": 301
+    },
+    {
+      "id": "5Oy6eNvC",
+      "title": "DISCOVERED CHECK",
+      "group": "discoveredCheck",
+      "order": 400
+    },
+    {
+      "id": "QdV4Y3XH",
+      "title": "DISCOVERED CHECK",
+      "group": "discoveredCheck",
+      "order": 401
+    },
+    {
+      "id": "sqHqiewB",
+      "title": "DISCOVERING CHECK TRAINING",
+      "group": "discoveredCheck",
+      "order": 402
+    },
+    {
+      "id": "opOQIyeo",
+      "title": "WINDMILL",
+      "group": "discoveredCheck",
+      "order": 403
+    },
+    {
+      "id": "GGvXEWnv",
+      "title": "DOUBLE CHECK",
+      "group": "doubleCheck",
+      "order": 500
+    },
+    {
+      "id": "N1PBSxoR",
+      "title": "DOUBLE CHECK TRAINING",
+      "group": "doubleCheck",
+      "order": 501
+    },
+    {
+      "id": "qXk9YnIv",
+      "title": "DEFLECTION",
+      "group": "deflection",
+      "order": 600
+    },
+    {
+      "id": "cfkWfnB8",
+      "title": "DEFLECTION PART 2",
+      "group": "deflection",
+      "order": 601
+    },
+    {
+      "id": "F3kxNnhr",
+      "title": "DEFLECTION TRAINING",
+      "group": "deflection",
+      "order": 602
+    },
+    {
+      "id": "wpqeFDk0",
+      "title": "Decoy",
+      "group": "attraction",
+      "order": 700
+    },
+    {
+      "id": "pT9Wiwtj",
+      "title": "DECOY FINAL ROUND",
+      "group": "attraction",
+      "order": 701
+    },
+    {
+      "id": "fuBKcVbe",
+      "title": "Decoy with different tactics",
+      "group": "attraction",
+      "order": 702
+    },
+    {
+      "id": "PmEiI30j",
+      "title": "DISTRACTING",
+      "group": "attraction",
+      "order": 703
+    },
+    {
+      "id": "66wyQ02m",
+      "title": "DISTRACTING 2",
+      "group": "attraction",
+      "order": 704
+    },
+    {
+      "id": "L76VrE10",
+      "title": "CLEARANCE",
+      "group": "clearance",
+      "order": 800
+    },
+    {
+      "id": "f1vWxyzt",
+      "title": "INTERFERENCE",
+      "group": "interference",
+      "order": 900
+    },
+    {
+      "id": "LIMd7cV5",
+      "title": "TEST INTERFERENCE",
+      "group": "interference",
+      "order": 901
+    },
+    {
+      "id": "GRCedGJk",
+      "title": "INTERMIDIATE MOVES",
+      "group": "intermezzo",
+      "order": 1000
+    },
+    {
+      "id": "LCla0J9P",
+      "title": "INTERMIDIATE MOVES",
+      "group": "intermezzo",
+      "order": 1001
+    },
+    {
+      "id": "VZ9XUSzm",
+      "title": "INTERMIDIATE MOVES  TEST",
+      "group": "intermezzo",
+      "order": 1002
+    },
+    {
+      "id": "HgRVfwoD",
+      "title": "ANNIHILATION",
+      "group": "captureTheDefender",
+      "order": 1100
+    },
+    {
+      "id": "KZ4FMLT3",
+      "title": "ANNIHILATION 2",
+      "group": "captureTheDefender",
+      "order": 1101
+    },
+    {
+      "id": "02Qz844t",
+      "title": "ANNIHILATION TRAINING",
+      "group": "captureTheDefender",
+      "order": 1102
+    },
+    {
+      "id": "J5wVQhsK",
+      "title": "Hanging Pieces Knight & King",
+      "group": "hangingPiece",
+      "order": 1200
+    },
+    {
+      "id": "Fg9eeCmr",
+      "title": "Hanging Pieces Rook, Bishop,",
+      "group": "hangingPiece",
+      "order": 1201
+    },
+    {
+      "id": "Jo4APhz0",
+      "title": "Mixed Hanging Pieces",
+      "group": "hangingPiece",
+      "order": 1202
+    },
+    {
+      "id": "cL6YJ9Du",
+      "title": "ULTIMATE X-RAY POSITIONS",
+      "group": "xRayAttack",
+      "order": 1300
+    },
+    {
+      "id": "WwIYq8ty",
+      "title": "X-RAY",
+      "group": "xRayAttack",
+      "order": 1301
+    },
+    {
+      "id": "DdKmKosx",
+      "title": "MATE IN 1",
+      "group": "mateIn1",
+      "order": 1400
+    },
+    {
+      "id": "KG240bfX",
+      "title": "CHECKMATE WITH QUEEN IN 2 MOVES",
+      "group": "mateIn2",
+      "order": 1500
+    },
+    {
+      "id": "1JmEd2Rn",
+      "title": "LEVEL 2 MATE IN TWO",
+      "group": "mateIn2",
+      "order": 1501
+    },
+    {
+      "id": "CuzQ621K",
+      "title": "MATE IN TWO (FORCED)",
+      "group": "mateIn2",
+      "order": 1502
+    },
+    {
+      "id": "OVHDJ3ve",
+      "title": "Mate in two Harder",
+      "group": "mateIn2",
+      "order": 1503
+    },
+    {
+      "id": "T7UuguID",
+      "title": "Mating Matador",
+      "group": "mateIn3",
+      "order": 1600
+    },
+    {
+      "id": "WWnzcFaq",
+      "title": "Mating Matador 2",
+      "group": "mateIn3",
+      "order": 1601
+    },
+    {
+      "id": "PrssLIAO",
+      "title": "Mating Matador 3",
+      "group": "mateIn3",
+      "order": 1602
+    },
+    {
+      "id": "UjjhoKFh",
+      "title": "Mating Matador 4",
+      "group": "mateIn3",
+      "order": 1603
+    },
+    {
+      "id": "avJpwhw6",
+      "title": "Mating Matador 5",
+      "group": "mateIn3",
+      "order": 1604
+    },
+    {
+      "id": "Y4m0Nu3P",
+      "title": "Mating Matador 6",
+      "group": "mateIn3",
+      "order": 1605
+    },
+    {
+      "id": "qW3sM99r",
+      "title": "BISHOP CHECKMATE",
+      "group": "matePatterns",
+      "order": 1700
+    },
+    {
+      "id": "xcoRNh7T",
+      "title": "Checkmate With QUeen",
+      "group": "matePatterns",
+      "order": 1701
+    },
+    {
+      "id": "Pluii2eG",
+      "title": "CHECKMATE WITH ROOK",
+      "group": "matePatterns",
+      "order": 1702
+    },
+    {
+      "id": "aiUlquXk",
+      "title": "Checkmate With Rook",
+      "group": "matePatterns",
+      "order": 1703
+    },
+    {
+      "id": "Pa3C1ZUX",
+      "title": "KNIGHT+BISHOP CHECKMATE",
+      "group": "matePatterns",
+      "order": 1704
+    },
+    {
+      "id": "fx6i6j6r",
+      "title": "PREPAREING CHECKMATE LEVEL 1",
+      "group": "matePatterns",
+      "order": 1705
+    },
+    {
+      "id": "0YgndkGN",
+      "title": "PREPARING CHECKMATE WITH QUEEN",
+      "group": "matePatterns",
+      "order": 1706
+    },
+    {
+      "id": "8yUVBFV3",
+      "title": "PREPARING CHECKMATE WITH ROOK",
+      "group": "matePatterns",
+      "order": 1707
+    },
+    {
+      "id": "pbtG1wg0",
+      "title": "SILENT MATES",
+      "group": "matePatterns",
+      "order": 1708
+    },
+    {
+      "id": "c1QJehaT",
+      "title": "3 ways to defend against check",
+      "group": "defensiveMove",
+      "order": 1800
+    },
+    {
+      "id": "z5WEwZDu",
+      "title": "7 Key concepts to Defend your KIng",
+      "group": "defensiveMove",
+      "order": 1801
+    },
+    {
+      "id": "j5qFUsB4",
+      "title": "COUNTER THREATS",
+      "group": "defensiveMove",
+      "order": 1802
+    },
+    {
+      "id": "pbBE3Obu",
+      "title": "COUNTET THREATS TEST",
+      "group": "defensiveMove",
+      "order": 1803
+    },
+    {
+      "id": "aX1rIr4N",
+      "title": "Defence",
+      "group": "defensiveMove",
+      "order": 1804
+    },
+    {
+      "id": "Id0NSsqi",
+      "title": "Facing Threats",
+      "group": "defensiveMove",
+      "order": 1805
+    },
+    {
+      "id": "wSacUAL4",
+      "title": "Facing Threats 2",
+      "group": "defensiveMove",
+      "order": 1806
+    },
+    {
+      "id": "osNqdXCF",
+      "title": "BLOCKING",
+      "group": "blocking",
+      "order": 1900
+    },
+    {
+      "id": "mBTRkJMZ",
+      "title": "QUIZ BLOCKING",
+      "group": "blocking",
+      "order": 1901
+    },
+    {
+      "id": "ywWFpN94",
+      "title": "Castling Early",
+      "group": "castling",
+      "order": 2000
+    },
+    {
+      "id": "tZ6LY2jw",
+      "title": "ATTACKING THE WEAKNESS IN ENDGAME",
+      "group": "weakSquares",
+      "order": 2100
+    },
+    {
+      "id": "KWxh4QT6",
+      "title": "ATTACKING THE WEAKNESS IN ENDGAME 2",
+      "group": "weakSquares",
+      "order": 2101
+    },
+    {
+      "id": "7ZGUjzdE",
+      "title": "ATTACKING THE WEAKNESS IN ENDGAME 3",
+      "group": "weakSquares",
+      "order": 2102
+    },
+    {
+      "id": "OuiSsJ5h",
+      "title": "Weak Square",
+      "group": "weakSquares",
+      "order": 2103
+    },
+    {
+      "id": "pSE4GP8a",
+      "title": "Weak Squares 2",
+      "group": "weakSquares",
+      "order": 2104
+    },
+    {
+      "id": "3FdckOQz",
+      "title": "Space Advantaage",
+      "group": "spaceAdvantage",
+      "order": 2200
+    },
+    {
+      "id": "eAIifggN",
+      "title": "Space Advantage 2",
+      "group": "spaceAdvantage",
+      "order": 2201
+    },
+    {
+      "id": "gD3lKjjJ",
+      "title": "Divide and Rule Weak Pawn Hunting",
+      "group": "pawnPlay",
+      "order": 2300
+    },
+    {
+      "id": "GaKmjNBJ",
+      "title": "HOW TO CREATE A PASSED PAWN",
+      "group": "pawnPlay",
+      "order": 2301
+    },
+    {
+      "id": "dHQYVPi5",
+      "title": "Pawn Play How to Use Your Pawn Effectively",
+      "group": "pawnPlay",
+      "order": 2302
+    },
+    {
+      "id": "QNuG43dG",
+      "title": "THE ART OF PAWN PLAY",
+      "group": "pawnPlay",
+      "order": 2303
+    },
+    {
+      "id": "agpBQMoD",
+      "title": "Weak Pawn",
+      "group": "pawnPlay",
+      "order": 2304
+    },
+    {
+      "id": "iDaDDA8P",
+      "title": "Weak Pawn 2",
+      "group": "pawnPlay",
+      "order": 2305
+    },
+    {
+      "id": "t1OZSQFW",
+      "title": "Happy Pieces",
+      "group": "pieceActivity",
+      "order": 2400
+    },
+    {
+      "id": "9qvAUQEA",
+      "title": "Happy Pieces 2",
+      "group": "pieceActivity",
+      "order": 2401
+    },
+    {
+      "id": "wHHbcI9h",
+      "title": "Happy Pieces Bishops",
+      "group": "pieceActivity",
+      "order": 2402
+    },
+    {
+      "id": "Pm5Dsruy",
+      "title": "Happy Pieces King",
+      "group": "pieceActivity",
+      "order": 2403
+    },
+    {
+      "id": "7VAOuC0F",
+      "title": "Happy Pieces Knights",
+      "group": "pieceActivity",
+      "order": 2404
+    },
+    {
+      "id": "gD8yZCPG",
+      "title": "Happy Pieces Queens",
+      "group": "pieceActivity",
+      "order": 2405
+    },
+    {
+      "id": "bAEqedAN",
+      "title": "Happy Pieces Rooks",
+      "group": "pieceActivity",
+      "order": 2406
+    },
+    {
+      "id": "H5zEbTIQ",
+      "title": "Capturing with Knights",
+      "group": "trading",
+      "order": 2500
+    },
+    {
+      "id": "dP3j7vsH",
+      "title": "Capturing With Rook, Bishops, Queen",
+      "group": "trading",
+      "order": 2501
+    },
+    {
+      "id": "hMrGkosm",
+      "title": "Mastering the Art Of Trading",
+      "group": "trading",
+      "order": 2502
+    },
+    {
+      "id": "ZdrmeKrP",
+      "title": "MIX CAPTURES (1)",
+      "group": "trading",
+      "order": 2503
+    },
+    {
+      "id": "Lj5tzIw1",
+      "title": "Mixed Captures 2",
+      "group": "trading",
+      "order": 2504
+    },
+    {
+      "id": "9FGM6JZ0",
+      "title": "SMART TRADING",
+      "group": "trading",
+      "order": 2505
+    },
+    {
+      "id": "MHes8wIw",
+      "title": "ENDGAME PAWN THEORY",
+      "group": "endgamePlay",
+      "order": 2600
+    },
+    {
+      "id": "W1lma78w",
+      "title": "Endgame Roadmap : Your Compass for Endgame",
+      "group": "endgamePlay",
+      "order": 2601
+    },
+    {
+      "id": "u7C2Acf4",
+      "title": "HOW TO WIN WON POSITIONS",
+      "group": "endgamePlay",
+      "order": 2602
+    },
+    {
+      "id": "t2mU5cuO",
+      "title": "HOW TO WIN WON POSITIONS 2",
+      "group": "endgamePlay",
+      "order": 2603
+    },
+    {
+      "id": "8mcutpBs",
+      "title": "Best Way To Attack",
+      "group": "attack",
+      "order": 2700
+    },
+    {
+      "id": "qwouzfnQ",
+      "title": "Best ways to Attack 2",
+      "group": "attack",
+      "order": 2701
+    },
+    {
+      "id": "zq9dMk2c",
+      "title": "TEST YOUR KNOWLEDGE",
+      "group": "quizzes",
+      "order": 2800
+    },
+    {
+      "id": "5zKkjOkM",
+      "title": "TEST YOUR KNOWLEDGE 1",
+      "group": "quizzes",
+      "order": 2801
+    },
+    {
+      "id": "vfDLjc6P",
+      "title": "TEST YOUR POSITIONAL KNOWLEDGE",
+      "group": "quizzes",
+      "order": 2802
+    },
+    {
+      "id": "7MnTgn2S",
+      "title": "Checks",
+      "group": "fundamentals",
+      "order": 2900
+    },
+    {
+      "id": "2Kg8Nu6R",
+      "title": "The Birth Of CHampions and Mastering the rules",
+      "group": "fundamentals",
+      "order": 2901
+    }
+  ]
+}

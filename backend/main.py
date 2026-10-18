@@ -30,6 +30,7 @@ from services import (
     draws,
     engine,
     extractor,
+    library,
     progress,
     puzzles,
     recommendations,
@@ -143,6 +144,10 @@ def _upgrade_detail(feature: str) -> dict[str, str]:
         "coach": (
             "Coach mode, student rosters and share links are available with "
             "the Master Coach plan."
+        ),
+        "studies": (
+            "The full curated study library is available with a paid plan. "
+            "The studies your own games point at stay open on the free plan."
         ),
     }
     return {
@@ -2462,27 +2467,133 @@ async def classify_draw_endpoint(
 
 
 @app.get("/api/studies/import/{study_id}", response_model=studies.StudyImportResponse)
-async def import_study_endpoint(study_id: str) -> studies.StudyImportResponse:
-    """Import and parse a Lichess study with visual annotations and branches."""
+async def import_study_endpoint(
+    study_id: str,
+    fresh: bool = False,
+    user: Optional[Dict[str, object]] = Depends(get_optional_user),
+) -> studies.StudyImportResponse:
+    """Import and parse a Lichess study with visual annotations and branches.
+
+    The coach's own studies are private, so *those* need a signed-in account:
+    an anonymous caller asking for one gets 401, and a free tier asking for one
+    its plan has not unlocked gets 402 (see ``GET /api/studies/library``).
+    Every other study — any public Lichess study — imports exactly as it always
+    has, which keeps this endpoint useful for a link a student pastes in.
+
+    ``fresh=true`` skips the in-memory cache and re-reads from Lichess.
+    """
     try:
-        return await asyncio.to_thread(studies.import_lichess_study, study_id)
+        canonical_id = studies.extract_study_id(study_id)
     except studies.StudyNotFoundError as exc:
-        raise HTTPException(status_code=404, detail=str(exc))
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    if await asyncio.to_thread(library.is_library_study, canonical_id):
+        if not user:
+            raise HTTPException(
+                status_code=401, detail="Sign in to open curated studies."
+            )
+        user_library = await _build_library_for(user)
+        unlocked = library.unlocked_study_ids(user_library)
+        if unlocked is not None and canonical_id not in unlocked:
+            raise HTTPException(status_code=402, detail=_upgrade_detail("studies"))
+
+    try:
+        return await asyncio.to_thread(
+            studies.import_lichess_study, canonical_id, use_cache=not fresh
+        )
+    except studies.StudyPrivateError as exc:
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                "This study is private and this deployment has no access to "
+                "it. A Lichess token with the study:read scope is required."
+            ),
+        ) from exc
+    except studies.StudyNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
     except (studies.StudyFetchError, studies.StudyParseError) as exc:
-        raise HTTPException(status_code=502, detail=str(exc))
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
     except Exception as exc:
         logger.exception("Unexpected error importing Lichess study %s", study_id)
         raise HTTPException(status_code=500, detail=f"Internal error importing study: {exc}")
 
 
 # =============================================================================
-# Tactical Catalog & Curated Studies
+# Tactical Catalog, Study Library & Curated Studies
 # =============================================================================
 
 # Personalization reads a bounded slice of the newest games: the catalog must
 # stay fast, and the newest analyses are the ones that reflect the leaks.
 TACTICS_SCAN_LIMIT = 25
 CURATED_SCAN_LIMIT = 30
+
+
+async def _caller_tier(user_id: str) -> str:
+    """``free`` | ``student`` | ``coach`` for a signed-in account.
+
+    A database problem reports ``free``: the honest failure mode for a gate is
+    to unlock less, never more.
+    """
+    try:
+        usage = await asyncio.to_thread(db.get_usage, user_id)
+    except Exception as exc:
+        logger.warning("Study library: could not read the plan tier: %s", exc)
+        return db.PLAN_TIER_FREE
+    return str(_usage_payload(usage).get("plan_tier") or db.PLAN_TIER_FREE)
+
+
+async def _build_library_for(
+    user: Dict[str, object],
+    *,
+    rows: Optional[list] = None,
+    include_hidden: bool = False,
+) -> dict:
+    """The study library as this caller sees it.
+
+    ``rows`` are the caller's recent analyses when the endpoint already read
+    them; they decide which studies a free tier unlocks.
+    """
+    user_id = str(user["id"])
+    tier = await _caller_tier(user_id)
+    if rows is None and db.configured():
+        try:
+            rows = await asyncio.to_thread(
+                db.list_analyses,
+                user_id,
+                limit=CURATED_SCAN_LIMIT,
+                columns=db.ANALYSIS_TELEMETRY_COLUMNS,
+            )
+        except Exception as exc:
+            logger.warning("Study library: could not read recent analyses: %s", exc)
+            rows = []
+    observed = puzzles.count_observed_motifs(rows or [])
+    # Hidden studies are the coach's own scratch work: visible to them, never
+    # to a student.
+    show_hidden = bool(include_hidden) and tier == db.PLAN_TIER_COACH
+    return await asyncio.to_thread(
+        library.build_library,
+        tier=tier,
+        observed=observed,
+        include_hidden=show_hidden,
+    )
+
+
+@app.get("/api/studies/library")
+async def study_library(
+    include_hidden: bool = False,
+    user: Optional[Dict[str, object]] = Depends(get_optional_user),
+) -> dict:
+    """The coach's curated Lichess study library, personalised for the caller.
+
+    Signed out this returns an empty payload rather than a 401: the studies are
+    private, so there is nothing an anonymous visitor may see, and the tactics
+    page simply renders its public catalog. Every study carries ``locked`` —
+    a free tier can open ``free_limit`` of them; paid tiers open all of them.
+    """
+    if not user:
+        return {**library.anonymous_library(tier=db.PLAN_TIER_FREE), "signed_in": False}
+    payload = await _build_library_for(user, include_hidden=include_hidden)
+    return {**payload, "signed_in": True}
 
 
 @app.get("/api/tactics")
@@ -2493,7 +2604,8 @@ async def tactics_catalog(
 
     Signed-out visitors get the plain catalog. A valid bearer token adds the
     real ``observed_count`` per theme, counted from the motifs stored in the
-    caller's recent analyses; a database problem degrades to the plain catalog
+    caller's recent analyses, plus the coach's study library and the study that
+    covers each theme; a database problem degrades to the plain catalog
     instead of failing this public page.
     """
     rows: Optional[list[dict]] = None
@@ -2508,7 +2620,23 @@ async def tactics_catalog(
         except Exception as exc:
             logger.warning("Tactics catalog: could not read recent analyses: %s", exc)
             rows = []
-    return await asyncio.to_thread(puzzles.build_tactics_catalog, rows)
+    catalog = await asyncio.to_thread(puzzles.build_tactics_catalog, rows)
+    if not user:
+        return catalog
+
+    user_library = await _build_library_for(user, rows=rows)
+    cover = await asyncio.to_thread(library.curated_cover, user_library)
+    for theme in catalog["themes"]:
+        study = cover.get(str(theme.get("key") or ""))
+        if study:
+            theme["study"] = {
+                "id": study["id"],
+                "title": study["title"],
+                "source_url": study["source_url"],
+                "locked": bool(study.get("locked")),
+            }
+    catalog["library"] = user_library
+    return catalog
 
 
 @app.get("/api/studies/curated")
@@ -2521,6 +2649,10 @@ async def curated_studies(
     Signed out there is nothing personal to derive, so the list is empty. A
     coach can pass ``student_id`` to personalize for one of their students
     (ownership is validated before any analysis is read).
+
+    When the coach's own library teaches a leak, the card points at *their*
+    study instead of a generic training theme — and says so when that study is
+    locked for this caller.
     """
     if not user:
         return []
@@ -2545,7 +2677,11 @@ async def curated_studies(
                 limit=CURATED_SCAN_LIMIT,
                 columns=db.ANALYSIS_TELEMETRY_COLUMNS,
             )
-        return await asyncio.to_thread(studies.build_curated_studies, rows)
+        curated = await asyncio.to_thread(studies.build_curated_studies, rows)
+        user_library = await _build_library_for(user, rows=rows)
+        return await asyncio.to_thread(
+            library.attach_curated_studies, curated, user_library
+        )
     except db.AuthError:
         # A deployment gap is a setup hint, not a 500.
         raise

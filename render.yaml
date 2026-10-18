@@ -26,3 +26,11 @@ services:
         sync: false
       - key: RAZORPAY_TOTAL_COUNT
         sync: false
+      # Lichess study library. The token needs the "study:read" scope and must
+      # belong to the account whose studies the library indexes.
+      - key: LICHESS_TOKEN
+        sync: false
+      - key: LICHESS_STUDY_OWNER
+        value: MentalCarlsen
+      - key: LIBRARY_FREE_STUDY_LIMIT
+        value: "2"

@@ -1,18 +1,30 @@
 """Lichess Study Fetcher and Chapter Parser.
 
-Imports public Lichess studies via their study ID or full URL, and parses each
-chapter into a structured hierarchical tree including:
+Imports Lichess studies via their study ID or full URL, and parses each chapter
+into a structured hierarchical tree including:
 - PGN annotations and NAG glyphs (!, ?, !!, etc.)
 - Visual board circles (`[%csl Gc4,Re5]`)
 - Directional board arrows (`[%cal Gc1g5,Re1e8]`)
 - Text comments with markup cleanly separated
+- The chapter-root comment: a chapter that stores only a position and a lesson
 - Full branching variations and sub-variations
+
+Private and unlisted studies need a Lichess OAuth token with the ``study:read``
+scope in ``LICHESS_TOKEN``; the token's account must own (or be a member of)
+the study. Without a token only public, non-unlisted studies are readable.
+Nothing here is persisted: parsed studies live in a small bounded in-memory
+cache, so the index costs no storage.
 """
 
 from __future__ import annotations
 
 import io
+import json
+import os
 import re
+import threading
+import time
+from collections import OrderedDict
 from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urlsplit
 
@@ -23,8 +35,22 @@ from pydantic import BaseModel, Field
 
 from services import http, puzzles
 
-LICHESS_STUDY_URL = "https://lichess.org/study/{study_id}.pgn"
+#: Documented export route. The legacy ``/study/{id}.pgn`` web route sends the
+#: same bytes, but only this one is part of the public API contract.
+LICHESS_STUDY_URL = "https://lichess.org/api/study/{study_id}.pgn"
+#: Metadata for every study of an account, private and unlisted included when
+#: authenticated. This is the whole index: one request.
+LICHESS_STUDY_LIST_URL = "https://lichess.org/api/study/by/{username}"
 STUDY_ID_REGEX = re.compile(r"([a-zA-Z0-9]{8})")
+
+#: A parsed study is reused for this long. Study content changes on the author's
+#: schedule, not per request, and re-parsing a 60-chapter PGN on every open is
+#: pure waste.
+STUDY_CACHE_TTL_SECONDS = float(os.environ.get("STUDY_CACHE_TTL_SECONDS", "600"))
+STUDY_CACHE_MAX_ENTRIES = max(1, int(os.environ.get("STUDY_CACHE_MAX_ENTRIES", "32")))
+#: The study index is one cheap request; a short TTL keeps new studies appearing
+#: quickly without hitting Lichess on every page load.
+STUDY_INDEX_TTL_SECONDS = float(os.environ.get("STUDY_INDEX_TTL_SECONDS", "300"))
 
 CSL_REGEX = re.compile(r"\[%csl\s+([^\]]+)\]")
 CAL_REGEX = re.compile(r"\[%cal\s+([^\]]+)\]")
@@ -62,7 +88,12 @@ class StudyError(Exception):
 
 
 class StudyNotFoundError(StudyError):
-    """The study does not exist or is marked private on Lichess."""
+    """The study does not exist, is empty, or the link is out of date."""
+
+
+class StudyPrivateError(StudyError):
+    """Lichess refused the read: the study is private and this deployment has
+    no usable ``LICHESS_TOKEN`` (or the token's account has no access)."""
 
 
 class StudyFetchError(StudyError):
@@ -109,6 +140,20 @@ class StudyChapter(BaseModel):
     moves_tree: List[StudyMoveNode] = Field(default_factory=list, description="Root branches and main line")
     total_moves: int = Field(0, description="Total plies along the main line")
     tags: Dict[str, str] = Field(default_factory=dict, description="Chapter PGN headers")
+    #: Most of a coach's library is positions, not puzzles: a chapter that
+    #: stores no moves still carries a lesson on its starting position.
+    initial_comment: Optional[str] = Field(
+        None, description="Lesson text written on the chapter's starting position"
+    )
+    initial_circles: List[CircleAnnotation] = Field(
+        default_factory=list, description="Board circles drawn on the starting position (%csl)"
+    )
+    initial_arrows: List[ArrowAnnotation] = Field(
+        default_factory=list, description="Board arrows drawn on the starting position (%cal)"
+    )
+    chapter_url: Optional[str] = Field(
+        None, description="Deep link to this single chapter on Lichess"
+    )
 
 
 class StudyImportResponse(BaseModel):
@@ -118,6 +163,15 @@ class StudyImportResponse(BaseModel):
     chapter_count: int = Field(..., description="Number of chapters imported")
     chapters: List[StudyChapter] = Field(default_factory=list, description="Parsed study chapters")
     total_annotations: int = Field(0, description="Total arrows, circles, and comments parsed")
+    annotator: Optional[str] = Field(
+        None, description="The Lichess account the study belongs to"
+    )
+    position_only_chapters: int = Field(
+        0, description="Chapters that store a position and no moves"
+    )
+    source: str = Field(
+        "lichess", description="Where this payload came from: 'lichess' or 'cache'"
+    )
 
 
 # --- Parsing Functions ---
@@ -232,24 +286,191 @@ def _parse_variation_node(node: chess.pgn.GameNode, ply: int, board: chess.Board
     )
 
 
+def lichess_token() -> str:
+    """The deployment's Lichess OAuth token, or ``""`` when none is set."""
+    return (os.environ.get("LICHESS_TOKEN") or "").strip()
+
+
+def lichess_configured() -> bool:
+    """True when this deployment can read private and unlisted studies."""
+    return bool(lichess_token())
+
+
+def _lichess_headers() -> Dict[str, str]:
+    token = lichess_token()
+    return {"Authorization": f"Bearer {token}"} if token else {}
+
+
 def fetch_lichess_study_pgn(study_id: str) -> str:
-    """Fetch raw multi-chapter PGN export from Lichess public API."""
+    """Fetch the multi-chapter PGN export from the Lichess study API.
+
+    Private and unlisted chapters are only returned to an authenticated reader,
+    so the token decides whether this sees the whole study or a 401.
+    """
     url = LICHESS_STUDY_URL.format(study_id=study_id)
     try:
-        response = http.get(url, timeout=20.0, allow_redirects=True)
+        response = http.get(
+            url, headers=_lichess_headers(), timeout=20.0, allow_redirects=True
+        )
     except requests.RequestException as exc:
         raise StudyFetchError(f"Could not connect to Lichess: {exc}") from exc
 
+    if response.status_code in (401, 403):
+        raise StudyPrivateError(
+            f"Lichess refused study '{study_id}': it is private and this request "
+            "carried no token with access to it."
+        )
     if response.status_code == 404 or "/signup" in response.url:
-        raise StudyNotFoundError(f"Lichess study '{study_id}' was not found or is marked private.")
+        raise StudyNotFoundError(
+            f"Lichess study '{study_id}' was not found, holds no chapters, or "
+            "the link is out of date."
+        )
     if response.status_code != 200:
-        raise StudyFetchError(f"Lichess study export returned status {response.status_code}.")
+        raise StudyFetchError(
+            f"Lichess study export returned status {response.status_code}."
+        )
 
     text = response.text.strip()
     if not text:
-        raise StudyNotFoundError(f"Study '{study_id}' contains no public chapters or content.")
+        raise StudyNotFoundError(f"Study '{study_id}' holds no chapters yet.")
 
     return text
+
+
+# ---------------------------------------------------------------------------
+# In-memory caches: the index and parsed studies cost no storage
+# ---------------------------------------------------------------------------
+
+_study_cache: "OrderedDict[str, Tuple[float, StudyImportResponse]]" = OrderedDict()
+_study_cache_lock = threading.Lock()
+
+_owner_index_cache: "OrderedDict[str, Tuple[float, List[Dict[str, Any]]]]" = (
+    OrderedDict()
+)
+_owner_index_lock = threading.Lock()
+
+
+def _study_cache_get(study_id: str) -> Optional[StudyImportResponse]:
+    if STUDY_CACHE_TTL_SECONDS <= 0:
+        return None
+    now = time.monotonic()
+    with _study_cache_lock:
+        entry = _study_cache.get(study_id)
+        if entry is None:
+            return None
+        expires_at, payload = entry
+        if expires_at <= now:
+            _study_cache.pop(study_id, None)
+            return None
+        _study_cache.move_to_end(study_id)
+        return payload
+
+
+def _study_cache_put(study_id: str, payload: StudyImportResponse) -> None:
+    if STUDY_CACHE_TTL_SECONDS <= 0:
+        return
+    with _study_cache_lock:
+        _study_cache[study_id] = (
+            time.monotonic() + STUDY_CACHE_TTL_SECONDS,
+            payload,
+        )
+        _study_cache.move_to_end(study_id)
+        while len(_study_cache) > STUDY_CACHE_MAX_ENTRIES:
+            _study_cache.popitem(last=False)
+
+
+def clear_caches() -> None:
+    """Drop the index and every parsed study. Tests and the refresh use this."""
+    with _study_cache_lock:
+        _study_cache.clear()
+    with _owner_index_lock:
+        _owner_index_cache.clear()
+
+
+def cache_info() -> Dict[str, int]:
+    with _study_cache_lock, _owner_index_lock:
+        return {
+            "studies": len(_study_cache),
+            "indexes": len(_owner_index_cache),
+        }
+
+
+def list_owner_studies(username: str, *, use_cache: bool = True) -> List[Dict[str, Any]]:
+    """Every study of ``username``: the whole index, in one request.
+
+    Returns ``[]`` (rather than raising) when Lichess is unreachable or the
+    account has no studies, because the library degrades to the curation
+    overlay in that case. Raises :class:`StudyPrivateError` only when Lichess
+    answers 401/403, which means the token is missing, expired, or belongs to
+    another account.
+    """
+    cleaned = (username or "").strip()
+    if not cleaned:
+        return []
+
+    now = time.monotonic()
+    if use_cache and STUDY_INDEX_TTL_SECONDS > 0:
+        with _owner_index_lock:
+            entry = _owner_index_cache.get(cleaned)
+            if entry is not None:
+                expires_at, rows = entry
+                if expires_at > now:
+                    _owner_index_cache.move_to_end(cleaned)
+                    return rows
+                _owner_index_cache.pop(cleaned, None)
+
+    url = LICHESS_STUDY_LIST_URL.format(username=cleaned)
+    try:
+        response = http.get(
+            url, headers=_lichess_headers(), timeout=20.0, allow_redirects=True
+        )
+    except requests.RequestException as exc:
+        raise StudyFetchError(f"Could not connect to Lichess: {exc}") from exc
+
+    if response.status_code in (401, 403):
+        raise StudyPrivateError(
+            f"Lichess refused the study list for '{cleaned}': no token with "
+            "access to that account is configured for this deployment."
+        )
+    if response.status_code == 404:
+        return []
+    if response.status_code != 200:
+        raise StudyFetchError(
+            f"Lichess study list returned status {response.status_code}."
+        )
+
+    rows: List[Dict[str, Any]] = []
+    for line in (response.text or "").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            entry = json.loads(line)
+        except ValueError:
+            continue
+        if not isinstance(entry, dict):
+            continue
+        study_id = str(entry.get("id") or "").strip()
+        if not study_id:
+            continue
+        rows.append(
+            {
+                "id": study_id,
+                "name": str(entry.get("name") or "").strip(),
+                "created_at": entry.get("createdAt"),
+                "updated_at": entry.get("updatedAt"),
+            }
+        )
+
+    rows.sort(key=lambda row: int(row.get("updated_at") or 0), reverse=True)
+    if use_cache and STUDY_INDEX_TTL_SECONDS > 0:
+        with _owner_index_lock:
+            _owner_index_cache[cleaned] = (
+                time.monotonic() + STUDY_INDEX_TTL_SECONDS,
+                rows,
+            )
+            _owner_index_cache.move_to_end(cleaned)
+    return rows
 
 
 def parse_study_pgn(pgn_text: str, study_id: str) -> StudyImportResponse:
@@ -257,7 +478,9 @@ def parse_study_pgn(pgn_text: str, study_id: str) -> StudyImportResponse:
     pgn_io = io.StringIO(pgn_text)
     chapters: List[StudyChapter] = []
     study_title: Optional[str] = None
+    annotator: Optional[str] = None
     total_annotations = 0
+    position_only = 0
     chapter_index = 1
 
     while True:
@@ -273,6 +496,8 @@ def parse_study_pgn(pgn_text: str, study_id: str) -> StudyImportResponse:
         if study_title is None:
             # First chapter's Event or StudyName header often names the study
             study_title = game.headers.get("StudyName") or title
+        if annotator is None:
+            annotator = game.headers.get("Annotator")
 
         orientation = game.headers.get("Orientation", "white").lower()
         if orientation not in ("white", "black"):
@@ -286,6 +511,13 @@ def parse_study_pgn(pgn_text: str, study_id: str) -> StudyImportResponse:
             parsed_node = _parse_variation_node(top_var, ply=1, board=board)
             moves_tree.append(parsed_node)
 
+        # The chapter's own lesson text lives on the starting position: a
+        # position-only chapter has no move to hang it on, and dropping it
+        # would throw away the coaching.
+        initial_comment, initial_circles, initial_arrows, _ = parse_visual_annotations(
+            game.comment or ""
+        )
+
         # Count annotations and main line plies
         main_moves_count = 0
         curr: Optional[StudyMoveNode] = moves_tree[0] if moves_tree else None
@@ -295,6 +527,11 @@ def parse_study_pgn(pgn_text: str, study_id: str) -> StudyImportResponse:
                 total_annotations += 1
             total_annotations += len(curr.circles) + len(curr.arrows)
             curr = curr.variations[0] if curr.variations else None
+        if initial_comment:
+            total_annotations += 1
+        total_annotations += len(initial_circles) + len(initial_arrows)
+        if not moves_tree:
+            position_only += 1
 
         chapters.append(
             StudyChapter(
@@ -305,6 +542,10 @@ def parse_study_pgn(pgn_text: str, study_id: str) -> StudyImportResponse:
                 moves_tree=moves_tree,
                 total_moves=main_moves_count,
                 tags=dict(game.headers),
+                initial_comment=initial_comment or None,
+                initial_circles=initial_circles,
+                initial_arrows=initial_arrows,
+                chapter_url=_chapter_url(game.headers.get("ChapterURL"), study_id, chapter_index),
             )
         )
         chapter_index += 1
@@ -319,14 +560,48 @@ def parse_study_pgn(pgn_text: str, study_id: str) -> StudyImportResponse:
         chapter_count=len(chapters),
         chapters=chapters,
         total_annotations=total_annotations,
+        annotator=_clean_annotator(annotator),
+        position_only_chapters=position_only,
     )
 
 
-def import_lichess_study(study_id_or_url: str) -> StudyImportResponse:
-    """High-level function to extract study ID, fetch PGN, and parse all chapters."""
+def _chapter_url(raw: Optional[str], study_id: str, index: int) -> Optional[str]:
+    """The chapter's own Lichess deep link, from the export's ``ChapterURL``."""
+    value = str(raw or "").strip()
+    if value.startswith("http://") or value.startswith("https://"):
+        return value
+    # Older exports carry no ChapterURL; the study link still works.
+    return f"https://lichess.org/study/{study_id}" if index == 1 else None
+
+
+def _clean_annotator(raw: Optional[str]) -> Optional[str]:
+    """``https://lichess.org/@/MentalCarlsen`` → ``MentalCarlsen``."""
+    value = str(raw or "").strip()
+    if not value:
+        return None
+    if "/@/" in value:
+        return value.rsplit("/@/", 1)[1].strip("/") or None
+    return value or None
+
+
+def import_lichess_study(
+    study_id_or_url: str, *, use_cache: bool = True
+) -> StudyImportResponse:
+    """Extract the study ID, fetch the PGN and parse every chapter.
+
+    Parsed studies are served from a bounded in-memory cache for
+    :data:`STUDY_CACHE_TTL_SECONDS`; pass ``use_cache=False`` to force a read
+    straight from Lichess.
+    """
     study_id = extract_study_id(study_id_or_url)
+    if use_cache:
+        cached = _study_cache_get(study_id)
+        if cached is not None:
+            return cached.model_copy(update={"source": "cache"})
     pgn_text = fetch_lichess_study_pgn(study_id)
-    return parse_study_pgn(pgn_text, study_id)
+    parsed = parse_study_pgn(pgn_text, study_id)
+    _study_cache_put(study_id, parsed)
+    return parsed
 
 
 # ---------------------------------------------------------------------------

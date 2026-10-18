@@ -19,6 +19,8 @@ from pathlib import Path
 from typing import Any, Dict, List
 from unittest.mock import patch
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from fastapi.testclient import TestClient
@@ -242,11 +244,59 @@ def test_parse_study_pgn():
 
 
 def test_studies_import_endpoint_not_found():
-    # Expect 404 or 502 for nonexistent study
-    with patch("services.studies.fetch_lichess_study_pgn", side_effect=studies.StudyNotFoundError("Study not found")):
-        response = client.get("/api/studies/import/invalid88")
-        assert response.status_code == 404
-        assert "not found" in response.json()["detail"].lower()
+    # Curated studies are private, so the read needs a session; a signed-in
+    # caller asking for a study Lichess does not have still gets a 404.
+    from main import get_current_user, get_optional_user
+
+    identity = {"id": "study-user", "email": None, "user_metadata": None}
+    app.dependency_overrides[get_current_user] = lambda: identity
+    app.dependency_overrides[get_optional_user] = lambda: identity
+    try:
+        with patch(
+            "services.studies.fetch_lichess_study_pgn",
+            side_effect=studies.StudyNotFoundError("Study not found"),
+        ):
+            response = client.get("/api/studies/import/invalid88")
+            assert response.status_code == 404
+            assert "not found" in response.json()["detail"].lower()
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_studies_import_endpoint_serves_a_study_outside_the_library():
+    """A study the library does not curate stays importable without a session.
+
+    Only the coach's own studies are private, so only those are gated; the
+    library gate itself is covered in tests/test_study_library.py.
+    """
+    with patch(
+        "services.studies.fetch_lichess_study_pgn",
+        side_effect=studies.StudyNotFoundError("Study not found"),
+    ):
+        response = client.get("/api/studies/import/zzzz9999")
+    assert response.status_code == 404
+
+
+def test_studies_import_endpoint_reports_a_private_study(monkeypatch: pytest.MonkeyPatch):
+    from main import get_current_user, get_optional_user
+    from services import db
+
+    identity = {"id": "study-user", "email": None, "user_metadata": None}
+    app.dependency_overrides[get_current_user] = lambda: identity
+    app.dependency_overrides[get_optional_user] = lambda: identity
+    # No Supabase in this test: the import path only needs the plan tier, and
+    # an unreachable database must not decide the outcome.
+    monkeypatch.setattr(db, "configured", lambda: False)
+    try:
+        with patch(
+            "services.studies.fetch_lichess_study_pgn",
+            side_effect=studies.StudyPrivateError("private"),
+        ):
+            response = client.get("/api/studies/import/invalid88")
+            assert response.status_code == 403
+            assert "study:read" in response.json()["detail"]
+    finally:
+        app.dependency_overrides.clear()
 
 
 # ---------------------------------------------------------------------------
