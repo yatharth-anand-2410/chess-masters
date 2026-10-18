@@ -1450,3 +1450,39 @@
   padding-left: 0.7rem;
   border-left: 2px solid var(--line);
 }
+
+/* The signed-out teaser: the catalogue shows, and one honest line says what it
+   takes to open it. */
+.studies-library-unlock {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin: 1rem 0 0;
+  padding: 0.95rem 1.1rem;
+  background: rgba(201, 153, 63, 0.07);
+  border: 1px solid rgba(201, 153, 63, 0.35);
+  border-radius: var(--radius-card);
+}
+
+.studies-library-unlock-icon {
+  width: 26px;
+  height: 26px;
+  flex: 0 0 auto;
+  color: var(--gold-bright);
+}
+
+.studies-library-unlock-title {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 0.98rem;
+  color: var(--text);
+}
+
+.studies-library-unlock-text {
+  margin: 0.2rem 0 0;
+  font-size: 0.83rem;
+  line-height: 1.5;
+  color: var(--text-muted);
+  max-width: 62ch;
+}

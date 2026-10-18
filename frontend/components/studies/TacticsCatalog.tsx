@@ -9,6 +9,7 @@ import {
   type StudyLibrary,
   type TacticsCatalog,
 } from "../../lib/api";
+import AuthButton from "../AuthButton";
 import ShareMenu from "./ShareMenu";
 import { useStudySession } from "./useStudySession";
 
@@ -27,15 +28,14 @@ export default function TacticsCatalog() {
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
-    if (!session.ready || !session.token) {
-      // Nothing to read without a session: the library is private, so the
-      // request is not worth making and there is no skeleton to show.
-      setLoading(false);
+    if (!session.ready) {
       return;
     }
     let cancelled = false;
     setLoading(true);
-    apiGet<TacticsCatalog>("/api/tactics", session.token)
+    // Public: the catalog and a locked library preview come back without a
+    // token, and a token swaps the preview for the caller's real library.
+    apiGet<TacticsCatalog>("/api/tactics", session.token || undefined)
       .then((data) => {
         if (cancelled) {
           return;
@@ -59,7 +59,7 @@ export default function TacticsCatalog() {
     };
   }, [session.ready, session.token]);
 
-  if (!session.ready || !session.signedIn) {
+  if (!session.ready) {
     return null;
   }
 
@@ -76,15 +76,15 @@ export default function TacticsCatalog() {
   if (failed) {
     return (
       <p className="studies-inline-note">
-        The study library is unavailable right now. The motif definitions below
-        still cover every pattern the analyzer can name.
+        The study library is unavailable right now
+        {session.signedIn ? " for your account" : ""}. Try again in a moment.
       </p>
     );
   }
 
   const library = catalog?.library;
   if (!library || library.total_studies === 0) {
-    return session.isCoach ? (
+    return session.signedIn && session.isCoach ? (
       <p className="studies-inline-note">
         No studies are listed for this deployment
         {library && !library.configured
@@ -99,6 +99,7 @@ export default function TacticsCatalog() {
   return (
     <StudyLibrary
       library={library}
+      preview={Boolean(library.preview)}
       shareToken={session.isCoach ? session.token : ""}
       students={session.students.map((student) => ({
         id: student.id,
@@ -118,10 +119,13 @@ export default function TacticsCatalog() {
  */
 function StudyLibrary({
   library,
+  preview,
   shareToken,
   students,
 }: {
   library: StudyLibrary;
+  /** True for the signed-out teaser: the catalogue shows, nothing opens. */
+  preview: boolean;
   shareToken: string;
   students: Array<{ id: string; display_name: string }>;
 }) {
@@ -171,14 +175,20 @@ function StudyLibrary({
             The study library · {library.owner ?? "curated"} on Lichess
           </h2>
           <p className="studies-section-sub">
-            {library.configured
-              ? "Every study the coach has filed, read live from Lichess — filter by the theme you are working on."
-              : "The library is listed from the curation file; the live Lichess index is not reachable from this deployment."}
+            {preview
+              ? "Every study the coach has filed, read live from Lichess — sign in to open them and filter by the theme you are working on."
+              : library.configured
+                ? "Every study the coach has filed, read live from Lichess — filter by the theme you are working on."
+                : "The library is listed from the curation file; the live Lichess index is not reachable from this deployment."}
           </p>
         </div>
         <span className="studies-count-pill">
           {library.total_studies} Studies · {groups.length} Themes
-          {locked > 0 ? ` · ${unlocked} open on your plan` : ""}
+          {preview
+            ? ` · ${unlocked} open to try`
+            : locked > 0
+              ? ` · ${unlocked} open on your plan`
+              : ""}
         </span>
       </div>
 
@@ -242,13 +252,32 @@ function StudyLibrary({
         )}
       </div>
 
-      {locked > 0 && (
+      {preview ? (
+        <div className="studies-library-unlock">
+          <LockIcon />
+          <div>
+            <b className="studies-library-unlock-title">
+              {unlocked > 0
+                ? `${unlocked} of these ${studies.length} studies are open`
+                : `${studies.length} studies, locked`}
+            </b>
+            <p className="studies-library-unlock-text">
+              Read and drill {unlocked > 0 ? "those" : "them"} without an account.
+              Sign in with Google to open the rest — a free account includes{" "}
+              {library.free_limit}{" "}
+              {library.free_limit === 1 ? "study" : "studies"} chosen from your
+              own analysed games, and a paid plan opens the whole library.
+            </p>
+          </div>
+          <AuthButton user={null} onAuthChange={() => undefined} />
+        </div>
+      ) : locked > 0 ? (
         <p className="studies-inline-note">
           Your plan opens {unlocked} of these {studies.length} studies. The rest
           unlock with a paid plan —{" "}
           <Link href="/subscription">see the plans</Link>.
         </p>
-      )}
+      ) : null}
 
       {activeGroup && (
         <div className="studies-library-active">
@@ -290,6 +319,7 @@ function StudyLibrary({
               key={study.id}
               study={study}
               group={groupByKey.get(study.group)}
+              preview={preview}
               shareToken={shareToken}
               students={students}
             />
@@ -313,11 +343,13 @@ function StudyLibrary({
 function LibraryStudyCard({
   study,
   group,
+  preview,
   shareToken,
   students,
 }: {
   study: LibraryStudy;
   group?: StudyGroup;
+  preview: boolean;
   shareToken: string;
   students: Array<{ id: string; display_name: string }>;
 }) {
@@ -331,7 +363,10 @@ function LibraryStudyCard({
       <header className="studies-library-card-top">
         <b className="studies-library-card-title">{study.title}</b>
         {study.locked ? (
-          <span className="studies-library-lock" title="Available with a paid plan">
+          <span
+            className="studies-library-lock"
+            title={preview ? "Sign in to open the library" : "Available with a paid plan"}
+          >
             🔒
           </span>
         ) : observed > 0 ? (
@@ -380,7 +415,7 @@ function LibraryStudyCard({
       <div className="studies-card-actions">
         {study.locked ? (
           <Link className="btn btn-sm studies-card-primary" href="/subscription">
-            Unlock with a plan ➔
+            {preview ? "Sign in to open ➔" : "Unlock with a plan ➔"}
           </Link>
         ) : (
           <Link className="btn btn-sm studies-card-primary" href={openHref}>
@@ -412,6 +447,25 @@ function LibraryStudyCard({
   );
 }
 
+
+function LockIcon() {
+  return (
+    <svg
+      className="studies-library-unlock-icon"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.7"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <rect x="4" y="10.5" width="16" height="9.5" rx="2" />
+      <path d="M8 10.5V8a4 4 0 0 1 8 0v2.5" />
+      <circle cx="12" cy="15.25" r="1.1" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
 
 /** A Lichess timestamp (ms) as a short date; empty when it is unusable. */
 function formatDate(epochMs: number): string {

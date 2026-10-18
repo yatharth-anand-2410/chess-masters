@@ -731,6 +731,11 @@ export type StudyLibrary = {
   /** False when this deployment has no Lichess token: nothing private is readable. */
   configured: boolean;
   signed_in?: boolean;
+  /**
+   * True for the signed-out teaser on the public tactics page: the catalogue is
+   * visible, every study is locked, and nothing here opens without a session.
+   */
+  preview?: boolean;
   owner: string | null;
   tier: string;
   free_limit: number;

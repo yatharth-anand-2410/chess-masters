@@ -2562,14 +2562,20 @@ async def import_study_endpoint(
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
     if await asyncio.to_thread(library.is_library_study, canonical_id):
-        if not user:
-            raise HTTPException(
-                status_code=401, detail="Sign in to open curated studies."
-            )
-        user_library = await _build_library_for(user)
-        unlocked = library.unlocked_study_ids(user_library)
-        if unlocked is not None and canonical_id not in unlocked:
-            raise HTTPException(status_code=402, detail=_upgrade_detail("studies"))
+        if user:
+            user_library = await _build_library_for(user)
+            unlocked = library.unlocked_study_ids(user_library)
+            if unlocked is not None and canonical_id not in unlocked:
+                raise HTTPException(status_code=402, detail=_upgrade_detail("studies"))
+        else:
+            # The open studies are the shop window: a signed-out visitor may
+            # read exactly what the free tier promises, and nothing else.
+            preview = await asyncio.to_thread(library.preview_library)
+            open_ids = library.unlocked_study_ids(preview)
+            if open_ids is None or canonical_id not in open_ids:
+                raise HTTPException(
+                    status_code=401, detail="Sign in to open curated studies."
+                )
 
     try:
         return await asyncio.to_thread(
@@ -2674,13 +2680,15 @@ async def study_library(
 async def tactics_catalog(
     user: Optional[Dict[str, object]] = Depends(get_optional_user),
 ) -> dict:
-    """Every motif the analyzer can name, with its Lichess training links.
+    """Every motif the analyzer can name, plus the coach's study library.
 
-    Signed-out visitors get the plain catalog. A valid bearer token adds the
-    real ``observed_count`` per theme, counted from the motifs stored in the
-    caller's recent analyses, plus the coach's study library and the study that
-    covers each theme; a database problem degrades to the plain catalog
-    instead of failing this public page.
+    Signed-out visitors get the plain catalog *and* a locked preview of the
+    library: the themes and study names are visible so the public page says what
+    it holds, every study is locked, and reading one still needs a session. A
+    valid bearer token replaces the preview with the caller's real library —
+    which studies their plan has unlocked, which their own games point at, and
+    the study covering each theme. A database problem degrades to the plain
+    catalog instead of failing this public page.
     """
     rows: Optional[list[dict]] = None
     if user and db.configured():
@@ -2695,7 +2703,13 @@ async def tactics_catalog(
             logger.warning("Tactics catalog: could not read recent analyses: %s", exc)
             rows = []
     catalog = await asyncio.to_thread(puzzles.build_tactics_catalog, rows)
+
     if not user:
+        try:
+            catalog["library"] = await asyncio.to_thread(library.preview_library)
+        except Exception as exc:
+            # The catalog is the page; the library block is an addition to it.
+            logger.warning("Tactics catalog: no library preview: %s", exc)
         return catalog
 
     user_library = await _build_library_for(user, rows=rows)

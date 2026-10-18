@@ -406,6 +406,7 @@ def test_curated_cards_point_at_the_coachs_own_study():
 
 
 def test_anonymous_library_is_empty_and_leaks_nothing():
+    """The dedicated library endpoint stays shut to signed-out callers."""
     app.dependency_overrides[get_optional_user] = lambda: None
     response = client.get("/api/studies/library")
     body = response.json()
@@ -417,11 +418,43 @@ def test_anonymous_library_is_empty_and_leaks_nothing():
         assert secret not in response.text
 
 
-def test_anonymous_tactics_carry_no_library():
+def test_anonymous_tactics_offer_a_shop_window():
+    """The public page shows the catalogue with the free sample already open."""
     app.dependency_overrides[get_optional_user] = lambda: None
     body = client.get("/api/tactics").json()
-    assert "library" not in body
+    preview = body["library"]
+    assert preview["preview"] is True
+    assert preview["total_studies"] >= 3
+    # Exactly the free allowance is open, and it is a real allowance: the same
+    # number a signed-in free account gets.
+    open_studies = [study for study in preview["studies"] if not study["locked"]]
+    assert len(open_studies) == library.FREE_STUDY_LIMIT
+    assert preview["unlocked_ids"] == sorted(study["id"] for study in open_studies)
+    assert preview["locked_count"] == preview["total_studies"] - len(open_studies)
+    assert preview["groups"], "the teaser still groups the studies"
+
+
+def test_the_open_preview_studies_are_readable_without_an_account(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """The shop window has to actually open, and stay exactly that wide."""
+    app.dependency_overrides[get_optional_user] = lambda: None
+    monkeypatch.setattr(studies.http, "get", lambda *a, **k: _pgn_response())
+    preview = client.get("/api/tactics").json()["library"]
+
+    for study in preview["studies"]:
+        response = client.get(f"/api/studies/import/{study['id']}")
+        if study["locked"]:
+            assert response.status_code == 401, study["id"]
+        else:
+            assert response.status_code == 200, study["id"]
+
+
+def test_anonymous_tactics_carry_no_personalisation():
+    app.dependency_overrides[get_optional_user] = lambda: None
+    body = client.get("/api/tactics").json()
     assert all("study" not in theme for theme in body["themes"])
+    assert all("observed_count" not in theme for theme in body["themes"])
 
 
 def test_signed_in_tactics_carry_the_library_and_the_theme_pointer(
@@ -468,9 +501,10 @@ def test_curated_endpoint_uses_the_coachs_study(as_user, tier, monkeypatch):
     assert body[0]["source_url"] == "https://lichess.org/study/tmpPin01"
 
 
-def test_import_requires_a_session_for_a_library_study():
+def test_import_requires_a_session_for_a_locked_library_study():
+    """The shop window is two studies wide, not the whole library."""
     app.dependency_overrides[get_optional_user] = lambda: None
-    assert client.get("/api/studies/import/tmpPin01").status_code == 401
+    assert client.get("/api/studies/import/tmpWkSq1").status_code == 401
 
 
 def test_import_still_serves_a_public_study_anonymously(

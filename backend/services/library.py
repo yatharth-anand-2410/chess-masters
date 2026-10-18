@@ -356,6 +356,40 @@ def anonymous_library(tier: str = "free") -> Dict[str, Any]:
     }
 
 
+#: The teaser a signed-out visitor gets on the public tactics page. It is not a
+#: tier anybody can be granted: it exists so one endpoint can show the catalogue
+#: without opening a single study.
+PREVIEW_TIER = "preview"
+
+
+def preview_library() -> Dict[str, Any]:
+    """The library as a signed-out visitor sees it: a shop window.
+
+    The first :data:`FREE_STUDY_LIMIT` studies are *open* — a visitor can read
+    and drill them with no account, which is the only honest way to show what
+    the library is — and every other study is locked. Titles and themes are all
+    visible: they are topic names ("Advanced Pins", "Weak Squares 2") on a
+    public page that reads as an empty promise without them.
+
+    The open studies are the same ones a signed-in free account gets with no
+    history, so the promise a visitor sees is the promise the free tier keeps.
+    Built from the committed overlay (``fresh_index=False``) so a public page
+    load never waits on — or spends a request against — Lichess.
+    """
+    built = build_library(tier=PREVIEW_TIER, fresh_index=False)
+    open_ids = set(built.get("unlocked_ids") or [])
+    studies = [
+        {**item, "locked": item["id"] not in open_ids} for item in built["studies"]
+    ]
+    return {
+        **built,
+        "preview": True,
+        "studies": studies,
+        "locked_count": sum(1 for item in studies if item["locked"]),
+        "unlocked_ids": sorted(open_ids),
+    }
+
+
 def build_library(
     *,
     owner: Optional[str] = None,
