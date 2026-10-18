@@ -384,19 +384,6 @@ export type DrawClassification = {
   recommendation: string;
 };
 
-export type LichessStudyImport = {
-  study_id: string;
-  name: string;
-  chapters: Array<{
-    id: string;
-    name: string;
-    fen: string;
-    arrows: string[];
-    circles: string[];
-    coach_commentary: string;
-  }>;
-};
-
 export type ScoutOpeningNode = {
   san: string;
   move_number: number;
@@ -477,8 +464,28 @@ export async function classifyDraw(pgn: string, color?: string): Promise<DrawCla
   return res.json();
 }
 
-export async function importStudy(studyId: string): Promise<LichessStudyImport> {
-  return apiGet<LichessStudyImport>(`/api/studies/import/${encodeURIComponent(studyId)}`);
+/**
+ * Import a Lichess study for the in-app viewer.
+ *
+ * The payload is whatever `backend/services/studies.py::StudyImportResponse`
+ * returns; callers name the shape they render (see components/studies/
+ * studyTypes.ts) rather than this layer duplicating the Pydantic schema.
+ *
+ * Curated studies are private, so the read needs the session token: the
+ * backend answers 401 without one and 402 when the caller's tier has not
+ * unlocked that study. Both arrive as typed errors so the page can say what
+ * actually happened instead of "study not found".
+ */
+export async function importStudy<T>(
+  studyId: string,
+  token?: string,
+  options?: { fresh?: boolean }
+): Promise<T> {
+  const query = options?.fresh ? "?fresh=true" : "";
+  return apiGet<T>(
+    `/api/studies/import/${encodeURIComponent(studyId)}${query}`,
+    token
+  );
 }
 
 export async function scoutOpponent(username: string, platform: string = "lichess"): Promise<OpponentScoutDossier> {
@@ -671,11 +678,68 @@ export type TacticTheme = {
   links: TacticLink[];
   /** Present when the user's own games reference this motif. */
   observed_count?: number;
+  /** The coach's own study for this motif, when the library teaches it. */
+  study?: {
+    id: string;
+    title: string;
+    source_url: string;
+    locked: boolean;
+  };
 };
 
 export type TacticsCatalog = {
   themes: TacticTheme[];
   total_links: number;
+  /** Present for a signed-in caller: the coach's curated study library. */
+  library?: StudyLibrary;
+};
+
+/** GET /api/studies/library — the coach's curated Lichess study library. */
+export type StudyGroupKind = "lichess" | "coach" | "unfiled";
+
+export type StudyGroup = {
+  key: string;
+  label: string;
+  description: string;
+  kind: StudyGroupKind;
+  /** A real lichess.org/training/<slug> link; null for a coach-made group. */
+  training_url: string | null;
+  count: number;
+  order?: number;
+  /** How often this motif appeared in the caller's own analysed games. */
+  observed_count?: number;
+};
+
+export type LibraryStudy = {
+  id: string;
+  title: string;
+  group: string;
+  group_label: string;
+  group_kind: StudyGroupKind;
+  source_url: string;
+  updated_at: number | null;
+  order: number;
+  /** False when the live Lichess index did not return this study. */
+  indexed: boolean;
+  /** True when the caller's tier has not unlocked it. */
+  locked: boolean;
+};
+
+export type StudyLibrary = {
+  /** False when this deployment has no Lichess token: nothing private is readable. */
+  configured: boolean;
+  signed_in?: boolean;
+  owner: string | null;
+  tier: string;
+  free_limit: number;
+  latest_study_update: number | null;
+  total_studies: number;
+  locked_count: number;
+  unlocked_ids: string[];
+  hidden_count: number;
+  missing_from_index: string[];
+  groups: StudyGroup[];
+  studies: LibraryStudy[];
 };
 
 /** GET /api/studies/curated — personalized from the user's (or student's) leaks. */
@@ -690,6 +754,11 @@ export type CuratedStudy = {
   fixes?: string | null;
   game_id?: string | null;
   move_number?: number | null;
+  /** Set when the coach's own library teaches this motif. */
+  study_id?: string | null;
+  study_title?: string | null;
+  /** True when this caller's tier has not unlocked the study. */
+  locked?: boolean | null;
 };
 
 /** Shared (no sign-in) study / tactic links created by a coach. */

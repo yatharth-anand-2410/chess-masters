@@ -83,6 +83,10 @@ export default function StudiesPage() {
   );
 
   const openHref = useCallback((study: CuratedStudy) => {
+    // When the coach's own library teaches this motif the card opens that
+    // study; otherwise the id is the card's own and `url` carries the Lichess
+    // destination for the honest fallback link.
+    const target = study.study_id || study.id;
     const query = new URLSearchParams();
     if (study.source_url) {
       query.set("url", study.source_url);
@@ -91,7 +95,7 @@ export default function StudiesPage() {
       query.set("motif", study.motif);
     }
     const suffix = query.toString();
-    return `/study/${encodeURIComponent(study.id)}${suffix ? `?${suffix}` : ""}`;
+    return `/study/${encodeURIComponent(target)}${suffix ? `?${suffix}` : ""}`;
   }, []);
 
   const coachOptions = session.students.map((student) => ({
@@ -215,6 +219,12 @@ export default function StudiesPage() {
                 <h2 className="studies-card-title">{study.title}</h2>
                 <p className="studies-card-reason">{study.reason}</p>
 
+                {study.study_id && study.study_title ? (
+                  <p className="studies-card-origin">
+                    {study.locked ? "🔒 " : ""}Library study: {study.study_title}
+                  </p>
+                ) : null}
+
                 {typeof study.move_number === "number" && study.game_id ? (
                   <p className="studies-card-origin">
                     move {study.move_number} · game {study.game_id}
@@ -222,10 +232,19 @@ export default function StudiesPage() {
                 ) : null}
 
                 <div className="studies-card-actions">
-                  <Link className="btn btn-sm studies-card-primary" href={openHref(study)}>
-                    Open Study ➔
-                  </Link>
-                  {study.source_url ? (
+                  {study.locked ? (
+                    <Link
+                      className="btn btn-sm studies-card-primary"
+                      href="/subscription"
+                    >
+                      Unlock with a plan ➔
+                    </Link>
+                  ) : (
+                    <Link className="btn btn-sm studies-card-primary" href={openHref(study)}>
+                      Open Study ➔
+                    </Link>
+                  )}
+                  {study.source_url && study.locked !== true ? (
                     <a
                       className="studies-card-link"
                       href={study.source_url}
@@ -235,10 +254,10 @@ export default function StudiesPage() {
                       Lichess Study ↗
                     </a>
                   ) : null}
-                  {session.isCoach ? (
+                  {session.isCoach && !study.locked ? (
                     <ShareMenu
                       kind="study"
-                      itemKey={study.id}
+                      itemKey={study.study_id || study.id}
                       title={study.title}
                       subtitle={study.reason}
                       url={study.source_url}

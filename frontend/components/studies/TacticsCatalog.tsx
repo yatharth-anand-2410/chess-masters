@@ -1,7 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { apiGet, type TacticsCatalog, type TacticTheme } from "../../lib/api";
+import Link from "next/link";
+import {
+  apiGet,
+  type LibraryStudy,
+  type StudyGroup,
+  type StudyLibrary,
+  type TacticsCatalog,
+  type TacticTheme,
+} from "../../lib/api";
 import ShareMenu from "./ShareMenu";
 import { useStudySession } from "./useStudySession";
 
@@ -15,6 +23,8 @@ import { useStudySession } from "./useStudySession";
  *
  * Signed-out visitors get the same catalog without the `observed_count` chip
  * (the server only computes it for a user's own games) and without sharing.
+ * A signed-in caller also gets the coach's study library, which is private and
+ * therefore never part of the public payload.
  */
 export default function TacticsCatalog() {
   const session = useStudySession({ students: true });
@@ -56,6 +66,8 @@ export default function TacticsCatalog() {
   const totalLinks =
     catalog?.total_links ??
     themes.reduce((sum, theme) => sum + (theme.links?.length ?? 0), 0);
+  const library = catalog?.library;
+  const hasLibrary = Boolean(library && library.total_studies > 0);
 
   return (
     <section className="studies-catalog" aria-labelledby="tactics-catalog-title">
@@ -113,8 +125,184 @@ export default function TacticsCatalog() {
           ))}
         </div>
       )}
+
+      {hasLibrary && library && <StudyLibraryBlock library={library} />}
     </section>
   );
+}
+
+/**
+ * The coach's own curated studies, grouped by what they teach.
+ *
+ * This is the tactics half of the library: every study the coach has filed
+ * against a motif or one of their own groups, with the locked ones shown as
+ * locked rather than hidden — a free account should see what the library
+ * holds, and exactly what its tier opens.
+ */
+function StudyLibraryBlock({ library }: { library: StudyLibrary }) {
+  const studies = library.studies ?? [];
+  const groups = library.groups ?? [];
+  const [openGroup, setOpenGroup] = useState<string>("");
+
+  if (studies.length === 0) {
+    return null;
+  }
+
+  const unlocked = studies.filter((study) => !study.locked).length;
+  const locked = studies.length - unlocked;
+  const byGroup = new Map<string, LibraryStudy[]>();
+  for (const study of studies) {
+    const list = byGroup.get(study.group);
+    if (list) {
+      list.push(study);
+    } else {
+      byGroup.set(study.group, [study]);
+    }
+  }
+
+  const activeGroup: StudyGroup | undefined =
+    groups.find((group) => group.key === openGroup) ?? groups[0];
+  const activeStudies = activeGroup ? byGroup.get(activeGroup.key) ?? [] : [];
+
+  return (
+    <section className="studies-catalog studies-library" aria-labelledby="library-title">
+      <div className="studies-section-head">
+        <div>
+          <h2 className="studies-section-title" id="library-title">
+            The study library · {library.owner ?? "curated"} on Lichess
+          </h2>
+          <p className="studies-section-sub">
+            {library.configured
+              ? "Every study filed against a motif or a coaching theme, read live from Lichess."
+              : "The library is listed from the curation file; the live Lichess index is not reachable from this deployment."}
+          </p>
+        </div>
+        <span className="studies-count-pill">
+          {library.total_studies} Studies · {groups.length} Themes
+          {locked > 0 ? ` · ${unlocked} open on your plan` : ""}
+        </span>
+      </div>
+
+      {locked > 0 && (
+        <p className="studies-inline-note">
+          Your plan opens {unlocked} of these {studies.length} studies. The rest
+          unlock with a paid plan —{" "}
+          <Link href="/subscription">see the plans</Link>.
+        </p>
+      )}
+
+      {groups.length > 0 && (
+        <div className="studies-library-chips">
+          {groups.map((group) => (
+            <button
+              key={group.key}
+              type="button"
+              className={`studies-library-chip${
+                activeGroup?.key === group.key ? " is-active" : ""
+              }`}
+              onClick={() => setOpenGroup(group.key)}
+            >
+              {group.label}
+              <span className="studies-library-chip-count">{group.count}</span>
+              {typeof group.observed_count === "number" && group.observed_count > 0 && (
+                <span className="studies-observed-chip">
+                  yours ×{group.observed_count}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {activeGroup && (
+        <>
+          {activeGroup.description ? (
+            <p className="studies-library-desc">{activeGroup.description}</p>
+          ) : null}
+          <div className="studies-library-grid">
+            {activeStudies.map((study) => (
+              <LibraryStudyCard key={study.id} study={study} />
+            ))}
+          </div>
+          {activeGroup.training_url ? (
+            <p className="studies-library-note">
+              Matches the Lichess puzzle theme{" "}
+              <a
+                className="studies-card-link"
+                href={activeGroup.training_url}
+                target="_blank"
+                rel="noopener"
+              >
+                {activeGroup.label} ↗
+              </a>
+            </p>
+          ) : (
+            <p className="studies-library-note">
+              A coaching theme from the library itself — Lichess has no puzzle
+              theme with this name.
+            </p>
+          )}
+        </>
+      )}
+    </section>
+  );
+}
+
+function LibraryStudyCard({ study }: { study: LibraryStudy }) {
+  const openHref = `/study/${encodeURIComponent(study.id)}${
+    study.group ? `?motif=${encodeURIComponent(study.group)}` : ""
+  }`;
+
+  return (
+    <article
+      className={`studies-library-card${study.locked ? " is-locked" : ""}`}
+    >
+      <header className="studies-library-card-top">
+        <b className="studies-library-card-title">{study.title}</b>
+        {study.locked ? (
+          <span className="studies-library-lock" title="Available with a paid plan">
+            🔒
+          </span>
+        ) : null}
+      </header>
+      <p className="studies-library-card-meta">
+        {study.group_label}
+        {study.updated_at ? ` · updated ${formatDate(study.updated_at)}` : ""}
+        {study.indexed ? "" : " · not in the live index"}
+      </p>
+      <div className="studies-card-actions">
+        {study.locked ? (
+          <Link className="btn btn-sm studies-card-primary" href="/subscription">
+            Unlock with a plan ➔
+          </Link>
+        ) : (
+          <Link className="btn btn-sm studies-card-primary" href={openHref}>
+            Open study ➔
+          </Link>
+        )}
+        <a
+          className="studies-card-link"
+          href={study.source_url}
+          target="_blank"
+          rel="noopener"
+        >
+          Lichess ↗
+        </a>
+      </div>
+    </article>
+  );
+}
+
+function formatDate(epochMs: number): string {
+  const date = new Date(epochMs);
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+  return date.toLocaleDateString(undefined, {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
 }
 
 function TacticCard({
@@ -130,6 +318,7 @@ function TacticCard({
   const primary = links[0];
   const secondary = links.slice(1);
   const observed = theme.observed_count ?? 0;
+  const study = theme.study;
   // `label` is authoritative; the key is a truthful fallback when a backend
   // build predates the label field ("hangingPiece" → "Hanging Piece").
   const label = theme.label || humaniseTheme(theme.key);
@@ -163,6 +352,24 @@ function TacticCard({
           ))}
         </p>
       )}
+
+      {study ? (
+        <p className="studies-tactic-study">
+          <span className="studies-tactic-study-label">
+            {study.locked ? "🔒 Library study" : "Library study"}
+          </span>{" "}
+          {study.locked ? (
+            study.title
+          ) : (
+            <Link
+              className="studies-tactic-study-link"
+              href={`/study/${encodeURIComponent(study.id)}?motif=${encodeURIComponent(theme.key)}`}
+            >
+              {study.title} ➔
+            </Link>
+          )}
+        </p>
+      ) : null}
 
       <div className="studies-tactic-links">
         {secondary.length > 0 && (

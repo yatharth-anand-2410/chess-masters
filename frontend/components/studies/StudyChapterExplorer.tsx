@@ -1,12 +1,14 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import CriticalPositionBoard from "../CriticalPositionBoard";
 import { Pill } from "../ui/Pill";
 import DrillBoard, { type DrillStatus } from "../DrillBoard";
 import {
   buildMainLine,
   chapterMoveCount,
   formatMoveLine,
+  isPositionChapter,
   plyToMoment,
   type StudyChapter,
   type StudyImport,
@@ -21,10 +23,18 @@ export type StudyChapterExplorerProps = {
 /**
  * The chapter explorer for an imported Lichess study.
  *
- * The interactive drill is the study's own main line: pick any ply and the
- * board asks for the move the study plays there. Nothing is fabricated — the
- * "note" panel shows the author's PGN comment when the study has one and falls
- * back to the move line when it does not.
+ * A study holds three kinds of chapter and the explorer shows each one as what
+ * it is, because claiming a solution that does not exist is worse than showing
+ * none:
+ *
+ * * **puzzle** — the chapter stores moves, so the main line is a real drill;
+ * * **lesson** — the chapter stores a position *and* a written comment. The
+ *   position is a diagram and the comment is the author's teaching;
+ * * **position** — the chapter stores a position and nothing else. It is shown
+ *   as a diagram with a link to solve or discuss it on Lichess.
+ *
+ * Nothing is fabricated: a note is the author's own PGN comment, and a chapter
+ * with no stored line never pretends to have one.
  */
 export default function StudyChapterExplorer({
   study,
@@ -61,12 +71,12 @@ export default function StudyChapterExplorer({
     () => (activePly ? plyToMoment(activePly, motif) : null),
     [activePly, motif]
   );
+  const positionOnly = isPositionChapter(chapter);
 
   if (chapters.length === 0) {
     return (
       <p className="studies-inline-note">
-        This study has no public chapters to show. Open it on Lichess to read it
-        there.
+        This study has no chapters to show. Open it on Lichess to read it there.
       </p>
     );
   }
@@ -97,6 +107,9 @@ export default function StudyChapterExplorer({
     setLiveMessage("Solution shown on the board.");
   };
 
+  const chapterLink = chapter?.chapter_url || study.source_url;
+  const orientation: "white" | "black" = chapter?.orientation === "black" ? "black" : "white";
+
   return (
     <div className="studies-detail-grid">
       <aside className="studies-chapter-rail" aria-label="Study chapters">
@@ -109,6 +122,7 @@ export default function StudyChapterExplorer({
         <div className="studies-rail-list">
           {chapters.map((entry, index) => {
             const isActive = index === activeChapterIndex;
+            const isDiagram = isPositionChapter(entry);
             return (
               <button
                 key={entry.id ?? index}
@@ -123,16 +137,29 @@ export default function StudyChapterExplorer({
                 </span>
                 <span className="studies-rail-name">{entry.title}</span>
                 <span className="studies-rail-moves">
-                  {chapterMoveCount(entry)} {chapterMoveCount(entry) === 1 ? "move" : "moves"}
+                  {isDiagram
+                    ? entry.initial_comment
+                      ? "Lesson · no moves"
+                      : "Position · no moves"
+                    : `${chapterMoveCount(entry)} ${
+                        chapterMoveCount(entry) === 1 ? "move" : "moves"
+                      }`}
                 </span>
               </button>
             );
           })}
         </div>
+        {typeof study.position_only_chapters === "number" &&
+          study.position_only_chapters > 0 && (
+            <p className="studies-rail-foot">
+              {study.position_only_chapters} of {chapters.length} chapters are
+              positions rather than move lines — those are shown as diagrams.
+            </p>
+          )}
         {typeof study.total_annotations === "number" && (
           <p className="studies-rail-foot">
-            {study.total_annotations} annotations parsed from the public study
-            PGN.
+            {study.total_annotations} annotations parsed from the study PGN
+            {study.annotator ? ` · by ${study.annotator} on Lichess` : ""}.
           </p>
         )}
       </aside>
@@ -140,7 +167,20 @@ export default function StudyChapterExplorer({
       <section className="studies-detail-main">
         <div className="studies-dual">
           <div className="studies-board-panel">
-            {moment ? (
+            {positionOnly ? (
+              <CriticalPositionBoard
+                fen={chapter?.initial_fen ?? ""}
+                orientation={orientation}
+                highlightSquares={(chapter?.initial_circles ?? []).map(
+                  (circle) => circle.square
+                )}
+                arrows={(chapter?.initial_arrows ?? []).map((arrow) => ({
+                  orig: arrow.from_square,
+                  dest: arrow.to_square,
+                  color: arrow.color,
+                }))}
+              />
+            ) : moment ? (
               <DrillBoard
                 key={`${chapter?.id ?? chapterIndex}-${plyIndex}-${drillRound}`}
                 moment={moment}
@@ -161,21 +201,49 @@ export default function StudyChapterExplorer({
               </p>
             )}
             <p className="studies-board-caption">
-              {activePly
-                ? `Chapter ${activeChapterIndex + 1} · ply ${plyIndex + 1} of ${plies.length} · ${activePly.color} to move`
-                : "No replayable position"}
+              {positionOnly
+                ? `Chapter ${activeChapterIndex + 1} · position only`
+                : activePly
+                  ? `Chapter ${activeChapterIndex + 1} · ply ${plyIndex + 1} of ${plies.length} · ${activePly.color} to move`
+                  : "No replayable position"}
             </p>
           </div>
 
           <div className="studies-notes-panel">
             <Pill tone="shell" size="sm">
-              Interactive drill chapter
+              {positionOnly
+                ? chapter?.initial_comment
+                  ? "Study position · with the author's note"
+                  : "Study position"
+                : "Interactive drill chapter"}
             </Pill>
             <h2 className="studies-notes-title">
               Chapter {activeChapterIndex + 1}: {chapter?.title ?? "Untitled"}
             </h2>
 
-            {activePly ? (
+            {positionOnly ? (
+              <>
+                {chapter?.initial_comment ? (
+                  <p className="studies-notes-body">{chapter.initial_comment}</p>
+                ) : null}
+                <p className="studies-notes-body studies-notes-fallback">
+                  This chapter stores a position with no moves — there is no
+                  solution saved to check against, so it is meant to be solved
+                  cold or talked through with a coach.
+                  {chapter?.initial_comment ? "" : " The author wrote no note on it either."}
+                </p>
+                <div className="studies-notes-actions">
+                  <a
+                    className="studies-btn-quiet"
+                    href={chapterLink}
+                    target="_blank"
+                    rel="noopener"
+                  >
+                    Open this position on Lichess ↗
+                  </a>
+                </div>
+              </>
+            ) : activePly ? (
               <>
                 {activePly.note ? (
                   <p className="studies-notes-body">{activePly.note}</p>
@@ -199,11 +267,11 @@ export default function StudyChapterExplorer({
                   </button>
                   <a
                     className="studies-card-link"
-                    href={study.source_url}
+                    href={chapterLink}
                     target="_blank"
                     rel="noopener"
                   >
-                    Open in Lichess Study ↗
+                    Open this chapter on Lichess ↗
                   </a>
                 </div>
               </>
@@ -216,41 +284,43 @@ export default function StudyChapterExplorer({
           </div>
         </div>
 
-        <div className="studies-move-line">
-          <div className="studies-move-line-head">
-            <span className="studies-move-line-label">Main line</span>
-            {activePly?.glyphs && activePly.glyphs.length > 0 && (
-              <span className="studies-move-line-glyph">
-                {activePly.glyphs.join(" ")}
-              </span>
+        {!positionOnly && (
+          <div className="studies-move-line">
+            <div className="studies-move-line-head">
+              <span className="studies-move-line-label">Main line</span>
+              {activePly?.glyphs && activePly.glyphs.length > 0 && (
+                <span className="studies-move-line-glyph">
+                  {activePly.glyphs.join(" ")}
+                </span>
+              )}
+            </div>
+            {plies.length > 0 ? (
+              <>
+                <ol className="studies-move-list">
+                  {plies.map((ply, index) => (
+                    <li key={`${ply.san}-${index}`}>
+                      <button
+                        type="button"
+                        className={`studies-move${index === plyIndex ? " is-active" : ""}`}
+                        onClick={() => selectPly(index)}
+                        title={ply.note ?? undefined}
+                      >
+                        {ply.color === "white" ? `${ply.moveNumber}.` : ""}
+                        {ply.san}
+                        {ply.note ? <span className="studies-move-dot" /> : null}
+                      </button>
+                    </li>
+                  ))}
+                </ol>
+                <p className="studies-move-text">{formatMoveLine(plies)}</p>
+              </>
+            ) : (
+              <p className="studies-shared-note studies-shared-note-muted">
+                No moves were parsed for this chapter.
+              </p>
             )}
           </div>
-          {plies.length > 0 ? (
-            <>
-              <ol className="studies-move-list">
-                {plies.map((ply, index) => (
-                  <li key={`${ply.san}-${index}`}>
-                    <button
-                      type="button"
-                      className={`studies-move${index === plyIndex ? " is-active" : ""}`}
-                      onClick={() => selectPly(index)}
-                      title={ply.note ?? undefined}
-                    >
-                      {ply.color === "white" ? `${ply.moveNumber}.` : ""}
-                      {ply.san}
-                      {ply.note ? <span className="studies-move-dot" /> : null}
-                    </button>
-                  </li>
-                ))}
-              </ol>
-              <p className="studies-move-text">{formatMoveLine(plies)}</p>
-            </>
-          ) : (
-            <p className="studies-shared-note studies-shared-note-muted">
-              No moves were parsed for this chapter.
-            </p>
-          )}
-        </div>
+        )}
       </section>
     </div>
   );

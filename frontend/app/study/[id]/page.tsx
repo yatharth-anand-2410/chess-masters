@@ -5,12 +5,13 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { Topbar } from "@/components/ui/Topbar";
 import { Pill } from "@/components/ui/Pill";
+import AuthButton from "@/components/AuthButton";
 import ShareMenu from "@/components/studies/ShareMenu";
 import SharedItemView from "@/components/studies/SharedItemView";
 import StudyChapterExplorer from "@/components/studies/StudyChapterExplorer";
 import type { StudyImport } from "@/components/studies/studyTypes";
 import { useStudySession } from "@/components/studies/useStudySession";
-import { apiGet, type SharedItemPayload } from "@/lib/api";
+import { apiGet, importStudy, isUpgradeError, type SharedItemPayload } from "@/lib/api";
 import { warmBackend } from "@/lib/backend-wake";
 
 type SharedTokenResponse = {
@@ -19,7 +20,7 @@ type SharedTokenResponse = {
   student?: unknown;
 };
 
-type Mode = "loading" | "shared" | "study" | "missing";
+type Mode = "loading" | "shared" | "study" | "missing" | "locked" | "signin";
 
 /**
  * One route, two sources.
@@ -41,6 +42,7 @@ export default function StudyDetailPage() {
   const [externalUrl, setExternalUrl] = useState("");
   const [motif, setMotif] = useState("");
   const [studentShare, setStudentShare] = useState(false);
+  const [lockedMessage, setLockedMessage] = useState("");
 
   // A curated card can hand its Lichess URL over, which keeps the fallback link
   // honest even when the id itself is not a Lichess study id.
@@ -60,8 +62,9 @@ export default function StudyDetailPage() {
   }, []);
 
   useEffect(() => {
-    if (!id) {
-      setMode("missing");
+    // The study read is authenticated, so wait until the session has settled;
+    // the shared-item read stays anonymous and instant for share links.
+    if (!id || !session.ready) {
       return;
     }
     warmBackend();
@@ -69,20 +72,26 @@ export default function StudyDetailPage() {
     const encoded = encodeURIComponent(id);
 
     (async () => {
-      const [sharedResult, studyResult] = await Promise.allSettled([
-        apiGet<SharedTokenResponse>(`/api/shared/${encoded}`),
-        apiGet<StudyImport>(`/api/studies/import/${encoded}`),
+      const sharedPromise = apiGet<SharedTokenResponse>(
+        `/api/shared/${encoded}`
+      ).catch(() => null);
+      const studyPromise = session.token
+        ? importStudy<StudyImport>(id, session.token).then(
+            (value) => ({ status: "ok" as const, value }),
+            (error: unknown) => ({ status: "error" as const, error })
+          )
+        : Promise.resolve({ status: "anonymous" as const });
+
+      const [sharedResult, studyResult] = await Promise.all([
+        sharedPromise,
+        studyPromise,
       ]);
       if (cancelled) {
         return;
       }
 
-      const item =
-        sharedResult.status === "fulfilled" && sharedResult.value?.item
-          ? sharedResult.value.item
-          : null;
-      const sharedKind =
-        sharedResult.status === "fulfilled" ? sharedResult.value?.kind : undefined;
+      const item = sharedResult?.item ?? null;
+      const sharedKind = sharedResult?.kind;
       if (item && (sharedKind === "study" || sharedKind === "tactic")) {
         setShared(item);
         setMode("shared");
@@ -92,17 +101,30 @@ export default function StudyDetailPage() {
       // A student report token can be pasted into this route by mistake; point
       // at the portal that renders reports instead of a dead end.
       const isStudentShare =
-        sharedKind === "student" ||
-        (sharedResult.status === "fulfilled" &&
-          Boolean(sharedResult.value?.student) &&
-          !item);
+        sharedKind === "student" || (Boolean(sharedResult?.student) && !item);
       if (isStudentShare) {
         setStudentShare(true);
       }
 
-      if (studyResult.status === "fulfilled" && studyResult.value?.study_id) {
+      if (studyResult.status === "ok") {
         setStudy(studyResult.value);
         setMode("study");
+        return;
+      }
+      if (studyResult.status === "error") {
+        const error = studyResult.error;
+        if (isUpgradeError(error)) {
+          setLockedMessage(error.message);
+          setMode("locked");
+          return;
+        }
+        if (error instanceof Error && /sign in/i.test(error.message)) {
+          setMode("signin");
+          return;
+        }
+      }
+      if (studyResult.status === "anonymous") {
+        setMode("signin");
         return;
       }
 
@@ -112,7 +134,7 @@ export default function StudyDetailPage() {
     return () => {
       cancelled = true;
     };
-  }, [id]);
+  }, [id, session.ready, session.token]);
 
   const students = session.students.map((student) => ({
     id: student.id,
@@ -138,6 +160,41 @@ export default function StudyDetailPage() {
 
         {mode === "loading" && (
           <p className="studies-inline-note">Loading study…</p>
+        )}
+
+        {mode === "signin" && (
+          <section className="studies-empty studies-empty-block">
+            <h1 className="studies-empty-title">Sign in to open this study</h1>
+            <p className="studies-empty-body">
+              Curated studies are private Lichess studies shared with the
+              students who work on them. Sign in and this page renders the
+              study with its board, chapters and drills.
+            </p>
+            <div className="studies-empty-actions">
+              <AuthButton user={null} onAuthChange={() => undefined} />
+              <Link className="studies-card-link" href="/tactics">
+                Browse the tactic directory
+              </Link>
+            </div>
+          </section>
+        )}
+
+        {mode === "locked" && (
+          <section className="studies-empty studies-empty-block">
+            <h1 className="studies-empty-title">This study is part of the library</h1>
+            <p className="studies-empty-body">
+              {lockedMessage ||
+                "The full curated study library is available with a paid plan."}
+            </p>
+            <div className="studies-empty-actions">
+              <Link className="btn btn-sm studies-card-primary" href="/subscription">
+                See the plans ➔
+              </Link>
+              <Link className="studies-card-link" href="/studies">
+                Back to your curriculum
+              </Link>
+            </div>
+          </section>
         )}
 
         {mode === "missing" && (

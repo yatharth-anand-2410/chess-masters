@@ -23,6 +23,17 @@ export type StudyMoveNode = {
   variations?: StudyMoveNode[];
 };
 
+export type StudyCircle = {
+  color: string;
+  square: string;
+};
+
+export type StudyArrow = {
+  color: string;
+  from_square: string;
+  to_square: string;
+};
+
 export type StudyChapter = {
   id: string;
   title: string;
@@ -31,6 +42,13 @@ export type StudyChapter = {
   moves_tree?: StudyMoveNode[];
   total_moves?: number;
   tags?: Record<string, string>;
+  /** The author's lesson written on the chapter's starting position. */
+  initial_comment?: string | null;
+  /** Board markers the author drew on the starting position. */
+  initial_circles?: StudyCircle[];
+  initial_arrows?: StudyArrow[];
+  /** Deep link to this one chapter on Lichess. */
+  chapter_url?: string | null;
 };
 
 export type StudyImport = {
@@ -40,7 +58,31 @@ export type StudyImport = {
   chapter_count: number;
   chapters?: StudyChapter[];
   total_annotations?: number;
+  /** The Lichess account the study belongs to. */
+  annotator?: string | null;
+  /** Chapters that store a position and no moves. */
+  position_only_chapters?: number;
+  /** "lichess" or "cache" — the backend's own read path. */
+  source?: string;
 };
+
+/**
+ * True for a chapter that is a diagram, not a line.
+ *
+ * Most of a coach's library is built this way: a position, a chapter name and
+ * sometimes a written lesson, with no moves stored at all. There is no solution
+ * to check, so these must never be rendered as a drill with a hidden answer.
+ */
+export function isPositionChapter(
+  chapter: StudyChapter | null | undefined
+): boolean {
+  if (!chapter) {
+    return false;
+  }
+  const plies = chapter.total_moves ?? 0;
+  const nodes = chapter.moves_tree?.length ?? 0;
+  return plies === 0 && nodes === 0;
+}
 
 /** One main-line ply, positioned so it can be drilled on a real board. */
 export type StudyPly = {
