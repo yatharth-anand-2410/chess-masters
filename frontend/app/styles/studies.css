@@ -1314,55 +1314,106 @@
 /* --- the coach's study library -------------------------------------------- */
 
 .studies-library {
+  margin-bottom: 2.5rem;
+}
+
+/* The library leads the page now; the motif directory below it is the
+   follow-up, so it carries the separator. */
+.studies-library + .studies-catalog {
   margin-top: 2.5rem;
   padding-top: 1.5rem;
   border-top: 1px solid var(--line-soft);
 }
 
-.studies-library-chips {
+.studies-library-filters {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.4rem;
+  align-items: center;
+  gap: 0.6rem;
   margin: 1rem 0 0;
+  padding: 0.7rem 0.8rem;
+  background: var(--ink-2);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-card);
 }
 
-.studies-library-chip {
+.studies-library-search {
+  flex: 1 1 15rem;
+}
+
+.studies-library-search input,
+.studies-library-select select {
+  padding: 0.5rem 0.7rem;
+  background: var(--ink-1);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-control);
+  color: var(--text);
+  font-size: 0.86rem;
+}
+
+.studies-library-search input {
+  width: 100%;
+}
+
+.studies-library-search input:focus,
+.studies-library-select select:focus {
+  outline: none;
+  border-color: var(--gold);
+}
+
+.studies-library-select select {
+  min-width: 12rem;
+  max-width: 20rem;
+}
+
+.studies-library-toggle {
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
-  padding: 0.3rem 0.7rem;
-  background: var(--ink-2);
-  border: 1px solid var(--line-soft);
-  border-radius: 999px;
   color: var(--text-muted);
-  font-size: 0.78rem;
+  font-size: 0.82rem;
   cursor: pointer;
-  transition: border-color 0.15s ease, color 0.15s ease;
 }
 
-.studies-library-chip:hover {
-  border-color: var(--gold);
-  color: var(--text);
+.studies-library-toggle input {
+  accent-color: var(--gold);
 }
 
-.studies-library-chip.is-active {
-  border-color: var(--gold);
-  color: var(--text);
-  background: rgba(201, 153, 63, 0.08);
-}
-
-.studies-library-chip-count {
+.studies-library-result {
   font-family: var(--font-mono);
-  font-size: 0.68rem;
+  font-size: 0.72rem;
   color: var(--gold-bright);
+  margin-left: auto;
 }
 
-.studies-library-desc {
-  margin: 0.85rem 0 0;
+.studies-library-clear {
+  flex: 0 0 auto;
+}
+
+.studies-library-active {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.6rem;
+  margin-top: 1rem;
+}
+
+.studies-library-active-name {
+  font-family: var(--font-display);
+  color: var(--text);
+}
+
+.studies-library-active-desc {
+  flex: 1 1 20rem;
   color: var(--text-muted);
-  font-size: 0.86rem;
+  font-size: 0.85rem;
   line-height: 1.55;
-  max-width: 68ch;
+}
+
+.studies-library-active-note {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-style: italic;
 }
 
 .studies-library-grid {

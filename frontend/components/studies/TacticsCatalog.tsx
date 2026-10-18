@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   apiGet,
@@ -70,102 +70,117 @@ export default function TacticsCatalog() {
   const hasLibrary = Boolean(library && library.total_studies > 0);
 
   return (
-    <section className="studies-catalog" aria-labelledby="tactics-catalog-title">
-      <div className="studies-section-head">
-        <div>
-          <h2 className="studies-section-title" id="tactics-catalog-title">
-            Tactical training curriculum · thematic directory
-          </h2>
-          <p className="studies-section-sub">
-            Every motif the analyzer can name in your games, each linked to its
-            Lichess puzzle theme.
-          </p>
+    <>
+      {hasLibrary && library && <StudyLibrary library={library} />}
+
+      <section className="studies-catalog" aria-labelledby="tactics-catalog-title">
+        <div className="studies-section-head">
+          <div>
+            <h2 className="studies-section-title" id="tactics-catalog-title">
+              {hasLibrary
+                ? "The motifs the analyzer names in your games"
+                : "Tactical training curriculum · thematic directory"}
+            </h2>
+            <p className="studies-section-sub">
+              {hasLibrary
+                ? "The patterns the engine can name, each linked to its Lichess puzzle theme — the vocabulary the study library above is filed against."
+                : "Every motif the analyzer can name in your games, each linked to its Lichess puzzle theme."}
+            </p>
+          </div>
+          {themes.length > 0 && catalog && (
+            <span className="studies-count-pill">
+              {themes.length} Core Motifs · {totalLinks} Lichess drills
+            </span>
+          )}
         </div>
-        {themes.length > 0 && catalog && (
-          <span className="studies-count-pill">
-            {themes.length} Core Motifs · {totalLinks} Lichess drills
-          </span>
+
+        {loading && (
+          <div className="studies-tactics-grid" aria-hidden="true">
+            {[0, 1, 2, 3, 4, 5].map((key) => (
+              <div className="studies-tactic-card studies-skeleton" key={key} />
+            ))}
+          </div>
         )}
-      </div>
 
-      {loading && (
-        <div className="studies-tactics-grid" aria-hidden="true">
-          {[0, 1, 2, 3, 4, 5].map((key) => (
-            <div className="studies-tactic-card studies-skeleton" key={key} />
-          ))}
-        </div>
-      )}
+        {!loading && failed && (
+          <p className="studies-inline-note">
+            The live drill catalog is unavailable right now — the motif directory
+            below still covers the core patterns.
+          </p>
+        )}
 
-      {!loading && failed && (
-        <p className="studies-inline-note">
-          The live drill catalog is unavailable right now — the motif directory
-          below still covers the core patterns.
-        </p>
-      )}
+        {!loading && !failed && themes.length === 0 && (
+          <p className="studies-inline-note">
+            No training themes are configured yet. Browse the Lichess puzzle
+            themes directory in the meantime.
+          </p>
+        )}
 
-      {!loading && !failed && themes.length === 0 && (
-        <p className="studies-inline-note">
-          No training themes are configured yet. Browse the Lichess puzzle
-          themes directory in the meantime.
-        </p>
-      )}
-
-      {themes.length > 0 && (
-        <div className="studies-tactics-grid">
-          {themes.map((theme) => (
-            <TacticCard
-              key={theme.key}
-              theme={theme}
-              shareToken={session.isCoach ? session.token : ""}
-              students={session.students.map((student) => ({
-                id: student.id,
-                display_name: student.display_name,
-              }))}
-            />
-          ))}
-        </div>
-      )}
-
-      {hasLibrary && library && <StudyLibraryBlock library={library} />}
-    </section>
+        {themes.length > 0 && (
+          <div className="studies-tactics-grid">
+            {themes.map((theme) => (
+              <TacticCard
+                key={theme.key}
+                theme={theme}
+                shareToken={session.isCoach ? session.token : ""}
+                students={session.students.map((student) => ({
+                  id: student.id,
+                  display_name: student.display_name,
+                }))}
+              />
+            ))}
+          </div>
+        )}
+      </section>
+    </>
   );
 }
 
 /**
- * The coach's own curated studies, grouped by what they teach.
+ * The whole study library, filterable.
  *
- * This is the tactics half of the library: every study the coach has filed
- * against a motif or one of their own groups, with the locked ones shown as
- * locked rather than hidden — a free account should see what the library
- * holds, and exactly what its tier opens.
+ * This is the point of the library: every study the coach has filed, not just
+ * the handful of motifs the analyzer happens to name. The filters are the
+ * vocabulary — search by study name, narrow to one theme or coaching group,
+ * and (on a free plan) hide the studies the plan has not unlocked.
  */
-function StudyLibraryBlock({ library }: { library: StudyLibrary }) {
-  const studies = library.studies ?? [];
+function StudyLibrary({ library }: { library: StudyLibrary }) {
+  const studies = useMemo(() => library.studies ?? [], [library.studies]);
   const groups = library.groups ?? [];
-  const [openGroup, setOpenGroup] = useState<string>("");
+  const [query, setQuery] = useState("");
+  const [group, setGroup] = useState("all");
+  const [onlyOpen, setOnlyOpen] = useState(false);
 
-  if (studies.length === 0) {
-    return null;
-  }
+  const locked = studies.filter((study) => study.locked).length;
+  const unlocked = studies.length - locked;
 
-  const unlocked = studies.filter((study) => !study.locked).length;
-  const locked = studies.length - unlocked;
-  const byGroup = new Map<string, LibraryStudy[]>();
-  for (const study of studies) {
-    const list = byGroup.get(study.group);
-    if (list) {
-      list.push(study);
-    } else {
-      byGroup.set(study.group, [study]);
-    }
-  }
+  const filtered = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    return studies.filter((study) => {
+      if (group !== "all" && study.group !== group) {
+        return false;
+      }
+      if (onlyOpen && study.locked) {
+        return false;
+      }
+      if (needle) {
+        const haystack = `${study.title} ${study.group_label}`.toLowerCase();
+        if (!haystack.includes(needle)) {
+          return false;
+        }
+      }
+      return true;
+    });
+  }, [studies, query, group, onlyOpen]);
 
-  const activeGroup: StudyGroup | undefined =
-    groups.find((group) => group.key === openGroup) ?? groups[0];
-  const activeStudies = activeGroup ? byGroup.get(activeGroup.key) ?? [] : [];
+  const activeGroup = groups.find((entry) => entry.key === group);
+  const filtering = query.trim() !== "" || group !== "all" || onlyOpen;
 
   return (
-    <section className="studies-catalog studies-library" aria-labelledby="library-title">
+    <section
+      className="studies-catalog studies-library"
+      aria-labelledby="library-title"
+    >
       <div className="studies-section-head">
         <div>
           <h2 className="studies-section-title" id="library-title">
@@ -173,7 +188,7 @@ function StudyLibraryBlock({ library }: { library: StudyLibrary }) {
           </h2>
           <p className="studies-section-sub">
             {library.configured
-              ? "Every study filed against a motif or a coaching theme, read live from Lichess."
+              ? "Every study the coach has filed, read live from Lichess — filter by the theme you are working on."
               : "The library is listed from the curation file; the live Lichess index is not reachable from this deployment."}
           </p>
         </div>
@@ -181,6 +196,66 @@ function StudyLibraryBlock({ library }: { library: StudyLibrary }) {
           {library.total_studies} Studies · {groups.length} Themes
           {locked > 0 ? ` · ${unlocked} open on your plan` : ""}
         </span>
+      </div>
+
+      <div className="studies-library-filters" role="search">
+        <label className="studies-library-search">
+          <span className="sr-only">Search studies by name</span>
+          <input
+            type="search"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search studies…"
+            aria-label="Search studies by name"
+          />
+        </label>
+
+        <label className="studies-library-select">
+          <span className="sr-only">Filter by theme</span>
+          <select
+            value={group}
+            onChange={(event) => setGroup(event.target.value)}
+            aria-label="Filter by theme"
+          >
+            <option value="all">Every theme ({groups.length})</option>
+            {groups.map((entry) => (
+              <option key={entry.key} value={entry.key}>
+                {entry.label} ({entry.count})
+                {entry.observed_count ? ` · yours ×${entry.observed_count}` : ""}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        {locked > 0 && (
+          <label className="studies-library-toggle">
+            <input
+              type="checkbox"
+              checked={onlyOpen}
+              onChange={(event) => setOnlyOpen(event.target.checked)}
+            />
+            <span>Only what my plan opens</span>
+          </label>
+        )}
+
+        <span className="studies-library-result" aria-live="polite">
+          {filtered.length} {filtered.length === 1 ? "study" : "studies"}
+          {filtering ? " match" : ""}
+        </span>
+
+        {filtering && (
+          <button
+            type="button"
+            className="studies-btn-quiet studies-library-clear"
+            onClick={() => {
+              setQuery("");
+              setGroup("all");
+              setOnlyOpen(false);
+            }}
+          >
+            Clear filters
+          </button>
+        )}
       </div>
 
       {locked > 0 && (
@@ -191,58 +266,45 @@ function StudyLibraryBlock({ library }: { library: StudyLibrary }) {
         </p>
       )}
 
-      {groups.length > 0 && (
-        <div className="studies-library-chips">
-          {groups.map((group) => (
-            <button
-              key={group.key}
-              type="button"
-              className={`studies-library-chip${
-                activeGroup?.key === group.key ? " is-active" : ""
-              }`}
-              onClick={() => setOpenGroup(group.key)}
+      {activeGroup && (
+        <div className="studies-library-active">
+          <b className="studies-library-active-name">{activeGroup.label}</b>
+          {activeGroup.description ? (
+            <span className="studies-library-active-desc">
+              {activeGroup.description}
+            </span>
+          ) : null}
+          {activeGroup.training_url ? (
+            <a
+              className="studies-card-link"
+              href={activeGroup.training_url}
+              target="_blank"
+              rel="noopener"
             >
-              {group.label}
-              <span className="studies-library-chip-count">{group.count}</span>
-              {typeof group.observed_count === "number" && group.observed_count > 0 && (
-                <span className="studies-observed-chip">
-                  yours ×{group.observed_count}
-                </span>
-              )}
-            </button>
-          ))}
+              Lichess puzzle theme ↗
+            </a>
+          ) : (
+            <span className="studies-library-active-note">
+              A coaching theme from the library itself — Lichess has no puzzle
+              theme with this name.
+            </span>
+          )}
         </div>
       )}
 
-      {activeGroup && (
-        <>
-          {activeGroup.description ? (
-            <p className="studies-library-desc">{activeGroup.description}</p>
-          ) : null}
-          <div className="studies-library-grid">
-            {activeStudies.map((study) => (
-              <LibraryStudyCard key={study.id} study={study} />
-            ))}
-          </div>
-          {activeGroup.training_url ? (
-            <p className="studies-library-note">
-              Matches the Lichess puzzle theme{" "}
-              <a
-                className="studies-card-link"
-                href={activeGroup.training_url}
-                target="_blank"
-                rel="noopener"
-              >
-                {activeGroup.label} ↗
-              </a>
-            </p>
-          ) : (
-            <p className="studies-library-note">
-              A coaching theme from the library itself — Lichess has no puzzle
-              theme with this name.
-            </p>
-          )}
-        </>
+      {filtered.length === 0 ? (
+        <p className="studies-inline-note">
+          No study matches that filter.{" "}
+          {onlyOpen && locked > 0
+            ? "Try turning off “only what my plan opens” to see the rest of the library."
+            : "Try a different word or theme."}
+        </p>
+      ) : (
+        <div className="studies-library-grid">
+          {filtered.map((study) => (
+            <LibraryStudyCard key={study.id} study={study} />
+          ))}
+        </div>
       )}
     </section>
   );
@@ -254,9 +316,7 @@ function LibraryStudyCard({ study }: { study: LibraryStudy }) {
   }`;
 
   return (
-    <article
-      className={`studies-library-card${study.locked ? " is-locked" : ""}`}
-    >
+    <article className={`studies-library-card${study.locked ? " is-locked" : ""}`}>
       <header className="studies-library-card-top">
         <b className="studies-library-card-title">{study.title}</b>
         {study.locked ? (

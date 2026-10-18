@@ -239,12 +239,24 @@ export default function StudiesPage() {
                     >
                       Unlock with a plan ➔
                     </Link>
-                  ) : (
+                  ) : study.study_id ? (
                     <Link className="btn btn-sm studies-card-primary" href={openHref(study)}>
                       Open Study ➔
                     </Link>
-                  )}
-                  {study.source_url && study.locked !== true ? (
+                  ) : study.source_url ? (
+                    // No study of our own covers this motif yet, so the honest
+                    // action is the Lichess training theme itself — not a page
+                    // whose only honest answer is "not available".
+                    <a
+                      className="btn btn-sm studies-card-primary"
+                      href={study.source_url}
+                      target="_blank"
+                      rel="noopener"
+                    >
+                      Practice on Lichess ➔
+                    </a>
+                  ) : null}
+                  {study.source_url && study.study_id && study.locked !== true ? (
                     <a
                       className="studies-card-link"
                       href={study.source_url}
