@@ -4539,32 +4539,6 @@ main.progress-page > .app-topbar {
   color: var(--gold);
 }
 
-.tactics-grid {
-  display: grid;
-  gap: 1rem;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  margin: 0.25rem 0 1.5rem;
-}
-
-.tactics-card {
-  padding: 1rem 1.1rem;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-card);
-  background: var(--ink-2);
-}
-
-.tactics-card h3 {
-  margin: 0 0 0.45rem;
-}
-
-.tactics-card p {
-  margin-bottom: 0.6rem;
-}
-
-.tactics-card p:last-child {
-  margin-bottom: 0;
-}
-
 /* ---------------------------------------------------------------------------
    Coach mode
    --------------------------------------------------------------------------- */

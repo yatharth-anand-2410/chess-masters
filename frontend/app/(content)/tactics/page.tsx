@@ -15,7 +15,7 @@ import { CONTENT_PUBLISHED } from "../../../lib/site";
 export const metadata: Metadata = {
   title: "Chess Tactics Map: Fork, Pin, Skewer, Deflection & More",
   description:
-    "The tactical motifs that decide club games — fork, pin, skewer, discovered attack, deflection, attraction, clearance, hanging piece, trapped piece, zugzwang — each with a training link.",
+    "The tactical motifs that decide club games — fork, pin, skewer, discovered attack, deflection, attraction, clearance, hanging piece, trapped piece, zugzwang — and how the analyzer names the one behind each turning point in your own games.",
   alternates: { canonical: "/tactics", types: { "application/rss+xml": "/feed.xml" } },
   openGraph: {
     title: "Chess Tactics Map · Chessmasters",
@@ -32,75 +32,6 @@ export const metadata: Metadata = {
     ],
   },
 };
-
-type Tactic = {
-  name: string;
-  slug: string;
-  definition: string;
-};
-
-const TACTICS: Tactic[] = [
-  {
-    name: "Fork",
-    slug: "fork",
-    definition:
-      "One piece attacks two or more enemy pieces at once. Knight forks are the classic, and the royal fork (king and queen) is the most common way club games end suddenly.",
-  },
-  {
-    name: "Pin",
-    slug: "pin",
-    definition:
-      "A piece cannot move (or only moves at a cost) because something more valuable stands behind it. Absolute pins run to the king; relative pins run to the queen or a rook.",
-  },
-  {
-    name: "Skewer",
-    slug: "skewer",
-    definition:
-      "A pin in reverse: attack the valuable piece so it must move, then capture the piece exposed behind it. Skewers usually win material along a line, not by checkmate.",
-  },
-  {
-    name: "Discovered attack",
-    slug: "discoveredAttack",
-    definition:
-      "Moving one of your pieces unleashes the attack of another behind it. With check involved, the moving piece is essentially a free move to grab material — discovered checks are the sharpest form.",
-  },
-  {
-    name: "Deflection",
-    slug: "deflection",
-    definition:
-      "Force a defending piece away from its duty — the defender of a mate square, or the guard of a crucial pawn — usually with a sacrifice that cannot be declined.",
-  },
-  {
-    name: "Attraction",
-    slug: "attraction",
-    definition:
-      "The mirror of deflection: lure an enemy piece onto a square where it becomes a target, often by sacrificing on that very square so the recapture is forced.",
-  },
-  {
-    name: "Clearance",
-    slug: "clearance",
-    definition:
-      "Move or sacrifice a piece out of a square or line so the piece behind it can do the work. Many mating combinations are just clearance with a dramatic first move.",
-  },
-  {
-    name: "Hanging piece",
-    slug: "hangingPiece",
-    definition:
-      "An undefended piece you can simply take. It sounds trivial, but at club level the most common decisive mistake is still leaving a piece loose under pressure.",
-  },
-  {
-    name: "Trapped piece",
-    slug: "trappedPiece",
-    definition:
-      "A piece with no safe square. You capture it not by force but by closing escape routes — usually with a pawn move or a quiet bishop retreat rather than a check.",
-  },
-  {
-    name: "Zugzwang",
-    slug: "zugzwang",
-    definition:
-      "A position where the obligation to move loses: every move makes things worse. Rare in the middlegame, decisive in pawn endgames, where king opposition decides games.",
-  },
-];
 
 const PAGE_FAQS: FaqItem[] = [
   {
@@ -140,34 +71,15 @@ export default function TacticsPage() {
       <ArticleMeta />
 
       <p className="content-lede">
-        A small set of tactical patterns decides most club games. Working
-        through this map — and drilling the two or three you personally keep
-        missing — improves results faster than opening theory. Every pattern
-        below links to the matching Lichess puzzle theme, and Chessmasters
-        identifies these motifs in your own games when you{" "}
+        A small set of tactical patterns decides most club games — the fork, the
+        pin, the skewer, deflection, the loose piece left hanging. Working on the
+        two or three you personally keep missing improves results faster than
+        opening theory, and Chessmasters names the pattern behind each turning
+        point in your own games when you{" "}
         <Link href="/chess-game-analyzer">analyze a game</Link>.
       </p>
 
       <TacticsCatalog />
-
-      <h2>Motif definitions</h2>
-      <div className="tactics-grid">
-        {TACTICS.map((tactic) => (
-          <div className="tactics-card" key={tactic.name}>
-            <h3>{tactic.name}</h3>
-            <p>{tactic.definition}</p>
-            <p>
-              <a
-                href={`https://lichess.org/training/${tactic.slug}`}
-                target="_blank"
-                rel="noopener"
-              >
-                Train {tactic.name.toLowerCase()} on Lichess →
-              </a>
-            </p>
-          </div>
-        ))}
-      </div>
 
       <h2>From motif to habit</h2>
       <p>
@@ -177,8 +89,8 @@ export default function TacticsPage() {
         position you actually have. That is why every{" "}
         <Link href="/chess-game-analyzer">Chessmasters report</Link> names the
         motif behind each turning point instead of stopping at the evaluation
-        number, and why the focus areas link straight to the training themes
-        above. For the review routine that puts this into practice, see{" "}
+        number, and why each focus area points straight at the theme that
+        answers it. For the review routine that puts this into practice, see{" "}
         <Link href="/how-to-analyze-your-chess-games">
           how to analyze your chess games
         </Link>
