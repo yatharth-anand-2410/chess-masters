@@ -8,23 +8,17 @@ import {
   type StudyGroup,
   type StudyLibrary,
   type TacticsCatalog,
-  type TacticTheme,
 } from "../../lib/api";
 import ShareMenu from "./ShareMenu";
 import { useStudySession } from "./useStudySession";
 
 /**
- * The live tactical catalog (`GET /api/tactics`).
+ * The study library on `/tactics` — the page's live section.
  *
- * Renders exactly what the product ships — every theme from
- * `backend/data/puzzle_catalog.json` and every Lichess link it carries — with
- * the primary drill as a gold button and the remaining theme links as compact
- * mono links, so a theme's full link set is reachable without inventing any.
- *
- * Signed-out visitors get the same catalog without the `observed_count` chip
- * (the server only computes it for a user's own games) and without sharing.
- * A signed-in caller also gets the coach's study library, which is private and
- * therefore never part of the public payload.
+ * It is the coach's own Lichess studies (`GET /api/tactics` → `library`),
+ * filterable by theme, and it is private: signed-out visitors get nothing from
+ * this component and read the page's own motif definitions instead. The server
+ * never puts a library in a public payload, so there is nothing here to hide.
  */
 export default function TacticsCatalog() {
   const session = useStudySession({ students: true });
@@ -33,12 +27,15 @@ export default function TacticsCatalog() {
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
-    if (!session.ready) {
+    if (!session.ready || !session.token) {
+      // Nothing to read without a session: the library is private, so the
+      // request is not worth making and there is no skeleton to show.
+      setLoading(false);
       return;
     }
     let cancelled = false;
     setLoading(true);
-    apiGet<TacticsCatalog>("/api/tactics", session.token || undefined)
+    apiGet<TacticsCatalog>("/api/tactics", session.token)
       .then((data) => {
         if (cancelled) {
           return;
@@ -62,77 +59,52 @@ export default function TacticsCatalog() {
     };
   }, [session.ready, session.token]);
 
-  const themes = catalog?.themes ?? [];
-  const totalLinks =
-    catalog?.total_links ??
-    themes.reduce((sum, theme) => sum + (theme.links?.length ?? 0), 0);
+  if (!session.ready || !session.signedIn) {
+    return null;
+  }
+
+  if (loading) {
+    return (
+      <div className="studies-library-grid" aria-hidden="true">
+        {[0, 1, 2, 3, 4, 5].map((key) => (
+          <div className="studies-library-card studies-skeleton" key={key} />
+        ))}
+      </div>
+    );
+  }
+
+  if (failed) {
+    return (
+      <p className="studies-inline-note">
+        The study library is unavailable right now. The motif definitions below
+        still cover every pattern the analyzer can name.
+      </p>
+    );
+  }
+
   const library = catalog?.library;
-  const hasLibrary = Boolean(library && library.total_studies > 0);
+  if (!library || library.total_studies === 0) {
+    return session.isCoach ? (
+      <p className="studies-inline-note">
+        No studies are listed for this deployment
+        {library && !library.configured
+          ? " — it has no Lichess token, so only public studies would be readable."
+          : "."}{" "}
+        Set <code>LICHESS_TOKEN</code> and <code>LICHESS_STUDY_OWNER</code>, then
+        run <code>scripts/sync_study_library.py</code>.
+      </p>
+    ) : null;
+  }
 
   return (
-    <>
-      {hasLibrary && library && <StudyLibrary library={library} />}
-
-      <section className="studies-catalog" aria-labelledby="tactics-catalog-title">
-        <div className="studies-section-head">
-          <div>
-            <h2 className="studies-section-title" id="tactics-catalog-title">
-              {hasLibrary
-                ? "The motifs the analyzer names in your games"
-                : "Tactical training curriculum · thematic directory"}
-            </h2>
-            <p className="studies-section-sub">
-              {hasLibrary
-                ? "The patterns the engine can name, each linked to its Lichess puzzle theme — the vocabulary the study library above is filed against."
-                : "Every motif the analyzer can name in your games, each linked to its Lichess puzzle theme."}
-            </p>
-          </div>
-          {themes.length > 0 && catalog && (
-            <span className="studies-count-pill">
-              {themes.length} Core Motifs · {totalLinks} Lichess drills
-            </span>
-          )}
-        </div>
-
-        {loading && (
-          <div className="studies-tactics-grid" aria-hidden="true">
-            {[0, 1, 2, 3, 4, 5].map((key) => (
-              <div className="studies-tactic-card studies-skeleton" key={key} />
-            ))}
-          </div>
-        )}
-
-        {!loading && failed && (
-          <p className="studies-inline-note">
-            The live drill catalog is unavailable right now — the motif directory
-            below still covers the core patterns.
-          </p>
-        )}
-
-        {!loading && !failed && themes.length === 0 && (
-          <p className="studies-inline-note">
-            No training themes are configured yet. Browse the Lichess puzzle
-            themes directory in the meantime.
-          </p>
-        )}
-
-        {themes.length > 0 && (
-          <div className="studies-tactics-grid">
-            {themes.map((theme) => (
-              <TacticCard
-                key={theme.key}
-                theme={theme}
-                shareToken={session.isCoach ? session.token : ""}
-                students={session.students.map((student) => ({
-                  id: student.id,
-                  display_name: student.display_name,
-                }))}
-              />
-            ))}
-          </div>
-        )}
-      </section>
-    </>
+    <StudyLibrary
+      library={library}
+      shareToken={session.isCoach ? session.token : ""}
+      students={session.students.map((student) => ({
+        id: student.id,
+        display_name: student.display_name,
+      }))}
+    />
   );
 }
 
@@ -144,7 +116,15 @@ export default function TacticsCatalog() {
  * vocabulary — search by study name, narrow to one theme or coaching group,
  * and (on a free plan) hide the studies the plan has not unlocked.
  */
-function StudyLibrary({ library }: { library: StudyLibrary }) {
+function StudyLibrary({
+  library,
+  shareToken,
+  students,
+}: {
+  library: StudyLibrary;
+  shareToken: string;
+  students: Array<{ id: string; display_name: string }>;
+}) {
   const studies = useMemo(() => library.studies ?? [], [library.studies]);
   const groups = library.groups ?? [];
   const [query, setQuery] = useState("");
@@ -310,6 +290,8 @@ function StudyLibrary({ library }: { library: StudyLibrary }) {
               key={study.id}
               study={study}
               group={groupByKey.get(study.group)}
+              shareToken={shareToken}
+              students={students}
             />
           ))}
         </div>
@@ -331,9 +313,13 @@ function StudyLibrary({ library }: { library: StudyLibrary }) {
 function LibraryStudyCard({
   study,
   group,
+  shareToken,
+  students,
 }: {
   study: LibraryStudy;
   group?: StudyGroup;
+  shareToken: string;
+  students: Array<{ id: string; display_name: string }>;
 }) {
   const openHref = `/study/${encodeURIComponent(study.id)}${
     study.group ? `?motif=${encodeURIComponent(study.group)}` : ""
@@ -409,11 +395,25 @@ function LibraryStudyCard({
         >
           Lichess ↗
         </a>
+        {shareToken && !study.locked ? (
+          <ShareMenu
+            kind="study"
+            itemKey={study.id}
+            title={study.title}
+            subtitle={`${study.group_label} — from the study library`}
+            url={study.source_url}
+            token={shareToken}
+            students={students}
+            label="Assign"
+          />
+        ) : null}
       </div>
     </article>
   );
 }
 
+
+/** A Lichess timestamp (ms) as a short date; empty when it is unusable. */
 function formatDate(epochMs: number): string {
   const date = new Date(epochMs);
   if (Number.isNaN(date.getTime())) {
@@ -424,125 +424,4 @@ function formatDate(epochMs: number): string {
     month: "short",
     year: "numeric",
   });
-}
-
-function TacticCard({
-  theme,
-  shareToken,
-  students,
-}: {
-  theme: TacticTheme;
-  shareToken: string;
-  students: Array<{ id: string; display_name: string }>;
-}) {
-  const links = theme.links ?? [];
-  const primary = links[0];
-  const secondary = links.slice(1);
-  const observed = theme.observed_count ?? 0;
-  const study = theme.study;
-  // `label` is authoritative; the key is a truthful fallback when a backend
-  // build predates the label field ("hangingPiece" → "Hanging Piece").
-  const label = theme.label || humaniseTheme(theme.key);
-  const aliases = (theme.motif_aliases ?? [])
-    .filter((alias) => alias && alias !== theme.key)
-    .slice(0, 3);
-
-  return (
-    <article className="studies-tactic-card">
-      <header className="studies-tactic-top">
-        <b className="studies-tactic-name">{label}</b>
-        {observed > 0 && (
-          <span className="studies-observed-chip" title="Motif found in your analyzed games">
-            observed in your games ×{observed}
-          </span>
-        )}
-      </header>
-
-      {theme.description ? (
-        <p className="studies-tactic-desc">{theme.description}</p>
-      ) : null}
-
-      {aliases.length > 0 && (
-        <p className="studies-tactic-aliases">
-          detected as{" "}
-          {aliases.map((alias, index) => (
-            <span key={alias}>
-              {index > 0 && ", "}
-              <code>{alias}</code>
-            </span>
-          ))}
-        </p>
-      )}
-
-      {study ? (
-        <p className="studies-tactic-study">
-          <span className="studies-tactic-study-label">
-            {study.locked ? "🔒 Library study" : "Library study"}
-          </span>{" "}
-          {study.locked ? (
-            study.title
-          ) : (
-            <Link
-              className="studies-tactic-study-link"
-              href={`/study/${encodeURIComponent(study.id)}?motif=${encodeURIComponent(theme.key)}`}
-            >
-              {study.title} ➔
-            </Link>
-          )}
-        </p>
-      ) : null}
-
-      <div className="studies-tactic-links">
-        {secondary.length > 0 && (
-          <span className="studies-tactic-links-label">Also trains</span>
-        )}
-        {secondary.map((link) => (
-          <a
-            key={`${link.theme}-${link.url}`}
-            className="studies-tactic-chip-link"
-            href={link.url}
-            target="_blank"
-            rel="noopener"
-          >
-            {humaniseTheme(link.theme)} ↗
-          </a>
-        ))}
-      </div>
-
-      <div className="studies-card-actions">
-        {primary ? (
-          <a
-            className="btn btn-sm studies-card-primary"
-            href={primary.url}
-            target="_blank"
-            rel="noopener"
-          >
-            Practice on Lichess ➔
-          </a>
-        ) : null}
-        {shareToken ? (
-          <ShareMenu
-            kind="tactic"
-            itemKey={theme.key}
-            title={label}
-            subtitle={theme.description}
-            url={primary?.url ?? null}
-            token={shareToken}
-            students={students}
-          />
-        ) : null}
-      </div>
-    </article>
-  );
-}
-
-/** `backRankMate` → `Back Rank Mate` — the catalog's Lichess slugs are camelCase. */
-function humaniseTheme(theme: string): string {
-  return theme
-    .replace(/([a-z])([A-Z])/g, "$1 $2")
-    .replace(/([A-Z]+)([A-Z][a-z])/g, "$1 $2")
-    .split(/\s+/)
-    .filter(Boolean)
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(" ");
 }

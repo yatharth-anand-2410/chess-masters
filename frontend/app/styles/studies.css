@@ -115,43 +115,10 @@
   color: var(--text-muted);
 }
 
-.studies-tactics-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 1.25rem;
-  margin-top: 1.25rem;
-}
 
-.studies-tactic-card {
-  display: flex;
-  flex-direction: column;
-  gap: 0.55rem;
-  padding: 1.15rem 1.2rem;
-  background: var(--ink-2);
-  border: 1px solid var(--line-soft);
-  border-radius: var(--radius-card);
-  transition: border-color 0.15s ease, transform 0.15s ease;
-}
 
-.studies-tactic-card:hover {
-  border-color: var(--gold);
-  transform: translateY(-2px);
-}
 
-.studies-tactic-top {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 0.5rem;
-}
 
-.studies-tactic-name {
-  font-family: var(--font-display);
-  font-size: 1.05rem;
-  font-weight: 700;
-  color: var(--text);
-  line-height: 1.25;
-}
 
 .studies-observed-chip {
   font-family: var(--font-mono);
@@ -164,41 +131,10 @@
   white-space: nowrap;
 }
 
-.studies-tactic-desc {
-  margin: 0;
-  color: var(--text-muted);
-  font-size: 0.83rem;
-  line-height: 1.5;
-}
 
-.studies-tactic-aliases {
-  margin: 0;
-  font-family: var(--font-mono);
-  font-size: 0.75rem;
-  color: var(--text-muted);
-  opacity: 0.9;
-}
 
-.studies-tactic-aliases code {
-  color: var(--cyan);
-}
 
-.studies-tactic-links {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.4rem;
-  margin-top: auto;
-  padding-top: 0.35rem;
-}
 
-.studies-tactic-links-label {
-  font-family: var(--font-mono);
-  font-size: 0.64rem;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-}
 
 .studies-tactic-chip-link {
   font-family: var(--font-mono);
@@ -1188,7 +1124,6 @@
 }
 
 @media (max-width: 1000px) {
-  .studies-tactics-grid,
   .studies-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -1202,7 +1137,6 @@
 }
 
 @media (max-width: 640px) {
-  .studies-tactics-grid,
   .studies-grid {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -1222,7 +1156,6 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .studies-tactic-card,
   .studies-card,
   .studies-rail-item,
   .studies-move,
@@ -1230,7 +1163,6 @@
     transition: none;
   }
 
-  .studies-tactic-card:hover,
   .studies-card:hover {
     transform: none;
   }
@@ -1490,40 +1422,11 @@
   padding-top: 0.35rem;
 }
 
-.studies-library-note {
-  margin: 1rem 0 0;
-  font-size: 0.82rem;
-  color: var(--text-muted);
-}
 
 /* The "your library teaches this" line on a tactic card. */
-.studies-tactic-study {
-  margin: 0;
-  padding: 0.5rem 0.6rem;
-  background: rgba(201, 153, 63, 0.07);
-  border-left: 2px solid var(--gold);
-  border-radius: 0 var(--radius-control) var(--radius-control) 0;
-  font-size: 0.82rem;
-  color: var(--text-muted);
-}
 
-.studies-tactic-study-label {
-  font-family: var(--font-mono);
-  font-size: 0.68rem;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--gold-bright);
-}
 
-.studies-tactic-study-link {
-  color: var(--text);
-  text-decoration: underline;
-  text-decoration-color: rgba(201, 153, 63, 0.5);
-}
 
-.studies-tactic-study-link:hover {
-  color: var(--gold-bright);
-}
 
 @media (max-width: 1000px) {
   .studies-library-grid {
