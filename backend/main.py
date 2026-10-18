@@ -1339,6 +1339,75 @@ async def get_batch(
     return {"batch": batch, "games": games}
 
 
+async def _report_library(
+    user: Dict[str, object], observed: Optional[dict] = None
+) -> dict:
+    """The library as a *report* read needs it: overlay only, no Lichess call.
+
+    A single game's practice links or a progress plan must never wait on the
+    study-list request, and the observation counts that decide a free tier's
+    unlocked studies come from the report's own rows.
+    """
+    tier = await _caller_tier(str(user["id"]))
+    return await asyncio.to_thread(
+        library.build_library,
+        tier=tier,
+        observed=observed or {},
+        fresh_index=False,
+    )
+
+
+async def _with_library_links(analysis: dict, user: Dict[str, object]) -> dict:
+    """Add the coach's own studies to a report's practice resources.
+
+    The stored row keeps the engine's resources untouched; these are derived at
+    read time, so a study that was renamed, added or locked after the game was
+    analysed is still reported correctly — and a free account is told, honestly,
+    that a study exists but its plan has not opened it.
+    """
+    insights = analysis.get("insights")
+    if not isinstance(insights, dict):
+        return analysis
+    moments = insights.get("weakness_moments")
+    if not isinstance(moments, list) or not moments:
+        return analysis
+
+    observed = puzzles.count_observed_motifs([analysis])
+    if not observed:
+        return analysis
+    built = await _report_library(user, observed)
+    plan = await asyncio.to_thread(library.practice_plan, built, observed, limit=4)
+
+    resources = insights.get("resources")
+    merged = list(resources) if isinstance(resources, list) else []
+    seen = {
+        str(item.get("url"))
+        for item in merged
+        if isinstance(item, dict) and item.get("url")
+    }
+    added = 0
+    for entry in plan:
+        for study in entry.get("studies") or []:
+            url = str(study.get("source_url") or "")
+            if not url or url in seen:
+                continue
+            seen.add(url)
+            merged.append(
+                {
+                    "title": study.get("title"),
+                    "url": url,
+                    "theme": entry["theme"],
+                    "source_move": None,
+                    "kind": "library",
+                    "locked": bool(study.get("locked")),
+                }
+            )
+            added += 1
+    if not added:
+        return analysis
+    return {**analysis, "insights": {**insights, "resources": merged}}
+
+
 @app.get("/api/analyses/{analysis_id}")
 async def get_analysis(
     analysis_id: str,
@@ -1353,6 +1422,11 @@ async def get_analysis(
             analysis["insights"] = json.loads(analysis["insights"])
         except ValueError:
             analysis["insights"] = {}
+    try:
+        analysis = await _with_library_links(analysis, user)
+    except Exception as exc:
+        # The report is the product; the library links are an addition to it.
+        logger.warning("Analysis read: could not attach the study library: %s", exc)
     return {"analysis": analysis, "messages": messages}
 
 
@@ -2758,6 +2832,75 @@ def _parse_days(raw: Optional[int]) -> Optional[int]:
     return raw
 
 
+async def _attach_practice_plan(report: progress.StudentProgressReport, user: dict):
+    """Join the report's own root causes to the coach's study library.
+
+    The leak counts are the report's, so the plan is ordered by what actually
+    cost this player points; the studies are the coach's, so every entry can be
+    opened and drilled. Built from the overlay alone — a progress read never
+    waits on Lichess.
+
+    A root cause is not always a chess theme. "Clock panic" carries the motif
+    key ``rushedMove``, which is a habit rather than a pattern, and no puzzle
+    set fixes it — so for a key the library has no words for, the report's own
+    category and explanation are used instead of a humanised internal key.
+    """
+    observed: Dict[str, int] = {}
+    causes: Dict[str, Dict[str, str]] = {}
+    for cause in report.root_causes or []:
+        theme = str(cause.primary_motif or "").strip().lower()
+        if not theme:
+            continue
+        observed[theme] = observed.get(theme, 0) + int(cause.count or 0)
+        causes.setdefault(
+            theme,
+            {
+                "category": str(cause.category or "").strip(),
+                "description": str(cause.description or "").strip(),
+            },
+        )
+    if not observed:
+        return report
+
+    built = await _report_library(user, observed)
+    raw = await asyncio.to_thread(library.practice_plan, built, observed, limit=6)
+
+    items: List[progress.PracticePlanItem] = []
+    for item in raw:
+        theme = str(item["theme"])
+        cause = causes.get(theme, {})
+        known = await asyncio.to_thread(library.known_group, theme)
+        label = item["label"]
+        description = item.get("description") or ""
+        if not known:
+            label = cause.get("category") or label
+            description = cause.get("description") or description
+        items.append(
+            progress.PracticePlanItem(
+                theme=theme,
+                label=label,
+                description=description,
+                kind=item.get("kind") or "coach",
+                training_url=item.get("training_url"),
+                observed_count=int(item.get("observed_count") or 0),
+                study_count=int(item.get("study_count") or 0),
+                locked_count=int(item.get("locked_count") or 0),
+                studies=[
+                    progress.PracticeStudy(
+                        id=str(study.get("id")),
+                        title=str(study.get("title") or ""),
+                        source_url=str(study.get("source_url") or ""),
+                        locked=bool(study.get("locked")),
+                    )
+                    for study in item.get("studies") or []
+                    if study.get("id") and study.get("source_url")
+                ],
+            )
+        )
+    report.practice_plan = items
+    return report
+
+
 @app.get("/api/progress", response_model=None)
 async def get_own_progress(
     speeds: Optional[str] = None,
@@ -2769,17 +2912,19 @@ async def get_own_progress(
     Built from the per-game telemetry captured since 0014_game_telemetry.sql;
     the progress service reports ``insufficient`` whenever fewer than four
     games match the filter. Its typed report is passed through unfiltered so
-    every panel field the frontend codes against survives.
+    every panel field the frontend codes against survives, plus the practice
+    plan that points each leak at the coach's own study.
     """
     user_id = str(user["id"])
     try:
-        return await asyncio.to_thread(
+        report = await asyncio.to_thread(
             progress.build_student_progress,
             user_id,
             coach_id=None,
             speeds=_parse_speeds(speeds),
             days=_parse_days(days),
         )
+        return await _attach_practice_plan(report, user)
     except db.AuthError:
         # A deployment gap (for example the 0014 telemetry migration) is not a
         # 500: let the app-wide handler turn it into the setup hint.
@@ -2796,13 +2941,23 @@ async def get_student_progress_endpoint(
     student_id: str,
     user: Optional[Dict[str, object]] = Depends(get_optional_user),
 ) -> progress.StudentProgressReport:
-    """Generate longitudinal student progress with 3-pillar mastery and ACPL drift."""
+    """Generate longitudinal student progress with 3-pillar mastery and ACPL drift.
+
+    The practice plan rides along: a coach reading a student's report wants the
+    next thing to assign, and it is derived from the student's own recurring
+    leaks rather than from the library's whole catalogue.
+    """
     cleaned = (student_id or "").strip()
     if not cleaned:
         raise HTTPException(status_code=400, detail="Student ID is required.")
     coach_id = str(user["id"]) if user else None
     try:
-        return await asyncio.to_thread(progress.build_student_progress, cleaned, coach_id=coach_id)
+        report = await asyncio.to_thread(
+            progress.build_student_progress, cleaned, coach_id=coach_id
+        )
+        if user:
+            report = await _attach_practice_plan(report, user)
+        return report
     except Exception as exc:
         logger.exception("Unexpected error building progress for student %s", student_id)
         raise HTTPException(status_code=500, detail=f"Failed to load student progress: {exc}")

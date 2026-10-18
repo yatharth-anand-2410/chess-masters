@@ -2102,3 +2102,20 @@
 .review-narrative {
   min-width: 0;
 }
+
+/* A resource that is one of the coach's own studies rather than a Lichess
+   drill: the two answer different questions, so they read differently. */
+.review-resource-item.is-library {
+  border-color: rgba(201, 153, 63, 0.45);
+  background: rgba(201, 153, 63, 0.06);
+}
+
+.review-resource-tag {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 0.2rem;
+}

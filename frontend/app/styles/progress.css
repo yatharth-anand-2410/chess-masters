@@ -1280,3 +1280,156 @@ a.progress-account-chip:hover {
     display: none !important;
   }
 }
+
+/* --- practice plan: leaks joined to the work that answers them ------------- */
+
+.progress-practice {
+  margin-top: 2rem;
+}
+
+.progress-practice-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.progress-practice-title {
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  font-weight: 700;
+  margin: 0;
+  color: var(--text);
+}
+
+.progress-practice-sub {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin: 0.2rem 0 0;
+  max-width: 62ch;
+}
+
+.progress-practice-pill {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--gold-bright);
+  background: rgba(201, 153, 63, 0.1);
+  border: 1px solid rgba(201, 153, 63, 0.3);
+  border-radius: 999px;
+  padding: 0.25rem 0.7rem;
+}
+
+.progress-practice-note {
+  margin: 1rem 0 0;
+  padding: 0.7rem 0.9rem;
+  border-left: 2px solid var(--gold);
+  background: var(--ink-2);
+  border-radius: 0 var(--radius-control) var(--radius-control) 0;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  line-height: 1.55;
+}
+
+.progress-practice-list {
+  list-style: none;
+  margin: 1rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.85rem;
+}
+
+.progress-practice-row {
+  display: flex;
+  gap: 0.9rem;
+  padding: 0.95rem 1.05rem;
+  background: var(--ink-2);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-card);
+}
+
+.progress-practice-row.is-uncovered {
+  border-style: dashed;
+}
+
+.progress-practice-rank {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  color: var(--gold-bright);
+  padding-top: 0.15rem;
+}
+
+.progress-practice-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.progress-practice-row-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.progress-practice-name {
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.progress-practice-count {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+
+.progress-practice-desc {
+  margin: 0.35rem 0 0;
+  font-size: 0.84rem;
+  line-height: 1.55;
+  color: var(--text-muted);
+}
+
+.progress-practice-studies {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.6rem;
+}
+
+.progress-practice-study,
+.progress-practice-more {
+  font-size: 0.8rem;
+  text-decoration: none;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  padding: 0.25rem 0.6rem;
+  color: var(--text);
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.progress-practice-study:hover,
+.progress-practice-more:hover {
+  border-color: var(--gold);
+  color: var(--gold-bright);
+}
+
+.progress-practice-study.is-locked {
+  color: var(--text-muted);
+  border-style: dashed;
+  cursor: default;
+}
+
+.progress-practice-more {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.progress-practice-gap {
+  margin: 0.55rem 0 0;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}

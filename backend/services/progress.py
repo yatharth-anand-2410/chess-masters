@@ -194,6 +194,35 @@ class RootCause(BaseModel):
     description: str
 
 
+class PracticeStudy(BaseModel):
+    """One study of the coach's library, as the progress plan may link it."""
+
+    id: str
+    title: str
+    source_url: str
+    locked: bool = False
+
+
+class PracticePlanItem(BaseModel):
+    """A recurring leak joined with the work that answers it.
+
+    The plan is derived at read time from the coach's own Lichess library, so
+    it always reflects what the library holds now. ``studies`` is empty for a
+    theme the coach has not covered yet — the Lichess drill link still tells
+    the student what to practise, and the gap tells the coach what to write.
+    """
+
+    theme: str
+    label: str
+    description: str = ""
+    kind: str = "coach"
+    training_url: Optional[str] = None
+    observed_count: int = 0
+    study_count: int = 0
+    locked_count: int = 0
+    studies: List[PracticeStudy] = Field(default_factory=list)
+
+
 class RadarMetric(BaseModel):
     dimension: str
     baseline_score: float
@@ -235,6 +264,9 @@ class StudentProgressReport(BaseModel):
     panic: List[PanicBucket] = Field(default_factory=list)
     persona: PersonaProfile
     focus_rules: List[str] = Field(default_factory=list)
+    #: Your recurring leaks, each answered by the coach's own study where one
+    #: exists. Empty when there is no telemetry to rank leaks from.
+    practice_plan: List[PracticePlanItem] = Field(default_factory=list)
     games_used: int = 0
     insufficient: bool = True
 

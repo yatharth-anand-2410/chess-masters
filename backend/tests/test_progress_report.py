@@ -752,6 +752,9 @@ def test_payload_matches_typescript_contract(monkeypatch: pytest.MonkeyPatch) ->
         "panic",
         "persona",
         "focus_rules",
+        # Added with the study library: empty here because the plan is joined at
+        # the endpoint, and `ProgressReport` in frontend/lib/api.ts carries it.
+        "practice_plan",
         "games_used",
         "insufficient",
     }

@@ -43,6 +43,7 @@ import AccuracyAcplChart from "../../components/progress/AccuracyAcplChart";
 import PhaseAccuracyChart from "../../components/progress/PhaseAccuracyChart";
 import PanicCurve from "../../components/progress/PanicCurve";
 import RootCauseDistribution from "../../components/progress/RootCauseDistribution";
+import PracticePlan from "../../components/progress/PracticePlan";
 import FocusRules from "../../components/progress/FocusRules";
 import ProgressFilterBar from "../../components/progress/ProgressFilterBar";
 import CoachStudentRibbon from "../../components/progress/CoachStudentRibbon";
@@ -564,6 +565,13 @@ function ProgressPageContent() {
 
             <RootCauseDistribution
               rootCauses={report.root_causes}
+              insufficient={insufficient}
+              gamesUsed={report.games_used}
+            />
+
+            <PracticePlan
+              plan={report.practice_plan}
+              playerName={selectedStudentId ? displayName : undefined}
               insufficient={insufficient}
               gamesUsed={report.games_used}
             />

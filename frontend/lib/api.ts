@@ -637,6 +637,8 @@ export type ProgressReport = {
     next_milestone: string;
   };
   focus_rules: string[];
+  /** Your recurring leaks, each answered by the coach's own study where one exists. */
+  practice_plan?: PracticePlanItem[];
   games_used: number;
   /** True when fewer than 4 games match the filter — panels must show an honest empty state. */
   insufficient: boolean;
@@ -754,11 +756,42 @@ export type CuratedStudy = {
   fixes?: string | null;
   game_id?: string | null;
   move_number?: number | null;
+  /** The theme's own words and drill link, from the library vocabulary. */
+  theme_label?: string | null;
+  theme_description?: string | null;
+  training_url?: string | null;
+  /** How many studies in the coach's library teach this motif. */
+  study_count?: number | null;
+  locked_count?: number | null;
   /** Set when the coach's own library teaches this motif. */
   study_id?: string | null;
   study_title?: string | null;
   /** True when this caller's tier has not unlocked the study. */
   locked?: boolean | null;
+};
+
+/**
+ * A recurring leak joined with the work that answers it (`/api/progress`).
+ *
+ * Derived at read time from the coach's library, so `studies` is empty for a
+ * theme the library does not cover yet — the Lichess drill link still says what
+ * to practise, and the gap says what to write next.
+ */
+export type PracticePlanItem = {
+  theme: string;
+  label: string;
+  description: string;
+  kind: "lichess" | "coach" | "unfiled" | string;
+  training_url: string | null;
+  observed_count: number;
+  study_count: number;
+  locked_count: number;
+  studies: Array<{
+    id: string;
+    title: string;
+    source_url: string;
+    locked: boolean;
+  }>;
 };
 
 /** Shared (no sign-in) study / tactic links created by a coach. */

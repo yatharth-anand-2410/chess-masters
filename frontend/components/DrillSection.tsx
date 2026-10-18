@@ -127,29 +127,44 @@ export default function DrillSection({
           <div className="review-section-head">
             <h3>Curated Practice Resources</h3>
             <p>
-              Direct Lichess training slugs mapped to the root causes in this game
+              {extras.some((resource) => resource.kind === "library")
+                ? "Your coach's own studies for this game's root causes, plus the matching Lichess drills"
+                : "Direct Lichess training slugs mapped to the root causes in this game"}
             </p>
           </div>
           <div className="review-resources-grid">
-            {extras.map((resource) => (
-              <a
-                key={resource.url}
-                className="review-resource-item"
-                href={resource.url}
-                target="_blank"
-                rel="noreferrer"
-              >
-                <div>
-                  <b>{resource.title}</b>
-                  {resource.source_move && (
-                    <div className="review-resource-move">{resource.source_move}</div>
-                  )}
-                </div>
-                <span className="review-resource-arrow" aria-hidden="true">
-                  <ExternalLinkIcon className="review-resource-icon" />
-                </span>
-              </a>
-            ))}
+            {extras.map((resource) => {
+              const fromLibrary = resource.kind === "library";
+              return (
+                <a
+                  key={resource.url}
+                  className={`review-resource-item${fromLibrary ? " is-library" : ""}`}
+                  href={resource.url}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  <div>
+                    {fromLibrary ? (
+                      <span className="review-resource-tag">
+                        {resource.locked ? "🔒 Study library" : "Study library"}
+                      </span>
+                    ) : null}
+                    <b>{resource.title}</b>
+                    {resource.source_move && (
+                      <div className="review-resource-move">{resource.source_move}</div>
+                    )}
+                    {fromLibrary && resource.locked ? (
+                      <div className="review-resource-move">
+                        Unlocks with a paid plan
+                      </div>
+                    ) : null}
+                  </div>
+                  <span className="review-resource-arrow" aria-hidden="true">
+                    <ExternalLinkIcon className="review-resource-icon" />
+                  </span>
+                </a>
+              );
+            })}
           </div>
         </div>
       )}

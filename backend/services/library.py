@@ -218,30 +218,57 @@ def group_meta(key: str) -> Dict[str, Any]:
         }
     meta = vocabulary().get(cleaned)
     if meta:
-        # resources.exercise_link() silently falls back to mixed training for a
-        # theme it does not know, which would point at the wrong drill. Only
-        # trust it when it resolved the theme we asked for; otherwise the slug
-        # is still real (it is in the vocabulary file), so build the link.
-        link = resources.exercise_link(cleaned)
-        url = str(link.get("url") or "") if link else ""
-        if str((link or {}).get("theme") or "") != cleaned or not url:
-            url = f"https://lichess.org/training/{cleaned}"
         return {
             "key": cleaned,
             "label": meta["label"],
             "description": meta["description"],
             "kind": "lichess",
-            "training_url": url,
+            "training_url": _training_url(cleaned),
         }
     declared = (overlay().get("groups") or {}).get(cleaned)
-    declared = declared if isinstance(declared, Mapping) else {}
+    if isinstance(declared, Mapping):
+        return {
+            "key": cleaned,
+            "label": str(declared.get("label") or _humanize(cleaned)),
+            "description": str(declared.get("description") or "").strip(),
+            "kind": "coach",
+            "training_url": None,
+        }
+    # A theme outside the vocabulary that the resource catalog still knows:
+    # the phase fallbacks and the mixed-training bucket are real links, and
+    # recommending them beats recommending nothing.
+    link = resources.exercise_link(cleaned)
+    resolved = str((link or {}).get("theme") or "")
+    if link and resolved == cleaned and link.get("url"):
+        return {
+            "key": cleaned,
+            "label": str(link.get("title") or _humanize(cleaned)),
+            "description": "",
+            "kind": "lichess",
+            "training_url": str(link["url"]),
+        }
     return {
         "key": cleaned,
-        "label": str(declared.get("label") or _humanize(cleaned)),
-        "description": str(declared.get("description") or "").strip(),
+        "label": _humanize(cleaned),
+        "description": "",
         "kind": "coach",
         "training_url": None,
     }
+
+
+def _training_url(slug: str) -> str:
+    """The drill URL for a vocabulary slug.
+
+    ``resources.exercise_link()`` falls back to mixed training for a theme it
+    does not know, which would point at the wrong drill. Only trust it when it
+    resolved the theme we asked for; otherwise build the link, because every
+    slug in the vocabulary file is a real Lichess theme.
+    """
+    link = resources.exercise_link(slug)
+    url = str((link or {}).get("url") or "")
+    if link and str(link.get("theme") or "") == slug and url:
+        return url
+    return f"https://lichess.org/training/{slug}"
 
 
 def _humanize(key: str) -> str:
@@ -334,8 +361,9 @@ def build_library(
     owner: Optional[str] = None,
     tier: str = "free",
     observed: Optional[Mapping[str, int]] = None,
-    free_limit: int = FREE_STUDY_LIMIT,
+    free_limit: Optional[int] = None,
     include_hidden: bool = False,
+    fresh_index: bool = True,
 ) -> Dict[str, Any]:
     """Join the overlay with the live index into the payload the UI renders.
 
@@ -343,7 +371,17 @@ def build_library(
     spend the free tier on the studies that answer their real leaks. ``tier``
     decides whether anything is locked at all: ``free`` locks everything beyond
     ``free_limit`` studies, ``student``/``coach`` lock nothing.
+
+    ``fresh_index=False`` skips the live Lichess index entirely and builds from
+    the committed overlay. A report read (a single game's study links, a
+    progress plan) must never wait on a list request to Lichess, and the
+    overlay already carries every title it needs.
+
+    ``free_limit`` defaults to :data:`FREE_STUDY_LIMIT` at call time rather than
+    import time, so the deployment setting is read when a request is served.
     """
+    if free_limit is None:
+        free_limit = FREE_STUDY_LIMIT
     overlay_data = overlay()
     configured = studies.lichess_configured()
     resolved_owner = (
@@ -352,7 +390,7 @@ def build_library(
     )
 
     live: List[Dict[str, Any]] = []
-    if configured and resolved_owner:
+    if fresh_index and configured and resolved_owner:
         try:
             live = studies.list_owner_studies(resolved_owner)
         except studies.StudyError:
@@ -514,26 +552,129 @@ def curated_cover(library: Mapping[str, Any]) -> Dict[str, Dict[str, Any]]:
     return cover
 
 
-def attach_curated_studies(
-    curated: Iterable[Dict[str, Any]], library: Mapping[str, Any]
-) -> List[Dict[str, Any]]:
-    """Point each curated item at the coach's own study when one covers it.
+def known_group(key: str) -> bool:
+    """True when the library has words of its own for this key.
 
-    A theme the library does not teach keeps its Lichess training link, so the
-    card never becomes an empty promise.
+    A theme it does not know is not a Lichess theme and not a declared coach
+    group — a report's pseudo-theme such as ``rushedMove`` (a clock habit, not
+    a pattern) — so callers can fall back to the report's own wording instead
+    of humanising an internal key.
     """
-    cover = curated_cover(library)
+    cleaned = str(key or "").strip()
+    if not cleaned:
+        return False
+    return cleaned in vocabulary() or cleaned in (overlay().get("groups") or {})
+
+
+def _brief(study: Mapping[str, Any]) -> Dict[str, Any]:
+    return {
+        "id": study.get("id"),
+        "title": study.get("title"),
+        "source_url": study.get("source_url"),
+        "locked": bool(study.get("locked")),
+    }
+
+
+def theme_coverage(
+    built: Mapping[str, Any], theme: str, *, limit: int = 3
+) -> Dict[str, Any]:
+    """What the library has for one theme: its words, its drill and its studies.
+
+    Works for a theme the library files studies under *and* for one it has
+    nothing for — the engine names eighteen themes and the coach will never
+    have a study for all of them, so "no study yet, here is the Lichess drill"
+    is a first-class answer rather than a gap.
+    """
+    key = str(theme or "").strip().lower()
+    meta = group_meta(key)
+    studies = [
+        item
+        for item in built.get("studies") or []
+        if str(item.get("group") or "") == key
+    ]
+    locked = sum(1 for item in studies if item.get("locked"))
+    return {
+        "theme": key,
+        "label": meta["label"],
+        "description": meta["description"],
+        "kind": meta["kind"],
+        "training_url": meta["training_url"],
+        "study_count": len(studies),
+        "locked_count": locked,
+        "studies": [_brief(item) for item in studies[:limit]],
+    }
+
+
+def practice_plan(
+    built: Mapping[str, Any],
+    observed: Mapping[str, int],
+    *,
+    limit: int = 6,
+) -> List[Dict[str, Any]]:
+    """The caller's recurring leaks, each joined with the work that answers it.
+
+    Ordered by how often the leak actually cost them points, so the first entry
+    is the one worth their next hour. A theme with no study of its own is still
+    listed, carrying its Lichess drill instead: the student learns what to
+    practise either way, and the coach can see which themes their library does
+    not cover yet.
+
+    ``observed`` counts are the engine's own motif counts — the same numbers the
+    tactics catalogue and the curated list already use, never an estimate.
+    """
+    plan: List[Dict[str, Any]] = []
+    seen: Set[str] = set()
+    ranked = sorted(
+        ((str(theme).strip().lower(), int(count)) for theme, count in observed.items()),
+        key=lambda item: (-item[1], item[0]),
+    )
+    for theme, count in ranked:
+        if count <= 0 or not theme or theme in seen:
+            continue
+        seen.add(theme)
+        entry = theme_coverage(built, theme)
+        entry["observed_count"] = count
+        plan.append(entry)
+        if len(plan) >= max(0, limit):
+            break
+    return plan
+
+
+def attach_curated_studies(
+    curated: Iterable[Dict[str, Any]], built: Mapping[str, Any]
+) -> List[Dict[str, Any]]:
+    """Dress each curated item with the library's answer to that motif.
+
+    A leak always carries the theme's own words and drill link, so the card
+    explains the pattern instead of only naming it. When the coach's library
+    teaches it, the card points at *their* study and says how many studies the
+    theme holds; when it does not, the Lichess training link stands, which is
+    the honest answer rather than an empty promise.
+    """
+    cover = curated_cover(built)
     results: List[Dict[str, Any]] = []
     for item in curated:
         motif = str(item.get("motif") or "").strip()
+        if not motif:
+            results.append(item)
+            continue
+        coverage = theme_coverage(built, motif)
+        enriched = {
+            **item,
+            "theme_label": coverage["label"],
+            "theme_description": coverage["description"],
+            "training_url": coverage["training_url"],
+            "study_count": coverage["study_count"],
+            "locked_count": coverage["locked_count"],
+        }
         study = cover.get(motif)
         if study:
-            item = {
-                **item,
+            enriched = {
+                **enriched,
                 "study_id": study["id"],
                 "study_title": study["title"],
                 "source_url": study["source_url"],
                 "locked": bool(study.get("locked")),
             }
-        results.append(item)
+        results.append(enriched)
     return results

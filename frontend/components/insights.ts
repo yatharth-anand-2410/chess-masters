@@ -133,6 +133,10 @@ export type Resource = {
   url: string;
   theme: string;
   source_move?: string | null;
+  /** "library" when this is one of the coach's own studies, not a Lichess drill. */
+  kind?: string | null;
+  /** True when the caller's plan has not unlocked that study yet. */
+  locked?: boolean | null;
 };
 
 export type PsychologyTag = "strong" | "develop" | "weak";

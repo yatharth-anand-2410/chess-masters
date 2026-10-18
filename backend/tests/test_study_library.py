@@ -514,3 +514,224 @@ def test_import_opens_a_study_outside_the_library(
     monkeypatch.setattr(studies.http, "get", lambda *a, **k: _pgn_response())
     response = client.get("/api/studies/import/zzzz9999")
     assert response.status_code == 200
+
+
+# ---------------------------------------------------------------------------
+# The join: a leak, its theme, and the studies that answer it
+# ---------------------------------------------------------------------------
+
+
+def test_theme_coverage_describes_a_covered_and_an_uncovered_theme():
+    built = library.build_library(tier="student")
+    pin = library.theme_coverage(built, "pin")
+    assert pin["label"] == "Pin"
+    assert pin["kind"] == "lichess"
+    assert pin["training_url"] == "https://lichess.org/training/pin"
+    assert pin["study_count"] == 1
+    assert [study["title"] for study in pin["studies"]] == ["Advanced Pins"]
+
+    fork = library.theme_coverage(built, "fork")
+    assert {study["title"] for study in fork["studies"]} == {"FORK", "Deleted Study"}
+
+    # A real Lichess theme the library has no study for: the drill link stands.
+    promotion = library.theme_coverage(built, "promotion")
+    assert promotion["study_count"] == 0
+    assert promotion["training_url"] == "https://lichess.org/training/promotion"
+
+    # A phase fallback with no vocabulary entry still gets its real link.
+    mix = library.theme_coverage(built, "blunder")
+    assert mix["training_url"] == "https://lichess.org/training/mix"
+
+
+def test_practice_plan_follows_the_players_own_leaks():
+    built = library.build_library(tier="student")
+    plan = library.practice_plan(built, {"pin": 6, "fork": 2, "zugzwang": 1})
+    assert [item["theme"] for item in plan] == ["pin", "fork", "zugzwang"]
+    assert plan[0]["observed_count"] == 6
+    assert plan[0]["study_count"] == 1
+    assert plan[1]["study_count"] == 2
+    # The library teaches no zugzwang, and that is reported rather than hidden.
+    assert plan[2]["study_count"] == 0
+    assert plan[2]["training_url"] == "https://lichess.org/training/zugzwang"
+    assert library.practice_plan(built, {"pin": 6, "fork": 2}, limit=1) == [plan[0]]
+
+
+def test_curated_cards_carry_the_themes_words():
+    built = library.build_library(tier="free", observed={"pin": 4})
+    curated = [
+        {
+            "id": "curated-pin",
+            "title": "Practice Pins",
+            "reason": "…",
+            "source_url": "https://lichess.org/training/pin",
+            "motif": "pin",
+            "chapters": None,
+        },
+        {
+            "id": "curated-zugzwang",
+            "title": "Zugzwang Positions",
+            "reason": "…",
+            "source_url": "https://lichess.org/training/zugzwang",
+            "motif": "zugzwang",
+            "chapters": None,
+        },
+    ]
+    covered, uncovered = library.attach_curated_studies(curated, built)
+    assert covered["theme_label"] == "Pin"
+    assert covered["theme_description"].startswith("A piece cannot move")
+    assert covered["study_count"] == 1
+    assert covered["study_id"] == "tmpPin01"
+    assert covered["locked"] is False
+    # No study for zugzwang yet: the Lichess link stays, and the gap is visible.
+    assert uncovered["study_count"] == 0
+    assert uncovered["source_url"] == "https://lichess.org/training/zugzwang"
+    assert uncovered.get("study_id") is None
+
+
+# ---------------------------------------------------------------------------
+# The report read: library studies ride along with the engine's own resources
+# ---------------------------------------------------------------------------
+
+
+def _analysis_row() -> Dict[str, Any]:
+    return {
+        "id": "analysis-1",
+        "game_id": "g1",
+        "status": "completed",
+        "insights": {
+            "weakness_moments": [
+                {
+                    "move_number": 12,
+                    "san": "Nf3",
+                    "quality": "blunder",
+                    "motif": "Pin",
+                    "resource_theme": "pin",
+                    "centipawn_loss": 320,
+                    "fen_before": "8/8/8/8/8/8/8/8 w - - 0 1",
+                }
+            ],
+            "resources": [
+                {
+                    "title": "Practice Pins",
+                    "url": "https://lichess.org/training/pin",
+                    "theme": "pin",
+                    "source_move": "12. Nf3",
+                }
+            ],
+        },
+        "game_summary": {"opponent_name": "Hikaru"},
+    }
+
+
+def test_a_report_gains_the_coachs_studies(as_user, tier, monkeypatch):
+    as_user()
+    tier("student")
+    monkeypatch.setattr(main_module.db, "get_analysis", lambda uid, aid: _analysis_row())
+    monkeypatch.setattr(main_module.db, "list_messages", lambda aid: [])
+
+    body = client.get("/api/analyses/analysis-1").json()["analysis"]
+    resources = body["insights"]["resources"]
+    engine = [item for item in resources if item.get("kind") != "library"]
+    coach = [item for item in resources if item.get("kind") == "library"]
+    # The engine's own resource is untouched…
+    assert engine == [
+        {
+            "title": "Practice Pins",
+            "url": "https://lichess.org/training/pin",
+            "theme": "pin",
+            "source_move": "12. Nf3",
+        }
+    ]
+    # …and the coach's study for this leak is appended once.
+    assert coach == [
+        {
+            "title": "Advanced Pins",
+            "url": "https://lichess.org/study/tmpPin01",
+            "theme": "pin",
+            "source_move": None,
+            "kind": "library",
+            "locked": False,
+        }
+    ]
+
+
+def test_a_report_never_hands_over_a_locked_study(as_user, tier, monkeypatch):
+    """No free allowance left: the study is named and marked locked."""
+    as_user()
+    tier("free")
+    monkeypatch.setattr(library, "FREE_STUDY_LIMIT", 0)
+    monkeypatch.setattr(main_module.db, "get_analysis", lambda uid, aid: _analysis_row())
+    monkeypatch.setattr(main_module.db, "list_messages", lambda aid: [])
+    body = client.get("/api/analyses/analysis-1").json()["analysis"]
+    coach = [r for r in body["insights"]["resources"] if r.get("kind") == "library"]
+    assert coach and all(item["locked"] for item in coach)
+
+
+def test_a_report_without_moments_is_untouched(as_user, tier, monkeypatch):
+    as_user()
+    tier("student")
+    empty = {"id": "a", "game_id": "g", "status": "completed", "insights": {"resources": []}}
+    monkeypatch.setattr(main_module.db, "get_analysis", lambda uid, aid: empty)
+    monkeypatch.setattr(main_module.db, "list_messages", lambda aid: [])
+    body = client.get("/api/analyses/a").json()["analysis"]
+    assert body["insights"] == {"resources": []}
+
+
+def test_the_progress_plan_is_built_from_the_reports_own_leaks(
+    as_user, tier, monkeypatch: pytest.MonkeyPatch
+):
+    as_user()
+    tier("student")
+    from services import progress as progress_service
+
+    rows = [
+        {
+            "id": f"analysis-{index}",
+            "status": "completed",
+            "platform": "lichess",
+            "username": "tester",
+            "game_url": f"https://lichess.org/game-{index}",
+            "player_color": "white",
+            "player_name": "Tester",
+            "opening_name": "Sicilian Defence",
+            "eco": "B20",
+            "result": "1-0",
+            "created_at": f"2026-01-{index + 1:02d}T00:00:00Z",
+            "pgn": '[TimeControl "300+0"]\n',
+            "insights": {
+                "weakness_moments": [
+                    {
+                        "move_number": 10 + index,
+                        "san": "Nf3",
+                        "quality": "blunder",
+                        "motif": "Pin",
+                        "resource_theme": "pin",
+                        "centipawn_loss": 300,
+                        "fen_before": "8/8/8/8/8/8/8/8 w - - 0 1",
+                    }
+                ]
+            },
+            "game_summary": {"opponent_name": "Hikaru", "player_color": "white"},
+        }
+        for index in range(6)
+    ]
+    monkeypatch.setattr(progress_service, "_load_rows", lambda *a, **k: rows)
+
+    body = client.get("/api/progress").json()
+    plan = body.get("practice_plan") or []
+    assert plan, "the report's own root causes should produce a plan"
+    # Ordered by what cost the player most, and the pin study is attached.
+    counts = [item["observed_count"] for item in plan]
+    assert counts == sorted(counts, reverse=True)
+    pin = next(item for item in plan if item["theme"] == "pin")
+    assert [study["title"] for study in pin["studies"]] == ["Advanced Pins"]
+    assert pin["studies"][0]["source_url"] == "https://lichess.org/study/tmpPin01"
+    assert pin["training_url"] == "https://lichess.org/training/pin"
+    # A habit-shaped cause (clock panic → "rushedMove") is not a Lichess theme,
+    # so it must speak with the report's own words rather than a humanised key.
+    rushed = next((item for item in plan if item["theme"] == "rushedmove"), None)
+    if rushed is not None:
+        assert rushed["label"] == "Clock panic"
+        assert rushed["description"]
+        assert rushed["kind"] == "coach"
+        assert rushed["study_count"] == 0

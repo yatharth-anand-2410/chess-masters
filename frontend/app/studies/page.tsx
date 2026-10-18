@@ -219,9 +219,20 @@ export default function StudiesPage() {
                 <h2 className="studies-card-title">{study.title}</h2>
                 <p className="studies-card-reason">{study.reason}</p>
 
+                {study.theme_description ? (
+                  <p className="studies-card-theme">{study.theme_description}</p>
+                ) : null}
+
                 {study.study_id && study.study_title ? (
                   <p className="studies-card-origin">
                     {study.locked ? "🔒 " : ""}Library study: {study.study_title}
+                    {typeof study.study_count === "number" && study.study_count > 1
+                      ? ` · ${study.study_count} studies cover ${study.theme_label ?? study.motif}`
+                      : ""}
+                  </p>
+                ) : study.study_count ? (
+                  <p className="studies-card-origin">
+                    {study.study_count} studies in the library cover {study.theme_label ?? study.motif}
                   </p>
                 ) : null}
 
@@ -265,6 +276,21 @@ export default function StudiesPage() {
                     >
                       Lichess Study ↗
                     </a>
+                  ) : null}
+                  {study.training_url && !study.study_id ? (
+                    <a
+                      className="studies-card-link"
+                      href={study.training_url}
+                      target="_blank"
+                      rel="noopener"
+                    >
+                      Lichess drill ↗
+                    </a>
+                  ) : null}
+                  {typeof study.study_count === "number" && study.study_count > 1 ? (
+                    <Link className="studies-card-link" href="/tactics">
+                      All {study.study_count} {study.theme_label ?? study.motif} studies
+                    </Link>
                   ) : null}
                   {session.isCoach && !study.locked ? (
                     <ShareMenu

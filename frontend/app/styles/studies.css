@@ -1439,3 +1439,14 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* The theme's own words on a curated card, so the card explains the pattern
+   instead of only naming it. */
+.studies-card-theme {
+  margin: 0.55rem 0 0;
+  font-size: 0.83rem;
+  line-height: 1.55;
+  color: var(--text-muted);
+  padding-left: 0.7rem;
+  border-left: 2px solid var(--line);
+}
