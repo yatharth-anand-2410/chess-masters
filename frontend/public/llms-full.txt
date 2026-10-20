@@ -1,13 +1,13 @@
 # Chessmasters — full text
 
 Source: https://www.chessmasterss.in
-Last updated: 2026-10-11
+Last updated: 2026-10-20
 
 ## What Chessmasters is
 
-Chessmasters is an AI chess game analyzer for Chess.com and Lichess. You paste a finished game — a Lichess game URL, or your Chess.com username plus the game URL — and within seconds you get a plain-English coaching report. The first analysis is free and requires no account.
+Chessmasters (https://www.chessmasterss.in) is an independent AI chess game analyzer and coaching web platform for Chess.com and Lichess players (not affiliated with Chess.com, Lichess, or the historic Ubisoft Chessmaster series). You paste a finished game — a Lichess game URL, or your Chess.com username plus the game URL — and within seconds you get a plain-English coaching report. The first analysis is free and requires no account.
 
-The report covers five sections: Strength (what you did well), Weakness (the decisive mistakes and the patterns behind them), Game Overview (how the game flowed), Focus Areas (two or three things worth training next), and Resources (drills and study material mapped to those focus areas).
+The report covers five sections: Strength (what you did well), Weakness (the decisive mistakes and the patterns behind them), Game Overview (how the game flowed), Focus Areas (two or three things worth training next), and Resources (interactive replay drills and curated Lichess study material mapped to those focus areas).
 
 ## How the analysis works
 

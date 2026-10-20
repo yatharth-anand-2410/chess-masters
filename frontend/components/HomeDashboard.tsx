@@ -22,11 +22,13 @@ import GuestSignInPrompt from "./GuestSignInPrompt";
 import HeroBoard from "./HeroBoard";
 import LimitReachedPrompt from "./LimitReachedPrompt";
 import ReviewSection from "./ReviewSection";
+import FaqSection from "./FaqSection";
 import UpgradePrompt from "./UpgradePrompt";
 import type { InsightsData } from "./insights";
 import { initAnalytics, trackEvent } from "../lib/analytics";
 import { warmBackend } from "../lib/backend-wake";
-import { PRODUCT_FACTS } from "../lib/site";
+import { CONTENT_PUBLISHED, CONTENT_PUBLISHED_LABEL, PRODUCT_FACTS } from "../lib/site";
+import { FAQS } from "../lib/faqs";
 import { Check } from "lucide-react";
 import {
   API_BASE,
@@ -1026,7 +1028,18 @@ export default function HomePage() {
       <section className="trust-strip" aria-label="About Chessmasters">
         <span className="trust-strip-item">
           <Check size={13} strokeWidth={3} aria-hidden="true" />
-          Stockfish-checked · reviewed by a FIDE International Master
+          Stockfish-checked · logic designed by{" "}
+          <Link href="/about" rel="author" className="byline-author font-medium text-cream hover:underline">
+            Parth Kaushik
+          </Link>{" "}
+          (FIDE AIM)
+        </span>
+        <span className="trust-strip-dot" aria-hidden="true">·</span>
+        <span className="trust-strip-item">
+          Updated{" "}
+          <time dateTime={CONTENT_PUBLISHED}>
+            {CONTENT_PUBLISHED_LABEL}
+          </time>
         </span>
         <span className="trust-strip-dot" aria-hidden="true">·</span>
         <span className="trust-strip-item">Psychology profile after 3 games</span>
@@ -1042,6 +1055,20 @@ export default function HomePage() {
       </section>
 
       <ReviewSection user={user} token={token} onAuthChange={clearSessionState} />
+
+      <section className="homepage-about-panel" aria-labelledby="about-chessmasters-title">
+        <div className="section-head">
+          <h2 id="about-chessmasters-title">What is Chessmasters?</h2>
+        </div>
+        <p className="homepage-about-lede">
+          Chessmasters is an AI chess game analyzer for Chess.com and Lichess players.
+          It evaluates finished games with Stockfish to pinpoint tactical blunders and centipawn loss swings,
+          then translates the raw engine evaluations into plain-English coaching reports covering Strengths,
+          Weaknesses, Game Overview, Focus Areas, and curated Lichess study drills.
+        </p>
+      </section>
+
+      <FaqSection items={FAQS} showMeta={false} showTitle={true} showMoreLink={true} />
 
       {guestLimitHit && (
         <GuestSignInPrompt onClose={() => setGuestLimitHit(false)} />

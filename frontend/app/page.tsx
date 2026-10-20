@@ -14,13 +14,13 @@ import {
 } from "../lib/site";
 
 /**
- * Homepage title. Leads with the category so the non-branded head term
- * "AI Game Analyzer" carries the match weight in the first ~30 characters of
- * the SERP snippet; the brand is kept at the end so brand queries still match.
+ * Homepage title. Leads with the category head term so "AI Chess Game Analyzer"
+ * carries full exact-match weight in the first ~30 characters of the SERP
+ * snippet, keeping the brand attached at the end for entity attribution.
  * `absolute` deliberately opts this one page out of the root layout's
  * `%s · Chessmasters` template, so every other route's title is untouched.
  */
-const HOME_TITLE = "AI Game Analyzer for Chess.com & Lichess | Chessmasters";
+const HOME_TITLE = "AI Chess Game Analyzer for Chess.com & Lichess · Chessmasters";
 
 export const metadata: Metadata = {
   title: { absolute: HOME_TITLE },

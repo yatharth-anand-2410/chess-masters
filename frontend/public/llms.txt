@@ -1,16 +1,18 @@
 # Chessmasters
 
-> Chessmasters is an AI chess game analyzer for Chess.com and Lichess that turns a finished game into a plain-English coaching report with five sections: Strength, Weakness, Game Overview, Focus Areas, and Resources.
+> Chessmasters (https://www.chessmasterss.in) is an independent AI chess game analyzer and coaching web application for Chess.com and Lichess that turns a finished game into a plain-English coaching report with five core sections: Strength, Weakness, Game Overview, Focus Areas, and Resources.
 
-Last updated: 2026-10-11
+Last updated: 2026-10-20
 
-Chessmasters is an independent web app, not affiliated with Chess.com or Lichess. The first analysis is free and needs no account; five free analyses in total; the Pro plan is ₹399 per month for 100 analyses per billing period. Reports are engine-enriched first (Stockfish centipawn loss and blunder detection) and then written as a coaching narrative by an AI layer whose coaching logic is designed with FIDE Arena International Master (AIM) Parth Kaushik.
+Chessmasters is an independent platform launched in 2026, not affiliated with Chess.com, Lichess, or the historic Ubisoft Chessmaster video game series. The first analysis is free and needs no account; five free analyses in total upon sign-in. Pro Student is ₹399/month for 100 analyses, and Master Coach is ₹1,999/month for trainers managing student rosters. Reports are Stockfish-enriched (centipawn loss and tactical blunder detection) and written as pedagogical coaching narratives designed with FIDE Arena International Master (AIM) Parth Kaushik.
 
 ## Product
 
 - [AI chess game analyzer](https://www.chessmasterss.in/chess-game-analyzer): what the analyzer does, how a report is built, who it is for, and pricing.
+- [Curated studies library](https://www.chessmasterss.in/studies): personalized Lichess study curriculum mapped directly to recurring tactical leaks detected in your games.
+- [Opponent scouting dossiers](https://www.chessmasterss.in/scout): automated scouting reports on Chess.com and Lichess opponents covering opening tendencies, time pressure vulnerabilities, and tilt triggers.
 - [Sample report](https://www.chessmasterss.in/sample-report): the five report sections walked through with the 1858 Opera Game.
-- [Pricing and subscription](https://www.chessmasterss.in/subscription): free plan details (5 analyses) and Pro plan (₹399/month, 100 analyses per billing period).
+- [Pricing and subscription](https://www.chessmasterss.in/subscription): free plan details (5 analyses), Pro Student (₹399/month), and Master Coach (₹1,999/month).
 
 ## Comparisons and guides
 

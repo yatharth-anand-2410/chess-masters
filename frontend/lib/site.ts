@@ -73,5 +73,5 @@ export const PRODUCT_FACTS = {
 } as const;
 
 /** Content review dates for editorial pages. */
-export const CONTENT_PUBLISHED = "2026-10-11";
-export const CONTENT_PUBLISHED_LABEL = "11 October 2026";
+export const CONTENT_PUBLISHED = "2026-10-20";
+export const CONTENT_PUBLISHED_LABEL = "20 October 2026";

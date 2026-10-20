@@ -49,6 +49,15 @@ export const ORGANIZATION_SCHEMA = {
     jobTitle: founder.jobTitle,
     description: founder.description,
     ...(founder.sameAs ? { sameAs: founder.sameAs } : {}),
+    ...(founder.name === "Parth Kaushik"
+      ? {
+          hasCredential: {
+            "@type": "EducationalOccupationalCredential",
+            name: "FIDE Arena International Master (AIM)",
+            credentialCategory: "FIDE Title",
+          },
+        }
+      : {}),
   })),
 };
 
@@ -79,6 +88,8 @@ export const SOFTWARE_APPLICATION_SCHEMA = {
     "Five-section report: Strength, Weakness, Game Overview, Focus Areas, Resources",
     "Key moments illustrated on interactive chess boards",
     "Focus-area drills linked to Lichess training material",
+    "Personalized Lichess study curriculum mapped to recurring tactical leaks",
+    "Opponent scouting dossiers uncovering opening traps and time trouble habits",
     "AI Psychological Profile after three analyzed games",
     "Follow-up Q&A on each analysis (Pro plan)",
     "Batch analysis of up to five games per submission",
