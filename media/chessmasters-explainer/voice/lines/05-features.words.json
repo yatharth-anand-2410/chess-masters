@@ -1,0 +1,104 @@
+{
+  "source": "05-features.wav",
+  "duration": 9.623,
+  "language": "en",
+  "model": "kokoro-v1.0-timestamped-fp16.onnx",
+  "words": [
+    {
+      "text": "Every",
+      "start": 0.06,
+      "end": 0.325,
+      "type": "word"
+    },
+    {
+      "text": "review",
+      "start": 0.392,
+      "end": 0.824,
+      "type": "word"
+    },
+    {
+      "text": "delivers",
+      "start": 0.874,
+      "end": 1.317,
+      "type": "word"
+    },
+    {
+      "text": "tactical",
+      "start": 1.388,
+      "end": 1.883,
+      "type": "word"
+    },
+    {
+      "text": "strengths,",
+      "start": 1.957,
+      "end": 2.6,
+      "type": "word"
+    },
+    {
+      "text": "critical",
+      "start": 2.895,
+      "end": 3.267,
+      "type": "word"
+    },
+    {
+      "text": "blunders,",
+      "start": 3.333,
+      "end": 4.024,
+      "type": "word"
+    },
+    {
+      "text": "opening",
+      "start": 4.163,
+      "end": 4.589,
+      "type": "word"
+    },
+    {
+      "text": "leaks,",
+      "start": 4.654,
+      "end": 5.2,
+      "type": "word"
+    },
+    {
+      "text": "next-game",
+      "start": 5.52,
+      "end": 6.112,
+      "type": "word"
+    },
+    {
+      "text": "rules,",
+      "start": 6.172,
+      "end": 6.64,
+      "type": "word"
+    },
+    {
+      "text": "and",
+      "start": 6.83,
+      "end": 6.884,
+      "type": "word"
+    },
+    {
+      "text": "curated",
+      "start": 6.99,
+      "end": 7.514,
+      "type": "word"
+    },
+    {
+      "text": "interactive",
+      "start": 7.59,
+      "end": 8.172,
+      "type": "word"
+    },
+    {
+      "text": "Lichess",
+      "start": 8.223,
+      "end": 8.627,
+      "type": "word"
+    },
+    {
+      "text": "drills.",
+      "start": 8.68,
+      "end": 9.213,
+      "type": "word"
+    }
+  ]
+}

@@ -1,0 +1,86 @@
+{
+  "source": "06-cta.wav",
+  "duration": 5.665,
+  "language": "en",
+  "model": "kokoro-v1.0-timestamped-fp16.onnx",
+  "words": [
+    {
+      "text": "Analyze",
+      "start": 0.12,
+      "end": 0.618,
+      "type": "word"
+    },
+    {
+      "text": "your",
+      "start": 0.655,
+      "end": 0.756,
+      "type": "word"
+    },
+    {
+      "text": "first",
+      "start": 0.841,
+      "end": 1.099,
+      "type": "word"
+    },
+    {
+      "text": "game",
+      "start": 1.13,
+      "end": 1.386,
+      "type": "word"
+    },
+    {
+      "text": "completely",
+      "start": 1.41,
+      "end": 1.986,
+      "type": "word"
+    },
+    {
+      "text": "free",
+      "start": 2.092,
+      "end": 2.47,
+      "type": "word"
+    },
+    {
+      "text": "without",
+      "start": 2.89,
+      "end": 3.171,
+      "type": "word"
+    },
+    {
+      "text": "an",
+      "start": 3.196,
+      "end": 3.248,
+      "type": "word"
+    },
+    {
+      "text": "account",
+      "start": 3.296,
+      "end": 3.726,
+      "type": "word"
+    },
+    {
+      "text": "at",
+      "start": 3.78,
+      "end": 3.867,
+      "type": "word"
+    },
+    {
+      "text": "chessmasterss",
+      "start": 3.939,
+      "end": 4.644,
+      "type": "word"
+    },
+    {
+      "text": "dot",
+      "start": 4.712,
+      "end": 4.995,
+      "type": "word"
+    },
+    {
+      "text": "in.",
+      "start": 5.043,
+      "end": 5.28,
+      "type": "word"
+    }
+  ]
+}

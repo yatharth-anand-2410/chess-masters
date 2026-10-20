@@ -6,16 +6,19 @@ tail: 0.8
 ---
 
 ## hook
-Engine numbers like plus two point four don't tell you how to win. Club players don't need raw math; they need plain English coaching.
+Engine numbers like plus two point four don't teach you how to win. Club players don't need raw math; they need plain English coaching and psychological insights.
 
 ## intro
-Meet Chessmasters: the intelligent AI chess game analyzer for Chess dot com and Lichess.
+Meet Chessmasters: the intelligent AI chess analyzer for Chess dot com and Lichess. Paste any game, or analyze a batch to uncover recurring leaks.
 
 ## expert
-Designed with FIDE AIM Parth Kaushik, Chessmasters translates deep Stockfish evaluation into plain English chess lessons.
+Designed alongside FIDE AIM Parth Kaushik, Chessmasters pairs Stockfish sixteen precision with a fine-tuned chess AI, turning engine data into human grandmaster lessons.
+
+## psychology
+Beyond tactics, Chessmasters profiles your chess psychology: diagnosing tilt, time trouble panic, and composure across six behavioral dimensions.
 
 ## features
-Every review delivers five core sections: tactical strengths, critical blunder classification, opening leaks, focus areas, and curated Lichess study drills.
+Every review delivers tactical strengths, critical blunders, opening leaks, next-game rules, and curated interactive Lichess drills.
 
 ## cta
-Paste any game link at chessmasterss dot in. Your first analysis is completely free, with no account required.
+Analyze your first game completely free without an account at chessmasterss dot in.

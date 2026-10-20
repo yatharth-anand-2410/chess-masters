@@ -24,3 +24,5 @@ scratch/
 stitch-skills/
 *.qa/
 *.work/
+media/**/work/
+media/**/exports/

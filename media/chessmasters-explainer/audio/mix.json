@@ -1,6 +1,6 @@
 {
   "_comment": "Soundtrack and Kokoro narration for Chessmasters explainer video.",
-  "duration": 48.0,
+  "duration": 66.0,
   "sample_rate": 48000,
   "tracks": [
     {
@@ -9,7 +9,7 @@
       "compose": {
         "style": "upbeat-tech",
         "bpm": 118,
-        "sections": "0:intro,9.6:build,26.0:drop,37.3:outro",
+        "sections": "0:intro,11.5:build,37.0:drop,58.0:outro",
         "seed": 42
       },
       "gain_db": -2,
@@ -29,35 +29,35 @@
     {
       "kind": "sfx",
       "synth": {"type": "whoosh", "intensity": 0.6, "seed": 2},
-      "at": 9.6,
+      "at": 11.5,
       "align": "hit",
       "gain_db": -4
     },
     {
       "kind": "sfx",
       "synth": {"type": "click", "seed": 3},
-      "at": 16.6,
+      "at": 23.5,
       "align": "hit",
       "gain_db": -3
     },
     {
       "kind": "sfx",
       "synth": {"type": "swoosh-in", "intensity": 0.5, "seed": 5},
-      "at": 25.9,
+      "at": 37.0,
       "align": "hit",
       "gain_db": -4
     },
     {
       "kind": "sfx",
       "synth": {"type": "thock", "intensity": 0.7, "seed": 6},
-      "at": 37.3,
+      "at": 48.4,
       "align": "hit",
       "gain_db": -3
     },
     {
       "kind": "sfx",
       "synth": {"type": "logo-sting", "key": "D", "seed": 7},
-      "at": 45.4,
+      "at": 58.4,
       "align": "hit",
       "gain_db": -2
     }

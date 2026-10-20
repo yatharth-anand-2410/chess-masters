@@ -1,0 +1,116 @@
+{
+  "source": "04-psychology.wav",
+  "duration": 11.019,
+  "language": "en",
+  "model": "kokoro-v1.0-timestamped-fp16.onnx",
+  "words": [
+    {
+      "text": "Beyond",
+      "start": 0.05,
+      "end": 0.359,
+      "type": "word"
+    },
+    {
+      "text": "tactics,",
+      "start": 0.42,
+      "end": 1.13,
+      "type": "word"
+    },
+    {
+      "text": "Chessmasters",
+      "start": 1.44,
+      "end": 2.126,
+      "type": "word"
+    },
+    {
+      "text": "profiles",
+      "start": 2.19,
+      "end": 2.755,
+      "type": "word"
+    },
+    {
+      "text": "your",
+      "start": 2.796,
+      "end": 2.898,
+      "type": "word"
+    },
+    {
+      "text": "chess",
+      "start": 2.98,
+      "end": 3.216,
+      "type": "word"
+    },
+    {
+      "text": "psychology:",
+      "start": 3.268,
+      "end": 4.15,
+      "type": "word"
+    },
+    {
+      "text": "diagnosing",
+      "start": 4.65,
+      "end": 5.472,
+      "type": "word"
+    },
+    {
+      "text": "tilt,",
+      "start": 5.55,
+      "end": 5.9,
+      "type": "word"
+    },
+    {
+      "text": "time",
+      "start": 6.29,
+      "end": 6.608,
+      "type": "word"
+    },
+    {
+      "text": "trouble",
+      "start": 6.658,
+      "end": 6.975,
+      "type": "word"
+    },
+    {
+      "text": "panic,",
+      "start": 7.07,
+      "end": 7.48,
+      "type": "word"
+    },
+    {
+      "text": "and",
+      "start": 7.66,
+      "end": 7.737,
+      "type": "word"
+    },
+    {
+      "text": "composure",
+      "start": 7.787,
+      "end": 8.465,
+      "type": "word"
+    },
+    {
+      "text": "across",
+      "start": 8.518,
+      "end": 8.841,
+      "type": "word"
+    },
+    {
+      "text": "six",
+      "start": 8.968,
+      "end": 9.216,
+      "type": "word"
+    },
+    {
+      "text": "behavioral",
+      "start": 9.266,
+      "end": 9.819,
+      "type": "word"
+    },
+    {
+      "text": "dimensions.",
+      "start": 9.869,
+      "end": 10.599,
+      "type": "word"
+    }
+  ]
+}

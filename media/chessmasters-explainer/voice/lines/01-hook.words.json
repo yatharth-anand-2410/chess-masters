@@ -1,151 +1,169 @@
 {
   "source": "01-hook.wav",
-  "duration": 8.927,
+  "duration": 11.155,
   "language": "en",
   "model": "kokoro-v1.0-timestamped-fp16.onnx",
   "words": [
     {
       "text": "Engine",
-      "start": 0.1,
-      "end": 0.466,
+      "start": 0.02,
+      "end": 0.397,
       "type": "word"
     },
     {
       "text": "numbers",
-      "start": 0.518,
-      "end": 0.881,
+      "start": 0.453,
+      "end": 0.829,
       "type": "word"
     },
     {
       "text": "like",
-      "start": 0.928,
-      "end": 1.101,
+      "start": 0.877,
+      "end": 1.053,
       "type": "word"
     },
     {
       "text": "plus",
       "start": 1.14,
-      "end": 1.398,
+      "end": 1.358,
       "type": "word"
     },
     {
       "text": "two",
-      "start": 1.51,
-      "end": 1.681,
+      "start": 1.45,
+      "end": 1.649,
       "type": "word"
     },
     {
       "text": "point",
-      "start": 1.742,
-      "end": 2.058,
+      "start": 1.74,
+      "end": 2.044,
       "type": "word"
     },
     {
       "text": "four",
-      "start": 2.158,
-      "end": 2.496,
+      "start": 2.149,
+      "end": 2.642,
       "type": "word"
     },
     {
       "text": "don't",
-      "start": 2.553,
-      "end": 2.74,
+      "start": 2.73,
+      "end": 2.943,
       "type": "word"
     },
     {
-      "text": "tell",
-      "start": 2.84,
-      "end": 3.002,
+      "text": "teach",
+      "start": 3.018,
+      "end": 3.285,
       "type": "word"
     },
     {
       "text": "you",
-      "start": 3.051,
-      "end": 3.127,
+      "start": 3.332,
+      "end": 3.413,
       "type": "word"
     },
     {
       "text": "how",
-      "start": 3.176,
-      "end": 3.33,
+      "start": 3.462,
+      "end": 3.622,
       "type": "word"
     },
     {
       "text": "to",
-      "start": 3.366,
-      "end": 3.44,
+      "start": 3.658,
+      "end": 3.733,
       "type": "word"
     },
     {
       "text": "win.",
-      "start": 3.516,
-      "end": 3.93,
+      "start": 3.811,
+      "end": 4.2,
       "type": "word"
     },
     {
       "text": "Club",
-      "start": 4.36,
-      "end": 4.603,
+      "start": 4.75,
+      "end": 4.956,
       "type": "word"
     },
     {
       "text": "players",
-      "start": 4.659,
-      "end": 5.058,
+      "start": 5.02,
+      "end": 5.453,
       "type": "word"
     },
     {
       "text": "don't",
-      "start": 5.119,
-      "end": 5.325,
+      "start": 5.524,
+      "end": 5.731,
       "type": "word"
     },
     {
       "text": "need",
-      "start": 5.375,
-      "end": 5.621,
+      "start": 5.781,
+      "end": 6.033,
       "type": "word"
     },
     {
       "text": "raw",
-      "start": 5.672,
-      "end": 5.886,
+      "start": 6.086,
+      "end": 6.301,
       "type": "word"
     },
     {
       "text": "math;",
-      "start": 5.946,
-      "end": 6.4,
+      "start": 6.361,
+      "end": 6.79,
       "type": "word"
     },
     {
       "text": "they",
-      "start": 6.76,
-      "end": 6.877,
+      "start": 7.2,
+      "end": 7.33,
       "type": "word"
     },
     {
       "text": "need",
-      "start": 6.926,
-      "end": 7.147,
+      "start": 7.38,
+      "end": 7.6,
       "type": "word"
     },
     {
       "text": "plain",
-      "start": 7.22,
-      "end": 7.538,
+      "start": 7.61,
+      "end": 8.0,
       "type": "word"
     },
     {
       "text": "English",
-      "start": 7.597,
-      "end": 7.923,
+      "start": 8.067,
+      "end": 8.415,
       "type": "word"
     },
     {
-      "text": "coaching.",
-      "start": 7.98,
-      "end": 8.547,
+      "text": "coaching",
+      "start": 8.489,
+      "end": 9.007,
+      "type": "word"
+    },
+    {
+      "text": "and",
+      "start": 9.056,
+      "end": 9.139,
+      "type": "word"
+    },
+    {
+      "text": "psychological",
+      "start": 9.211,
+      "end": 10.014,
+      "type": "word"
+    },
+    {
+      "text": "insights.",
+      "start": 10.02,
+      "end": 10.745,
       "type": "word"
     }
   ]

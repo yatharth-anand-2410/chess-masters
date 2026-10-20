@@ -1,103 +1,145 @@
 {
   "source": "03-expert.wav",
-  "duration": 8.979,
+  "duration": 13.106,
   "language": "en",
   "model": "kokoro-v1.0-timestamped-fp16.onnx",
   "words": [
     {
       "text": "Designed",
-      "start": 0.04,
-      "end": 0.49,
+      "start": 0.03,
+      "end": 0.462,
       "type": "word"
     },
     {
-      "text": "with",
-      "start": 0.532,
-      "end": 0.661,
+      "text": "alongside",
+      "start": 0.519,
+      "end": 1.211,
       "type": "word"
     },
     {
       "text": "FIDE",
-      "start": 0.748,
-      "end": 1.115,
+      "start": 1.282,
+      "end": 1.605,
       "type": "word"
     },
     {
       "text": "AIM",
-      "start": 1.16,
-      "end": 1.925,
+      "start": 1.72,
+      "end": 2.434,
       "type": "word"
     },
     {
       "text": "Parth",
-      "start": 1.97,
-      "end": 2.249,
+      "start": 2.53,
+      "end": 2.768,
       "type": "word"
     },
     {
       "text": "Kaushik,",
-      "start": 2.29,
-      "end": 2.73,
+      "start": 2.85,
+      "end": 3.28,
       "type": "word"
     },
     {
       "text": "Chessmasters",
-      "start": 3.28,
-      "end": 4.078,
+      "start": 3.83,
+      "end": 4.582,
       "type": "word"
     },
     {
-      "text": "translates",
-      "start": 4.1,
-      "end": 4.794,
-      "type": "word"
-    },
-    {
-      "text": "deep",
-      "start": 4.889,
-      "end": 5.115,
+      "text": "pairs",
+      "start": 4.65,
+      "end": 4.963,
       "type": "word"
     },
     {
       "text": "Stockfish",
-      "start": 5.177,
-      "end": 5.69,
+      "start": 5.04,
+      "end": 5.594,
       "type": "word"
     },
     {
-      "text": "evaluation",
-      "start": 5.737,
-      "end": 6.575,
+      "text": "sixteen",
+      "start": 5.696,
+      "end": 6.162,
       "type": "word"
     },
     {
-      "text": "into",
-      "start": 6.6,
+      "text": "precision",
+      "start": 6.21,
       "end": 6.79,
       "type": "word"
     },
     {
-      "text": "plain",
-      "start": 6.86,
-      "end": 7.242,
+      "text": "with",
+      "start": 7.02,
+      "end": 7.134,
       "type": "word"
     },
     {
-      "text": "English",
-      "start": 7.28,
-      "end": 7.648,
+      "text": "a",
+      "start": 7.171,
+      "end": 7.22,
+      "type": "word"
+    },
+    {
+      "text": "fine-tuned",
+      "start": 7.332,
+      "end": 8.046,
       "type": "word"
     },
     {
       "text": "chess",
-      "start": 7.68,
-      "end": 7.991,
+      "start": 8.117,
+      "end": 8.469,
+      "type": "word"
+    },
+    {
+      "text": "AI,",
+      "start": 8.52,
+      "end": 9.18,
+      "type": "word"
+    },
+    {
+      "text": "turning",
+      "start": 9.65,
+      "end": 9.985,
+      "type": "word"
+    },
+    {
+      "text": "engine",
+      "start": 10.07,
+      "end": 10.411,
+      "type": "word"
+    },
+    {
+      "text": "data",
+      "start": 10.461,
+      "end": 10.76,
+      "type": "word"
+    },
+    {
+      "text": "into",
+      "start": 10.802,
+      "end": 10.998,
+      "type": "word"
+    },
+    {
+      "text": "human",
+      "start": 11.072,
+      "end": 11.409,
+      "type": "word"
+    },
+    {
+      "text": "grandmaster",
+      "start": 11.46,
+      "end": 12.084,
       "type": "word"
     },
     {
       "text": "lessons.",
-      "start": 8.02,
-      "end": 8.569,
+      "start": 12.134,
+      "end": 12.686,
       "type": "word"
     }
   ]

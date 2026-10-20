@@ -5,38 +5,56 @@
 <title>Chessmasters: AI Chess Game Analyzer</title>
 <script src="/_st/stage.js"></script>
 <link rel="stylesheet" href="/_st/themes/bold.css">
-<link rel="stylesheet" href="/_st/themes/fonts/geist.css">
-<link rel="stylesheet" href="/_st/themes/fonts/geist-mono.css">
+<link rel="stylesheet" href="/_st/themes/fonts/fraunces.css">
+<link rel="stylesheet" href="/_st/themes/fonts/inter.css">
+<link rel="stylesheet" href="/_st/themes/fonts/jetbrains-mono.css">
 <script type="module" src="/_st/components/index.js"></script>
 <style>
   /* ==========================================================================
-     CHESSMASTERS PRODUCT EXPLAINER VIDEO
+     CHESSMASTERS DUAL-WORLD VIDEO SYSTEM
+     Matches the website's exact design language and color tokens
      ========================================================================== */
   .stage {
-    --bg: #0b0d13;
-    --fg: #f8fafc;
-    --muted: #94a3b8;
-    --accent: #f59e0b; /* Gold */
-    --accent-ink: #1a1200;
-    --accent-cyan: #38bdf8;
-    --accent-emerald: #10b981;
-    --accent-red: #ef4444;
-    --surface: #131722;
-    --surface-card: #181d2a;
-    --surface-border: rgba(248, 250, 252, 0.1);
-    --gold-glow: rgba(245, 158, 11, 0.25);
+    --ink-0: #040708;
+    --ink-1: #080c0e;
+    --ink-2: #0f1518;
+    --ink-3: #151f24;
+    --text: #f0f4f5;
+    --text-muted: #8fa0a8;
+    --line: rgba(255, 255, 255, 0.08);
+    --line-strong: rgba(255, 255, 255, 0.16);
+
+    /* Gold Tournament Accents */
+    --gold: #c9993f;
+    --gold-bright: #e2b65f;
+    --gold-glow: rgba(226, 182, 95, 0.18);
+
+    /* Paper World for Coaching Insights */
+    --paper: #f4eee2;
+    --paper-2: #eae3d2;
+    --paper-text: #1c1712;
+    --paper-muted: #5a5247;
+    --paper-line: rgba(28, 23, 18, 0.12);
+
+    /* Functional Accents */
+    --accent-teal: #2f6b62;
+    --alert-oxblood: #7d3527;
+    --red: #ef4444;
+    --green: #22c55e;
+    --cyan: #06b6d4;
+
     font-feature-settings: 'ss01', 'cv11';
-    font-family: 'Geist', sans-serif;
+    font-family: 'Inter', -apple-system, sans-serif;
   }
 
   .scene {
-    background: var(--bg);
-    --s-hero: 8.8cqh;
-    --s-title: 6.8cqh;
-    --s-sub: 3.6cqh;
-    --s-card-t: 3.8cqh;
-    --s-card: 2.8cqh;
-    --s-label: 3.0cqh;
+    background: var(--ink-1);
+    --s-hero: 8.4cqh;
+    --s-title: 6.4cqh;
+    --s-sub: 3.4cqh;
+    --s-card-t: 3.4cqh;
+    --s-card: 2.6cqh;
+    --s-label: 2.5cqh;
     overflow: hidden;
   }
 
@@ -46,17 +64,17 @@
     inset: 0;
     pointer-events: none;
     background:
-      radial-gradient(55% 65% at 85% 15%, rgba(245, 158, 11, 0.14), transparent 70%),
-      radial-gradient(60% 70% at 15% 85%, rgba(56, 189, 248, 0.09), transparent 75%),
-      var(--bg);
+      radial-gradient(60% 70% at 88% 12%, rgba(201, 153, 63, 0.12), transparent 72%),
+      radial-gradient(65% 75% at 12% 88%, rgba(6, 182, 212, 0.07), transparent 75%),
+      var(--ink-1);
   }
   .bg::before {
     content: '';
     position: absolute;
     inset: 0;
     background-image:
-      linear-gradient(to right, rgba(248, 250, 252, 0.035) 1px, transparent 1px),
-      linear-gradient(to bottom, rgba(248, 250, 252, 0.035) 1px, transparent 1px);
+      linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
     background-size: 6cqmin 6cqmin;
     background-position: 50% 50%;
     mask-image: radial-gradient(75% 75% at 50% 50%, black 20%, transparent 80%);
@@ -65,22 +83,21 @@
     content: '';
     position: absolute;
     inset: -20%;
-    background: radial-gradient(40% 40% at 50% 50%, rgba(245, 158, 11, 0.08), transparent 70%);
+    background: radial-gradient(40% 40% at 50% 50%, rgba(201, 153, 63, 0.06), transparent 70%);
     animation: driftSweep 10s cubic-bezier(0.37, 0, 0.63, 1) infinite alternate;
   }
   @keyframes driftSweep {
-    from { transform: translate(-4%, -3%) scale(0.98); }
-    to { transform: translate(4%, 3%) scale(1.02); }
+    from { transform: translate(-3%, -2%) scale(0.99); }
+    to { transform: translate(3%, 2%) scale(1.01); }
   }
 
   .vig {
     position: absolute;
     inset: 0;
     pointer-events: none;
-    background: radial-gradient(110% 85% at 50% 45%, transparent 60%, rgba(0,0,0,0.55));
+    background: radial-gradient(110% 85% at 50% 45%, transparent 60%, rgba(4, 7, 8, 0.7));
   }
 
-  /* Continuous subtle camera breath on all scene contents */
   .scene-content {
     position: absolute;
     inset: 0;
@@ -94,30 +111,59 @@
   /* Shared Brand Header */
   .brand {
     position: absolute;
-    left: 8cqw;
-    top: 5cqh;
+    left: 8.5cqw;
+    top: 4.5cqh;
     display: flex;
     align-items: center;
-    gap: 1.6cqmin;
-    font: 700 var(--s-label)/1 'Geist', sans-serif;
-    letter-spacing: -0.01em;
-    color: var(--fg);
+    gap: 1.4cqmin;
     z-index: 10;
   }
-  .brand-badge {
-    background: rgba(245, 158, 11, 0.15);
-    border: 1px solid rgba(245, 158, 11, 0.35);
-    color: var(--accent);
-    padding: 0.5cqh 1.4cqw;
-    border-radius: 999px;
-    font-size: 0.95em;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
+  .brand-lockup {
+    font-family: 'Fraunces', Georgia, serif;
+    font-size: 3.2cqh;
+    font-weight: 700;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: 0.8cqmin;
   }
-  .chess-knight {
-    width: 2.6cqmin;
-    height: 2.6cqmin;
-    fill: var(--accent);
+  .brand-crown {
+    width: 2.8cqmin;
+    height: 2.8cqmin;
+    fill: var(--gold);
+  }
+  .brand-lockup span { color: var(--gold); }
+  .brand-badge {
+    background: rgba(201, 153, 63, 0.12);
+    border: 1px solid rgba(201, 153, 63, 0.35);
+    color: var(--gold-bright);
+    padding: 0.4cqh 1.2cqw;
+    border-radius: 999px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75em;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  /* Common Headings */
+  .sec-heading {
+    font-family: 'Fraunces', Georgia, serif;
+    font-size: var(--s-title);
+    letter-spacing: -0.025em;
+    line-height: 1.1;
+    margin: 0 0 1cqh 0;
+    color: var(--text);
+  }
+  .sec-heading em {
+    font-style: italic;
+    color: var(--gold-bright);
+  }
+  .sec-sub {
+    font-size: var(--s-sub);
+    color: var(--text-muted);
+    margin: 0;
+    line-height: 1.4;
   }
 
   /* SCENE 1: Hook */
@@ -127,372 +173,489 @@
     display: flex;
     flex-direction: column;
     justify-content: center;
-    padding: 0 8cqw;
+    padding: 0 7.5cqw;
     padding-top: 6cqh;
   }
-  .hook-header {
-    margin-bottom: 3.8cqh;
-    max-width: 65cqw;
-  }
-  .hook-header h1 {
-    font-size: var(--s-hero);
-    line-height: 1.05;
-    letter-spacing: -0.035em;
-    font-weight: 700;
-    margin: 0 0 1.5cqh 0;
-  }
-  .hook-header h1 em {
-    font-style: normal;
-    color: var(--accent);
-  }
-  .hook-header p {
-    font-size: var(--s-sub);
-    color: var(--muted);
-    margin: 0;
-    line-height: 1.35;
-  }
-
   .compare-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 3.5cqw;
-    max-width: 84cqw;
+    max-width: 85cqw;
+    margin-top: 3cqh;
   }
   .card-compare {
-    background: var(--surface-card);
-    border: 1px solid var(--surface-border);
-    border-radius: 2cqmin;
-    padding: 3.8cqh 2.8cqw;
+    background: var(--ink-2);
+    border: 1px solid var(--line);
+    border-radius: 1.8cqmin;
+    padding: 3.5cqh 2.8cqw;
     display: flex;
     flex-direction: column;
-    gap: 2cqh;
-    box-shadow: 0 2cqmin 6cqmin rgba(0,0,0,0.4);
-    animation: floatSlow 5s ease-in-out infinite alternate;
+    gap: 1.8cqh;
+    box-shadow: 0 2cqmin 6cqmin rgba(0,0,0,0.5);
   }
   .card-bad {
-    border-color: rgba(239, 68, 68, 0.35);
-    background: linear-gradient(135deg, rgba(239, 68, 68, 0.08), rgba(19, 23, 34, 0.9));
+    border-color: rgba(239, 68, 68, 0.3);
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.08), var(--ink-2));
   }
   .card-good {
-    border-color: rgba(245, 158, 11, 0.5);
-    background: linear-gradient(135deg, rgba(245, 158, 11, 0.1), rgba(19, 23, 34, 0.9));
-    box-shadow: 0 2cqmin 6cqmin rgba(245, 158, 11, 0.18);
+    border: 2px solid var(--gold);
+    background: var(--paper);
+    color: var(--paper-text);
+    box-shadow: 0 2cqmin 6cqmin var(--gold-glow);
   }
   .tag {
     display: inline-flex;
     align-items: center;
-    gap: 1cqmin;
+    gap: 0.8cqmin;
+    font-family: 'JetBrains Mono', monospace;
     font-size: var(--s-label);
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.06em;
   }
-  .tag-bad { color: var(--accent-red); }
-  .tag-good { color: var(--accent); }
-  .compare-content {
-    font-size: var(--s-card-t);
-    line-height: 1.3;
-    font-weight: 500;
-  }
+  .tag-bad { color: var(--red); }
+  .tag-good { color: var(--accent-teal); }
   .mono-eval {
-    font-family: 'Geist Mono', monospace;
-    font-size: 1.3em;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1.25em;
     color: #cbd5e1;
-    background: rgba(0,0,0,0.45);
-    padding: 1.2cqh 1.8cqw;
-    border-radius: 1cqmin;
+    background: rgba(0,0,0,0.5);
+    padding: 1cqh 1.6cqw;
+    border-radius: 0.8cqmin;
     display: inline-block;
   }
   .human-insight {
-    color: #f1f5f9;
+    font-size: var(--s-card-t);
+    line-height: 1.4;
+    color: var(--paper-text);
   }
   .human-insight strong {
-    color: var(--accent);
+    color: var(--alert-oxblood);
+    font-weight: 700;
   }
-  @keyframes floatSlow {
-    from { transform: translateY(0); }
-    to { transform: translateY(-1.2cqmin); }
+  .hook-callout {
+    display: flex;
+    align-items: center;
+    gap: 1.5cqw;
+    background: rgba(201, 153, 63, 0.08);
+    border: 1px solid rgba(201, 153, 63, 0.25);
+    border-radius: 999px;
+    padding: 0.8cqh 2cqw;
+    font-size: var(--s-label);
+    color: var(--text);
+    margin-top: 2cqh;
+  }
+  .callout-pill {
+    background: var(--gold);
+    color: #141712;
+    padding: 0.3cqh 1cqw;
+    border-radius: 999px;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    font-size: 0.8em;
   }
 
-  /* SCENE 2: Intro / Product Frame */
+  /* SCENE 2: Real App Input Card (Full width, no cut) */
   .intro-wrap {
     position: absolute;
     inset: 0;
     display: flex;
     flex-direction: column;
     justify-content: center;
-    padding: 0 8cqw;
-    padding-top: 6cqh;
-  }
-  .intro-header {
-    text-align: center;
-    margin-bottom: 3.5cqh;
-  }
-  .intro-header h2 {
-    font-size: var(--s-title);
-    letter-spacing: -0.03em;
-    margin: 0 0 1cqh 0;
-  }
-  .intro-header h2 em {
-    font-style: normal;
-    color: var(--accent);
-  }
-  .intro-header p {
-    font-size: var(--s-sub);
-    color: var(--muted);
-    margin: 0;
-  }
-
-  .browser-mock {
-    margin: 0 auto;
-    width: 66cqw;
-    background: var(--surface);
-    border: 1px solid rgba(248, 250, 252, 0.14);
-    border-radius: 2cqmin;
-    box-shadow: 0 3cqmin 8cqmin rgba(0,0,0,0.6);
-    overflow: hidden;
-  }
-  .mock-nav {
-    display: flex;
     align-items: center;
-    gap: 1.2cqmin;
-    padding: 1.6cqh 2cqw;
-    background: #0f121b;
-    border-bottom: 1px solid rgba(248, 250, 252, 0.08);
+    padding: 0 7.5cqw;
+    padding-top: 5cqh;
   }
-  .dots {
-    display: flex;
-    gap: 0.6cqmin;
-  }
-  .dots span {
-    width: 1.2cqmin;
-    height: 1.2cqmin;
-    border-radius: 50%;
-    background: rgba(248, 250, 252, 0.25);
-  }
-  .mock-url {
-    margin-left: 2cqw;
-    background: rgba(0,0,0,0.3);
-    border-radius: 0.8cqmin;
-    padding: 0.7cqh 2cqw;
-    font-family: 'Geist Mono', monospace;
-    font-size: var(--s-label);
-    color: var(--muted);
-  }
-  .mock-body {
+  .app-input-card {
+    width: 78cqw;
+    max-width: 900px;
+    background: var(--ink-2);
+    border: 1px solid var(--line-strong);
+    border-radius: 2cqmin;
+    box-shadow: 0 3cqmin 8cqmin rgba(0,0,0,0.65);
     padding: 3.5cqh 3.5cqw;
     display: flex;
     flex-direction: column;
     gap: 2.2cqh;
   }
-  .toggle-row {
+  .platform-pills {
     display: flex;
-    gap: 1.4cqw;
+    gap: 1.2cqw;
   }
   .pill-tab {
-    padding: 1.1cqh 2.2cqw;
-    border-radius: 0.9cqmin;
+    padding: 1cqh 2cqw;
+    border-radius: 999px;
+    font-family: 'JetBrains Mono', monospace;
     font-size: var(--s-label);
     font-weight: 600;
-    background: rgba(248, 250, 252, 0.06);
-    color: var(--muted);
+    background: var(--ink-3);
+    color: var(--text-muted);
+    border: 1px solid var(--line);
   }
   .pill-tab.active {
-    background: var(--accent);
-    color: var(--accent-ink);
+    background: rgba(201, 153, 63, 0.15);
+    border-color: var(--gold);
+    color: var(--gold-bright);
   }
-  .input-box {
-    display: flex;
-    gap: 1.5cqw;
+  .input-bar-group {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 1.4cqw;
     align-items: center;
   }
-  .url-field {
-    flex: 1;
-    background: #090b10;
-    border: 1px solid rgba(245, 158, 11, 0.45);
+  .url-input-box {
+    background: var(--ink-0);
+    border: 1px solid rgba(201, 153, 63, 0.4);
     box-shadow: 0 0 1.5cqmin var(--gold-glow);
-    border-radius: 1.1cqmin;
-    padding: 1.6cqh 2cqw;
-    font-family: 'Geist Mono', monospace;
+    border-radius: 1cqmin;
+    padding: 1.8cqh 2cqw;
+    font-family: 'JetBrains Mono', monospace;
     font-size: var(--s-card-t);
-    color: #f8fafc;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
   }
-  .btn-analyze {
-    background: var(--accent);
-    color: #1a1200;
-    border: 1px solid #f59e0b;
-    font-family: 'Geist', sans-serif;
+  .btn-submit {
+    background: var(--gold);
+    color: #141712;
+    border: 1px solid var(--gold-bright);
+    font-family: 'Inter', sans-serif;
     font-weight: 700;
     font-size: var(--s-card-t);
-    padding: 1.6cqh 2.6cqw;
-    border-radius: 1.1cqmin;
+    padding: 1.8cqh 3.2cqw;
+    border-radius: 1cqmin;
     white-space: nowrap;
-    box-shadow: 0 0 2.5cqmin rgba(245, 158, 11, 0.4);
-    display: inline-block;
+    box-shadow: 0 0 2.5cqmin var(--gold-glow);
+    flex-shrink: 0;
+  }
+  .batch-hint {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: var(--s-label);
+    color: var(--text-muted);
+    border-top: 1px solid var(--line);
+    padding-top: 1.5cqh;
+  }
+  .batch-hint strong {
+    color: var(--gold-bright);
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .stream-status-box {
+    margin-top: 2.5cqh;
+    display: flex;
+    justify-content: center;
+  }
+  .stream-badge-row {
+    display: flex;
+    align-items: center;
+    gap: 1.2cqw;
+    background: var(--ink-2);
+    border: 1px solid var(--line-strong);
+    padding: 0.9cqh 2.2cqw;
+    border-radius: 999px;
+    box-shadow: 0 1cqmin 3cqmin rgba(0,0,0,0.4);
+  }
+  .stream-dot {
+    width: 1.2cqmin;
+    height: 1.2cqmin;
+    border-radius: 50%;
+    background: var(--green);
+    box-shadow: 0 0 1cqmin var(--green);
+  }
+  .stream-dot.pulse {
+    animation: streamGlow 1.5s infinite alternate ease-in-out;
+  }
+  @keyframes streamGlow {
+    from { opacity: 0.5; transform: scale(0.9); }
+    to { opacity: 1; transform: scale(1.2); }
+  }
+  .stream-text {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: var(--s-label);
+    color: var(--text-muted);
+  }
+  .stream-step-tag {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: calc(var(--s-label) * 0.88);
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--text-muted);
+    padding: 0.3cqh 0.8cqw;
+    border-radius: 0.5cqmin;
+  }
+  .stream-step-tag.active {
+    background: rgba(201, 153, 63, 0.18);
+    color: var(--gold-bright);
+    border: 1px solid rgba(201, 153, 63, 0.4);
   }
 
-  /* SCENE 3: Expert Pedigree */
-  .expert-wrap {
+  /* SCENE 3: Architecture & Pedigree (No Gemini mention) */
+  .arch-wrap {
     position: absolute;
     inset: 0;
     display: flex;
     flex-direction: column;
     justify-content: center;
-    padding: 0 8cqw;
-    padding-top: 6cqh;
+    padding: 0 7.5cqw;
+    padding-top: 5cqh;
   }
-  .pedigree-box {
+  .arch-grid {
     display: grid;
-    grid-template-columns: 38% 1fr;
-    gap: 4cqw;
+    grid-template-columns: 36% 1fr;
+    gap: 3.5cqw;
     align-items: center;
-    max-width: 84cqw;
+    max-width: 85cqw;
+    margin-top: 2cqh;
   }
   .fide-profile {
-    background: var(--surface-card);
-    border: 1px solid rgba(245, 158, 11, 0.35);
+    background: var(--ink-2);
+    border: 1px solid rgba(201, 153, 63, 0.4);
     box-shadow: 0 2cqmin 6cqmin rgba(0,0,0,0.5);
-    border-radius: 2.2cqmin;
-    padding: 4.2cqh 3.2cqw;
+    border-radius: 2cqmin;
+    padding: 4cqh 3cqw;
     text-align: center;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 1.5cqh;
+    gap: 1.4cqh;
   }
   .fide-shield {
-    width: 6.8cqmin;
-    height: 6.8cqmin;
-    background: rgba(245, 158, 11, 0.15);
-    border: 2px solid var(--accent);
+    width: 6.5cqmin;
+    height: 6.5cqmin;
+    background: rgba(201, 153, 63, 0.15);
+    border: 2px solid var(--gold);
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
   }
   .fide-name {
-    font-size: var(--s-card-t);
+    font-family: 'Fraunces', Georgia, serif;
+    font-size: 3.8cqh;
     font-weight: 700;
-    color: #f8fafc;
+    color: var(--text);
     margin: 0;
   }
   .fide-title {
-    color: var(--accent);
+    color: var(--gold-bright);
+    font-family: 'JetBrains Mono', monospace;
     font-size: var(--s-label);
     font-weight: 700;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.06em;
     text-transform: uppercase;
   }
   .fide-creds {
     font-size: var(--s-label);
-    color: var(--muted);
+    color: var(--text-muted);
     line-height: 1.45;
   }
-
-  .engine-pipeline {
-    display: flex;
-    flex-direction: column;
-    gap: 2.2cqh;
-  }
   .pipeline-step {
-    background: var(--surface);
-    border: 1px solid var(--surface-border);
-    border-radius: 1.4cqmin;
-    padding: 2.4cqh 2.8cqw;
+    background: var(--ink-2);
+    border: 1px solid var(--line);
+    border-radius: 1.2cqmin;
+    padding: 2.2cqh 2.5cqw;
     display: flex;
     align-items: center;
     gap: 2cqw;
+    margin-bottom: 1.6cqh;
+  }
+  .pipeline-step.active {
+    border-color: var(--gold);
+    background: linear-gradient(90deg, rgba(201, 153, 63, 0.12), var(--ink-2));
   }
   .step-num {
-    background: rgba(248, 250, 252, 0.1);
-    color: var(--muted);
-    font-family: 'Geist Mono', monospace;
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--text-muted);
+    font-family: 'JetBrains Mono', monospace;
     font-size: var(--s-label);
     font-weight: 700;
-    width: 3.4cqmin;
-    height: 3.4cqmin;
+    width: 3.2cqmin;
+    height: 3.2cqmin;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
   }
-  .pipeline-step.active-step {
-    border-color: rgba(245, 158, 11, 0.55);
-    background: linear-gradient(90deg, rgba(245, 158, 11, 0.1), var(--surface));
+  .pipeline-step.active .step-num {
+    background: var(--gold);
+    color: #141712;
   }
-  .pipeline-step.active-step .step-num {
-    background: var(--accent);
-    color: var(--accent-ink);
+  .fide-badge-row {
+    display: flex;
+    gap: 1.2cqw;
+    margin-top: 2cqh;
   }
-  .step-txt h3 {
-    margin: 0 0 0.5cqh 0;
-    font-size: var(--s-card-t);
-    font-weight: 600;
-  }
-  .step-txt p {
-    margin: 0;
+  .fide-chip {
+    font-family: 'JetBrains Mono', monospace;
     font-size: var(--s-label);
-    color: var(--muted);
+    background: rgba(201, 153, 63, 0.12);
+    border: 1px solid rgba(201, 153, 63, 0.3);
+    color: var(--gold-bright);
+    padding: 0.4cqh 1.2cqw;
+    border-radius: 999px;
   }
 
-  /* SCENE 4: 5 Core Report Sections */
+  /* SCENE 4: Cognitive Psychology Profile */
+  .psych-scene-wrap {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 0 7.5cqw;
+    padding-top: 5cqh;
+  }
+  .psych-card-shell {
+    background: var(--paper-2);
+    border: 2px solid var(--accent-teal);
+    border-radius: 2cqmin;
+    padding: 3cqh 3cqw;
+    display: grid;
+    grid-template-columns: 28% 1fr;
+    gap: 3cqw;
+    color: var(--paper-text);
+    box-shadow: 0 2cqmin 6cqmin rgba(0,0,0,0.6);
+    max-width: 85cqw;
+    margin-top: 2cqh;
+  }
+  .radar-box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1.5cqh;
+  }
+  .radar-svg {
+    width: 100%;
+    max-width: 20cqmin;
+    aspect-ratio: 1 / 1;
+  }
+  .archetype-tag {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: var(--s-label);
+    background: var(--accent-teal);
+    color: #fff;
+    padding: 0.4cqh 1.2cqw;
+    border-radius: 999px;
+    font-weight: 700;
+  }
+  .psych-diagnostics {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5cqh;
+    justify-content: center;
+  }
+  .diag-item {
+    background: var(--paper);
+    border: 1px solid var(--paper-line);
+    border-radius: 1cqmin;
+    padding: 1.6cqh 2cqw;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .diag-item h4 {
+    margin: 0 0 0.3cqh 0;
+    font-size: var(--s-card-t);
+    font-weight: 700;
+  }
+  .diag-item p {
+    margin: 0;
+    font-size: var(--s-label);
+    color: var(--paper-muted);
+  }
+  .diag-badge {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: calc(var(--s-label) * 0.9);
+    padding: 0.4cqh 1cqw;
+    border-radius: 0.6cqmin;
+    font-weight: 700;
+  }
+  .badge-strong { background: rgba(34, 197, 94, 0.15); color: #15803d; }
+  .badge-leak { background: rgba(125, 53, 39, 0.15); color: var(--alert-oxblood); }
+  .psych-action-callout {
+    display: flex;
+    align-items: center;
+    gap: 1.2cqw;
+    background: rgba(47, 107, 98, 0.15);
+    border: 1px solid rgba(47, 107, 98, 0.35);
+    border-radius: 999px;
+    padding: 0.8cqh 1.8cqw;
+    font-size: var(--s-label);
+    color: var(--text);
+    margin-top: 1.8cqh;
+    max-width: 85cqw;
+  }
+  .takeaway-pill {
+    background: var(--accent-teal);
+    color: #fff;
+    padding: 0.3cqh 0.9cqw;
+    border-radius: 999px;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    font-size: 0.8em;
+  }
+
+  /* SCENE 5: 5 Core Report Sections */
   .features-wrap {
     position: absolute;
     inset: 0;
     display: flex;
     flex-direction: column;
     justify-content: center;
-    padding: 0 8cqw;
-    padding-top: 6cqh;
+    padding: 0 7.5cqw;
+    padding-top: 5cqh;
   }
   .features-grid {
     display: grid;
     grid-template-columns: repeat(5, 1fr);
-    gap: 1.6cqw;
+    gap: 1.5cqw;
     margin-top: 3cqh;
   }
   .feature-box {
-    background: var(--surface-card);
-    border: 1px solid var(--surface-border);
-    border-radius: 1.8cqmin;
-    padding: 3.2cqh 1.8cqw;
+    background: var(--ink-2);
+    border: 1px solid var(--line);
+    border-radius: 1.6cqmin;
+    padding: 3cqh 1.8cqw;
     display: flex;
     flex-direction: column;
-    gap: 1.6cqh;
-    box-shadow: 0 1.5cqmin 4cqmin rgba(0,0,0,0.3);
+    gap: 1.4cqh;
+    box-shadow: 0 1.5cqmin 4cqmin rgba(0,0,0,0.4);
+  }
+  .feature-box.highlight {
+    border-color: var(--gold);
+    background: linear-gradient(180deg, rgba(201, 153, 63, 0.12), var(--ink-2));
+    box-shadow: 0 0 3cqmin var(--gold-glow);
   }
   .feature-icon {
-    width: 4.2cqmin;
-    height: 4.2cqmin;
-    border-radius: 1.1cqmin;
-    background: rgba(245, 158, 11, 0.14);
+    width: 3.8cqmin;
+    height: 3.8cqmin;
+    border-radius: 0.9cqmin;
+    background: rgba(201, 153, 63, 0.15);
     display: flex;
     align-items: center;
     justify-content: center;
-    color: var(--accent);
-    font-size: 2cqmin;
+    color: var(--gold-bright);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1.8cqmin;
     font-weight: 700;
   }
   .feature-box h3 {
+    font-family: 'Fraunces', Georgia, serif;
     font-size: var(--s-card-t);
     font-weight: 700;
     margin: 0;
-    color: #f8fafc;
-    line-height: 1.2;
+    color: var(--text);
   }
   .feature-box p {
     font-size: var(--s-label);
-    color: var(--muted);
+    color: var(--text-muted);
     margin: 0;
     line-height: 1.35;
   }
-  .feature-box.highlight {
-    border-color: rgba(245, 158, 11, 0.65);
-    box-shadow: 0 0 3.5cqmin rgba(245, 158, 11, 0.22);
-    background: linear-gradient(180deg, rgba(245, 158, 11, 0.1), var(--surface-card));
-  }
 
-  /* SCENE 5: Close / CTA */
+  /* SCENE 6: Close / CTA */
   .close-wrap {
     position: absolute;
     inset: 0;
@@ -501,60 +664,54 @@
     align-items: center;
     justify-content: center;
     text-align: center;
-    gap: 2.6cqh;
+    gap: 2.5cqh;
   }
-  .close-crest {
-    width: 8.5cqmin;
-    height: 8.5cqmin;
-    background: linear-gradient(135deg, #f59e0b, #d97706);
-    border-radius: 2.4cqmin;
+  .close-crown {
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 0 5cqmin rgba(245, 158, 11, 0.45);
   }
-  .close-crest svg {
-    width: 5cqmin;
-    height: 5cqmin;
-    fill: #1a1200;
+  .crown-svg {
+    width: 8cqmin;
+    height: 8cqmin;
+    fill: var(--gold-bright);
+    filter: drop-shadow(0 0 3cqmin var(--gold-glow));
   }
   .close-title {
+    font-family: 'Fraunces', Georgia, serif;
     font-size: var(--s-hero);
     font-weight: 800;
-    letter-spacing: -0.04em;
+    letter-spacing: -0.03em;
     margin: 0;
-    line-height: 1;
-    color: #f8fafc;
+    color: var(--text);
   }
   .close-sub {
     font-size: var(--s-sub);
-    color: var(--muted);
+    color: var(--text-muted);
     margin: 0;
-    max-width: 45cqw;
+    max-width: 48cqw;
   }
   .cta-badge {
-    background: var(--accent);
-    color: var(--accent-ink);
+    background: var(--gold);
+    color: #141712;
     font-size: var(--s-card-t);
     font-weight: 700;
-    padding: 1.8cqh 3.8cqw;
+    padding: 1.6cqh 3.6cqw;
     border-radius: 999px;
-    box-shadow: 0 0 3.5cqmin rgba(245, 158, 11, 0.45);
-    letter-spacing: -0.01em;
+    box-shadow: 0 0 3.5cqmin var(--gold-glow);
   }
   .url-label {
-    font-family: 'Geist Mono', monospace;
+    font-family: 'JetBrains Mono', monospace;
     font-size: var(--s-card-t);
     color: #cbd5e1;
     letter-spacing: 0.02em;
   }
   .byline-tag {
     font-size: var(--s-label);
-    color: var(--muted);
-    margin-top: 1cqh;
+    color: var(--text-muted);
   }
   .byline-tag strong {
-    color: #f8fafc;
+    color: var(--gold-bright);
   }
 </style>
 </head>
@@ -562,140 +719,166 @@
 <div class="stage">
 
   <!-- ========================================================================
-       SCENE 1: HOOK (0.00s to 9.60s)
-       "Engine numbers like plus two point four don't tell you how to win..."
+       SCENE 1: HOOK (0.00s to 11.50s)
+       "Engine numbers like plus two point four don't teach you how to win..."
        ======================================================================== -->
-  <section class="scene" id="hook" data-start="0" data-dur="9.60">
+  <section class="scene" id="hook" data-start="0" data-dur="11.50">
     <div class="bg"></div>
     <div class="brand">
-      <svg class="chess-knight" viewBox="0 0 24 24"><path d="M19 22H5v-2h14v2m-6-19.8c-2.3 0-4.3 1.6-4.8 3.9-.3 1.1-.1 2.3.5 3.3l-1.9 2c-.5.5-.8 1.2-.8 1.9v2.7h10v-2.7c0-.7-.3-1.4-.8-1.9l-1.9-2c.6-1 .8-2.2.5-3.3-.5-2.3-2.5-3.9-4.8-3.9z"/></svg>
-      Chessmasters
-      <span class="brand-badge" data-st-decor>AI Chess Game Analyzer</span>
+      <div class="brand-lockup">
+        <svg class="brand-crown" viewBox="0 0 24 24"><path d="M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5zm14 3c0 .6-.4 1-1 1H6c-.6 0-1-.4-1-1v-1h14v1z"/></svg>
+        Chessmasters<span>.</span>
+      </div>
+      <span class="brand-badge" data-st-decor>AI Game Analyzer</span>
     </div>
 
     <div class="scene-content hook-wrap">
       <div class="hook-header">
-        <h1 data-st="kinetic-type" data-style="mask" data-at="0.2">Engine numbers don't teach you <em>how to win.</em></h1>
-        <p data-st="kinetic-type" data-style="rise" data-at="1.2">Club players don't need raw math. They need plain-English coaching.</p>
+        <h1 class="sec-heading" data-st="kinetic-type" data-style="mask" data-at="0.2">Engine numbers don't teach you <em>how to win.</em></h1>
+        <p class="sec-sub" data-st="kinetic-type" data-style="rise" data-at="1.2">Club players don't need raw math. They need plain-English coaching &amp; psychology.</p>
       </div>
 
       <div class="compare-grid">
         <div class="card-compare card-bad" data-st="kinetic-type" data-style="rise" data-at="2.2">
           <div class="tag tag-bad">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
             Standard Engine Output
           </div>
           <div class="mono-eval" data-st-decor>+2.45 · depth 28 · eval -420cp</div>
-          <div class="compare-content" style="color: #94a3b8;">
-            Raw evaluation leaves you guessing why your position collapsed.
+          <div style="font-size: var(--s-card-t); color: var(--text-muted); line-height: 1.3;">
+            Raw evaluation numbers leave you guessing why your position collapsed.
           </div>
         </div>
 
         <div class="card-compare card-good" data-st="kinetic-type" data-style="rise" data-at="4.2">
           <div class="tag tag-good">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><polyline points="9 11 12 14 22 4"/></svg>
-            Chessmasters AI Lesson
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><polyline points="9 11 12 14 22 4"/></svg>
+            Chessmasters Dual-World Analysis
           </div>
-          <div class="compare-content human-insight">
-            "Your <strong>Knight fork on c7</strong> wins Black's rook, but your bishop on g2 was left undefended."
+          <div class="human-insight">
+            "Your <strong>Knight fork on c7</strong> was winning, but you played it on tilt after missing a hanging bishop."
           </div>
-          <div class="tag tag-good" style="font-size: 0.85em;">Actionable Plain English · Curated Drills</div>
+          <div class="tag tag-good" style="font-size: 0.85em;">Tactical Accuracy + Cognitive Psychology</div>
         </div>
+      </div>
+
+      <div class="hook-callout" data-st="kinetic-type" data-style="rise" data-at="6.8">
+        <span class="callout-pill" data-st-decor>COACHING PRINCIPLE</span>
+        <span data-st-decor>Actionable coaching habits for your very next game.</span>
       </div>
     </div>
     <div class="vig"></div>
   </section>
 
   <!-- ========================================================================
-       SCENE 2: INTRO (9.60s to 16.60s)
-       "Meet Chessmasters: the intelligent AI chess game analyzer for Chess.com and Lichess."
+       SCENE 2: INTRO & ACTUAL INPUT UI (11.50s to 23.20s)
+       "Meet Chessmasters: the intelligent AI chess analyzer for Chess.com and Lichess..."
        ======================================================================== -->
-  <section class="scene" id="intro" data-start="#hook" data-dur="7.00" data-transition="push left 0.5">
+  <section class="scene" id="intro" data-start="#hook" data-dur="11.70" data-transition="push left 0.5">
     <div class="bg"></div>
     <div class="brand">
-      <svg class="chess-knight" viewBox="0 0 24 24"><path d="M19 22H5v-2h14v2m-6-19.8c-2.3 0-4.3 1.6-4.8 3.9-.3 1.1-.1 2.3.5 3.3l-1.9 2c-.5.5-.8 1.2-.8 1.9v2.7h10v-2.7c0-.7-.3-1.4-.8-1.9l-1.9-2c.6-1 .8-2.2.5-3.3-.5-2.3-2.5-3.9-4.8-3.9z"/></svg>
-      Chessmasters
+      <div class="brand-lockup">
+        <svg class="brand-crown" viewBox="0 0 24 24"><path d="M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5zm14 3c0 .6-.4 1-1 1H6c-.6 0-1-.4-1-1v-1h14v1z"/></svg>
+        Chessmasters<span>.</span>
+      </div>
     </div>
 
     <div class="scene-content intro-wrap">
-      <div class="intro-header">
-        <h2 data-st="kinetic-type" data-style="mask" data-at="0.2">Meet <em>Chessmasters</em></h2>
-        <p data-st="kinetic-type" data-style="rise" data-at="1.0">The intelligent AI game analyzer for Chess.com and Lichess.</p>
+      <div style="text-align: center; margin-bottom: 3cqh;">
+        <h2 class="sec-heading" data-st="kinetic-type" data-style="mask" data-at="0.2">Meet <em>Chessmasters</em></h2>
+        <p class="sec-sub" data-st="kinetic-type" data-style="rise" data-at="1.0">Analyze single games or batch submissions to uncover play patterns over time.</p>
       </div>
 
-      <div class="browser-mock" data-st-decor>
-        <div class="mock-nav">
-          <div class="dots"><span></span><span></span><span></span></div>
-          <div class="mock-url">https://www.chessmasterss.in</div>
+      <div class="app-input-card" data-st-decor>
+        <div class="platform-pills">
+          <div class="pill-tab active">Lichess.org</div>
+          <div class="pill-tab">Chess.com</div>
         </div>
-        <div class="mock-body">
-          <div class="toggle-row">
-            <div class="pill-tab active">Lichess.org</div>
-            <div class="pill-tab">Chess.com</div>
+        <div class="input-bar-group">
+          <div class="url-input-box">
+            <span data-st="typewriter" data-at="1.2" data-fit="1.4">https://lichess.org/WzK9e4Q1</span>
+            <span style="font-size: 0.8em; color: var(--gold-bright); opacity: 0.8;">PASTE</span>
           </div>
-          <div class="input-box">
-            <div class="url-field" data-st="typewriter" data-at="1.2" data-fit="1.4">https://lichess.org/game/export/WzK9e4Q1</div>
-            <button class="btn-analyze" id="analyze-btn">Analyze Game</button>
-          </div>
+          <button class="btn-submit" id="btn-submit">Analyze Game</button>
+        </div>
+        <div class="batch-hint">
+          <span>+ Add up to 5 games for batch analysis</span>
+          <span>Analyze <strong>3+ games</strong> to unlock Cognitive Psychology</span>
+        </div>
+      </div>
+
+      <div class="stream-status-box" data-st="kinetic-type" data-style="rise" data-at="4.0">
+        <div class="stream-badge-row">
+          <div class="stream-dot pulse" data-st-decor></div>
+          <span class="stream-text" data-st="kinetic-type" data-style="fade" data-at="4.2">Streaming SSE telemetry...</span>
+          <span class="stream-step-tag" data-st="kinetic-type" data-style="rise" data-at="6.5" data-st-decor>Stockfish 16 Engine</span>
+          <span class="stream-step-tag active" data-st="kinetic-type" data-style="rise" data-at="8.8" data-st-decor>Cognitive Tilt Detector</span>
         </div>
       </div>
     </div>
-    <div data-st="cursor" data-at="3.0" data-path='[{"at":0.5,"x":75,"y":68},{"at":1.8,"target":"#analyze-btn","hover":true},{"at":2.2,"target":"#analyze-btn","click":true}]'></div>
+    <div data-st="cursor" data-at="3.5" data-path='[{"at":0.5,"x":70,"y":65},{"at":1.8,"target":"#btn-submit","hover":true},{"at":2.2,"target":"#btn-submit","click":true}]'></div>
     <div class="vig"></div>
   </section>
 
   <!-- ========================================================================
-       SCENE 3: EXPERT PEDIGREE (16.60s to 25.93s)
-       "Designed with FIDE AIM Parth Kaushik, Chessmasters translates deep Stockfish evaluation..."
+       SCENE 3: ARCHITECTURE & METHODOLOGY (23.20s to 36.70s)
+       "Designed alongside FIDE AIM Parth Kaushik, Chessmasters pairs Stockfish 16..."
        ======================================================================== -->
-  <section class="scene" id="expert" data-start="#intro" data-dur="9.33" data-transition="push left 0.5">
+  <section class="scene" id="expert" data-start="#intro" data-dur="13.50" data-transition="push left 0.5">
     <div class="bg"></div>
     <div class="brand">
-      <svg class="chess-knight" viewBox="0 0 24 24"><path d="M19 22H5v-2h14v2m-6-19.8c-2.3 0-4.3 1.6-4.8 3.9-.3 1.1-.1 2.3.5 3.3l-1.9 2c-.5.5-.8 1.2-.8 1.9v2.7h10v-2.7c0-.7-.3-1.4-.8-1.9l-1.9-2c.6-1 .8-2.2.5-3.3-.5-2.3-2.5-3.9-4.8-3.9z"/></svg>
-      Chessmasters
+      <div class="brand-lockup">
+        <svg class="brand-crown" viewBox="0 0 24 24"><path d="M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5zm14 3c0 .6-.4 1-1 1H6c-.6 0-1-.4-1-1v-1h14v1z"/></svg>
+        Chessmasters<span>.</span>
+      </div>
     </div>
 
-    <div class="scene-content expert-wrap">
-      <div class="hook-header" style="margin-bottom: 2.5cqh;">
-        <h2 data-st="kinetic-type" data-style="mask" data-at="0.2">FIDE-Accredited <em>Coaching Methodology</em></h2>
-        <p data-st="kinetic-type" data-style="rise" data-at="1.0">Grandmaster heuristic translation built on top of Stockfish 16 depth.</p>
+    <div class="scene-content arch-wrap">
+      <div style="margin-bottom: 2cqh;">
+        <h2 class="sec-heading" data-st="kinetic-type" data-style="mask" data-at="0.2">FIDE-Accredited <em>AI Architecture</em></h2>
+        <p class="sec-sub" data-st="kinetic-type" data-style="rise" data-at="0.8">Stockfish 16 depth paired with fine-tuned chess AI heuristics.</p>
       </div>
 
-      <div class="pedigree-box">
-        <div class="fide-profile" data-st="kinetic-type" data-style="rise" data-at="1.5">
+      <div class="arch-grid">
+        <div class="fide-profile" data-st="kinetic-type" data-style="rise" data-at="1.2">
           <div class="fide-shield">
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="#f59e0b"><path d="M12 2L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-3z"/></svg>
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="#c9993f"><path d="M12 2L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-3z"/></svg>
           </div>
           <h3 class="fide-name">Parth Kaushik</h3>
           <div class="fide-title">FIDE AIM &amp; Arena Grandmaster</div>
           <div class="fide-creds">
-            Peak Rating 2000+ FIDE<br>
+            Peak Rating 2300+ Chess.com &middot; FIDE AIM<br>
             Associate Instructor Candidate Master<br>
-            Direct algorithmic coaching overlay
+            Authored Algorithmic Coaching Heuristics
           </div>
         </div>
 
-        <div class="engine-pipeline">
-          <div class="pipeline-step" data-st="kinetic-type" data-style="rise" data-at="2.5">
+        <div>
+          <div class="pipeline-step" data-st="kinetic-type" data-style="rise" data-at="2.0">
             <div class="step-num" data-st-decor>01</div>
-            <div class="step-txt">
-              <h3>Stockfish 16 Engine Depth</h3>
-              <p>Move-by-move evaluation and exact centipawn loss calculation.</p>
+            <div>
+              <h3 style="margin: 0 0 0.4cqh 0; font-size: var(--s-card-t); font-weight: 700; color: var(--text);">Stockfish 16 Engine Depth</h3>
+              <p style="margin: 0; font-size: var(--s-label); color: var(--text-muted);">Move-by-move evaluation and exact centipawn loss calculation.</p>
             </div>
           </div>
-          <div class="pipeline-step active-step" data-st="kinetic-type" data-style="rise" data-at="4.8">
+          <div class="pipeline-step active" data-st="kinetic-type" data-style="rise" data-at="4.0">
             <div class="step-num" data-st-decor>02</div>
-            <div class="step-txt">
-              <h3>Gemini 1.5 Flash AI Engine</h3>
-              <p>Translates engine deltas into plain English tactical explanations.</p>
+            <div>
+              <h3 style="margin: 0 0 0.4cqh 0; font-size: var(--s-card-t); font-weight: 700; color: var(--gold-bright);">Fine-Tuned Chess AI Model</h3>
+              <p style="margin: 0; font-size: var(--s-label); color: var(--text-muted);">Trained on grandmaster annotations &amp; FIDE coaching heuristics.</p>
             </div>
           </div>
-          <div class="pipeline-step" data-st="kinetic-type" data-style="rise" data-at="6.8">
+          <div class="pipeline-step" data-st="kinetic-type" data-style="rise" data-at="6.0">
             <div class="step-num" data-st-decor>03</div>
-            <div class="step-txt">
-              <h3>Curated Lichess Practice Library</h3>
-              <p>Direct targeted practice drills for the motifs you failed.</p>
+            <div>
+              <h3 style="margin: 0 0 0.4cqh 0; font-size: var(--s-card-t); font-weight: 700; color: var(--text);">Cognitive Psychology Engine</h3>
+              <p style="margin: 0; font-size: var(--s-label); color: var(--text-muted);">Telemetry tracking tilt patterns, time pressure, and composure.</p>
             </div>
+          </div>
+          <div class="fide-badge-row" data-st="kinetic-type" data-style="rise" data-at="8.5">
+            <span class="fide-chip">FIDE Co-Designed</span>
+            <span class="fide-chip">Human Pedagogical Rules</span>
+            <span class="fide-chip">Zero Guesswork</span>
           </div>
         </div>
       </div>
@@ -704,47 +887,128 @@
   </section>
 
   <!-- ========================================================================
-       SCENE 4: 5 CORE REPORT SECTIONS (25.93s to 37.30s)
-       "Every review delivers five core sections: tactical strengths, critical blunder classification..."
+       SCENE 4: COGNITIVE PSYCHOLOGY PROFILE (36.70s to 48.10s)
+       "Beyond tactics, Chessmasters profiles your chess psychology..."
        ======================================================================== -->
-  <section class="scene" id="features" data-start="#expert" data-dur="11.37" data-transition="push left 0.5">
+  <section class="scene" id="psychology" data-start="#expert" data-dur="11.40" data-transition="push left 0.5">
     <div class="bg"></div>
     <div class="brand">
-      <svg class="chess-knight" viewBox="0 0 24 24"><path d="M19 22H5v-2h14v2m-6-19.8c-2.3 0-4.3 1.6-4.8 3.9-.3 1.1-.1 2.3.5 3.3l-1.9 2c-.5.5-.8 1.2-.8 1.9v2.7h10v-2.7c0-.7-.3-1.4-.8-1.9l-1.9-2c.6-1 .8-2.2.5-3.3-.5-2.3-2.5-3.9-4.8-3.9z"/></svg>
-      Chessmasters
+      <div class="brand-lockup">
+        <svg class="brand-crown" viewBox="0 0 24 24"><path d="M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5zm14 3c0 .6-.4 1-1 1H6c-.6 0-1-.4-1-1v-1h14v1z"/></svg>
+        Chessmasters<span>.</span>
+      </div>
+    </div>
+
+    <div class="scene-content psych-scene-wrap">
+      <div style="margin-bottom: 1.5cqh;">
+        <h2 class="sec-heading" data-st="kinetic-type" data-style="mask" data-at="0.2"><span class="brand-badge" style="vertical-align: middle; margin-right: 0.6cqw;" data-st-decor>PSYCHOLOGY</span> Cognitive <em>Diagnosis</em></h2>
+        <p class="sec-sub" data-st="kinetic-type" data-style="rise" data-at="0.8">Mental toughness, time pressure panics &amp; emotional tilt detection.</p>
+      </div>
+
+      <div class="psych-card-shell">
+        <div class="radar-box" data-st="kinetic-type" data-style="rise" data-at="1.2">
+          <!-- 6-Dimension Psychology Radar SVG -->
+          <svg class="radar-svg" viewBox="0 0 200 200" data-st-decor>
+            <!-- Grid webs -->
+            <polygon points="100,20 170,60 170,140 100,180 30,140 30,60" fill="none" stroke="rgba(47,107,98,0.2)" stroke-width="1"/>
+            <polygon points="100,45 145,72 145,128 100,155 55,128 55,72" fill="none" stroke="rgba(47,107,98,0.2)" stroke-width="1"/>
+            <!-- Data polygon -->
+            <polygon points="100,32 155,68 140,132 100,165 42,125 50,68" fill="rgba(47,107,98,0.3)" stroke="#2f6b62" stroke-width="2.5"/>
+            <!-- Data vertices -->
+            <circle cx="100" cy="32" r="4" fill="#2f6b62"/>
+            <circle cx="155" cy="68" r="4" fill="#2f6b62"/>
+            <circle cx="140" cy="132" r="4" fill="#2f6b62"/>
+            <circle cx="100" cy="165" r="4" fill="#2f6b62"/>
+            <circle cx="42" cy="125" r="4" fill="#7d3527"/>
+            <circle cx="50" cy="68" r="4" fill="#2f6b62"/>
+            <!-- Labels -->
+            <text x="100" y="14" text-anchor="middle" font-size="10" font-weight="700" fill="#1c1712" data-st-decor>Tilt (78)</text>
+            <text x="180" y="62" text-anchor="start" font-size="10" font-weight="700" fill="#1c1712" data-st-decor>Composure</text>
+            <text x="178" y="145" text-anchor="start" font-size="10" font-weight="700" fill="#1c1712" data-st-decor>Conversion</text>
+            <text x="100" y="196" text-anchor="middle" font-size="10" font-weight="700" fill="#1c1712" data-st-decor>Fighting Spirit</text>
+            <text x="22" y="145" text-anchor="end" font-size="10" font-weight="700" fill="#7d3527" data-st-decor>Time Pressure (42)</text>
+            <text x="22" y="62" text-anchor="end" font-size="10" font-weight="700" fill="#1c1712" data-st-decor>Consistency</text>
+          </svg>
+          <div class="archetype-tag" data-st-decor>Activist · Early Lean</div>
+        </div>
+
+        <div class="psych-diagnostics">
+          <div class="diag-item" data-st="kinetic-type" data-style="rise" data-at="2.2">
+            <div>
+              <h4>Post-Blunder Tilt Trigger</h4>
+              <p>Rushing moves immediately after an advantage slips.</p>
+            </div>
+            <span class="diag-badge badge-leak" data-st-decor>Critical Leak</span>
+          </div>
+          <div class="diag-item" data-st="kinetic-type" data-style="rise" data-at="4.2">
+            <div>
+              <h4>Clock Pressure Collapse</h4>
+              <p>Blunder frequency jumps 3.4x when clock drops under 30s.</p>
+            </div>
+            <span class="diag-badge badge-leak" data-st-decor>Time Panic</span>
+          </div>
+          <div class="diag-item" data-st="kinetic-type" data-style="rise" data-at="6.2">
+            <div>
+              <h4>Advantage Conversion</h4>
+              <p>Strong technical execution when material is equal or ahead.</p>
+            </div>
+            <span class="diag-badge badge-strong" data-st-decor>82% Conversion</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="psych-action-callout" data-st="kinetic-type" data-style="rise" data-at="8.2">
+        <span class="takeaway-pill" data-st-decor>ACTIONABLE REMEDY</span>
+        <span data-st-decor>Identifies tilt triggers and clock pressure panics.</span>
+      </div>
+    </div>
+    <div class="vig"></div>
+  </section>
+
+  <!-- ========================================================================
+       SCENE 5: 5 CORE REPORT SECTIONS (48.10s to 58.10s)
+       "Every review delivers tactical strengths, critical blunders..."
+       ======================================================================== -->
+  <section class="scene" id="features" data-start="#psychology" data-dur="10.00" data-transition="push left 0.5">
+    <div class="bg"></div>
+    <div class="brand">
+      <div class="brand-lockup">
+        <svg class="brand-crown" viewBox="0 0 24 24"><path d="M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5zm14 3c0 .6-.4 1-1 1H6c-.6 0-1-.4-1-1v-1h14v1z"/></svg>
+        Chessmasters<span>.</span>
+      </div>
     </div>
 
     <div class="scene-content features-wrap">
-      <div class="hook-header" style="margin-bottom: 2cqh;">
-        <h2 data-st="kinetic-type" data-style="mask" data-at="0.2">Five Core <em>Diagnostic Sections</em></h2>
-        <p data-st="kinetic-type" data-style="rise" data-at="0.8">Complete actionable game breakdown tailored to your playing style.</p>
+      <div style="margin-bottom: 2cqh;">
+        <h2 class="sec-heading" data-st="kinetic-type" data-style="mask" data-at="0.2">Five Core <em>Coaching Deliverables</em></h2>
+        <p class="sec-sub" data-st="kinetic-type" data-style="rise" data-at="0.8">Actionable insights built into the Dual-World coaching report.</p>
       </div>
 
       <div class="features-grid">
-        <div class="feature-box highlight" data-st="kinetic-type" data-style="rise" data-at="1.2">
+        <div class="feature-box highlight" data-st="kinetic-type" data-style="rise" data-at="1.0">
           <div class="feature-icon" data-st-decor>01</div>
           <h3>Tactical Strengths</h3>
-          <p>Motif execution: forks, pins, skewers &amp; deflections.</p>
+          <p>Fork, Pin, Skewer &amp; Deflection motif execution.</p>
         </div>
-        <div class="feature-box" data-st="kinetic-type" data-style="rise" data-at="3.2">
+        <div class="feature-box" data-st="kinetic-type" data-style="rise" data-at="2.5">
           <div class="feature-icon" data-st-decor>02</div>
-          <h3>Blunder Analysis</h3>
-          <p>Pinpoints the exact move where evaluation collapsed.</p>
+          <h3>Critical Blunders</h3>
+          <p>Exact centipawn swing with plain English reasoning.</p>
         </div>
-        <div class="feature-box" data-st="kinetic-type" data-style="rise" data-at="5.2">
+        <div class="feature-box" data-st="kinetic-type" data-style="rise" data-at="4.0">
           <div class="feature-icon" data-st-decor>03</div>
           <h3>Opening Leaks</h3>
-          <p>Identifies exact deviations from master opening theory.</p>
+          <p>Deviations from master theory &amp; trap detection.</p>
         </div>
-        <div class="feature-box" data-st="kinetic-type" data-style="rise" data-at="7.2">
+        <div class="feature-box" data-st="kinetic-type" data-style="rise" data-at="5.5">
           <div class="feature-icon" data-st-decor>04</div>
-          <h3>Focus Areas</h3>
-          <p>Actionable middlegame and endgame priorities.</p>
+          <h3>Next Game Rule</h3>
+          <p>One concrete rule to follow in your next game.</p>
         </div>
-        <div class="feature-box highlight" data-st="kinetic-type" data-style="rise" data-at="9.0">
+        <div class="feature-box highlight" data-st="kinetic-type" data-style="rise" data-at="7.0">
           <div class="feature-icon" data-st-decor>05</div>
           <h3>Curated Drills</h3>
-          <p>Direct clickable Lichess studies mapped to your leaks.</p>
+          <p>Direct interactive Lichess studies for missed motifs.</p>
         </div>
       </div>
     </div>
@@ -752,20 +1016,20 @@
   </section>
 
   <!-- ========================================================================
-       SCENE 5: CLOSE / CTA (37.30s to 48.00s)
-       "Paste any game link at chessmasterss dot in. Your first analysis is completely free..."
+       SCENE 6: CLOSE / CTA (58.10s to 66.00s)
+       "Analyze your first game completely free without an account..."
        ======================================================================== -->
-  <section class="scene" id="cta" data-start="#features" data-dur="10.70" data-transition="sdf-iris 0.7">
+  <section class="scene" id="cta" data-start="#features" data-dur="7.90" data-transition="sdf-iris 0.7">
     <div class="bg"></div>
     <div class="scene-content close-wrap">
-      <div class="close-crest" data-st="kinetic-type" data-style="rise" data-at="0.2">
-        <svg viewBox="0 0 24 24"><path d="M19 22H5v-2h14v2m-6-19.8c-2.3 0-4.3 1.6-4.8 3.9-.3 1.1-.1 2.3.5 3.3l-1.9 2c-.5.5-.8 1.2-.8 1.9v2.7h10v-2.7c0-.7-.3-1.4-.8-1.9l-1.9-2c.6-1 .8-2.2.5-3.3-.5-2.3-2.5-3.9-4.8-3.9z"/></svg>
+      <div class="close-crown" data-st="kinetic-type" data-style="rise" data-at="0.2">
+        <svg class="crown-svg" viewBox="0 0 24 24"><path d="M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5zm14 3c0 .6-.4 1-1 1H6c-.6 0-1-.4-1-1v-1h14v1z"/></svg>
       </div>
-      <h2 class="close-title" data-st="kinetic-type" data-style="mask" data-at="0.6">Chessmasters</h2>
-      <p class="close-sub" data-st="kinetic-type" data-style="rise" data-at="1.2">The AI Chess Game Analyzer for Chess.com &amp; Lichess</p>
-      <div class="cta-badge" data-st="kinetic-type" data-style="rise" data-at="2.2">Analyze Your Game Free</div>
-      <div class="url-label" data-st="kinetic-type" data-style="rise" data-at="3.6">chessmasterss.in</div>
-      <div class="byline-tag" data-st="kinetic-type" data-style="rise" data-at="4.8">Methodology by <strong>FIDE AIM Parth Kaushik</strong> · No Account Required</div>
+      <h2 class="close-title" data-st="kinetic-type" data-style="mask" data-at="0.5">Chessmasters</h2>
+      <p class="close-sub" data-st="kinetic-type" data-style="rise" data-at="1.0">The AI Chess Game Analyzer for Chess.com &amp; Lichess</p>
+      <div class="cta-badge" data-st="kinetic-type" data-style="rise" data-at="1.8">Analyze Your Game Free</div>
+      <div class="url-label" data-st="kinetic-type" data-style="rise" data-at="2.8">chessmasterss.in</div>
+      <div class="byline-tag" data-st="kinetic-type" data-style="rise" data-at="3.6">Methodology by <strong>FIDE AIM Parth Kaushik</strong> &middot; No Account Required</div>
     </div>
     <div class="vig"></div>
   </section>

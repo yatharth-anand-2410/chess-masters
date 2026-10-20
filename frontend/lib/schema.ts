@@ -187,14 +187,14 @@ export const VIDEO_OBJECT_SCHEMA = {
   "@type": "VideoObject",
   name: "Chessmasters: AI Chess Game Analyzer Explainer",
   description:
-    "Turn Stockfish 16 engine depth into plain English coaching lessons. Learn how Chessmasters analyzes Chess.com and Lichess games with FIDE-accredited methodology.",
+    "Turn Stockfish 16 engine depth into plain English coaching lessons and cognitive psychology diagnostics. Learn how Chessmasters analyzes Chess.com and Lichess games with FIDE-accredited methodology.",
   thumbnailUrl: [abs("/videos/chessmasters-explainer.poster.jpg")],
   uploadDate: "2026-10-20T00:00:00Z",
-  duration: "PT48S",
+  duration: "PT66S",
   contentUrl: abs("/videos/chessmasters-explainer.mp4"),
   embedUrl: abs("/videos/chessmasters-explainer.mp4"),
   transcript:
-    "Engine numbers like plus two point four don't tell you how to win. Club players don't need raw math; they need plain English coaching. Meet Chessmasters: the intelligent AI chess game analyzer for Chess dot com and Lichess. Designed with FIDE AIM Parth Kaushik, Chessmasters translates deep Stockfish evaluation into plain English chess lessons. Every review delivers five core sections: tactical strengths, critical blunder classification, opening leaks, focus areas, and curated Lichess study drills. Paste any game link at chessmasterss dot in. Your first analysis is completely free, with no account required.",
+    "Engine numbers like plus two point four don't teach you how to win. Club players don't need raw math; they need plain English coaching and psychological insights. Meet Chessmasters: the intelligent AI chess analyzer for Chess dot com and Lichess. Paste any game, or analyze a batch to uncover recurring leaks. Designed alongside FIDE AIM Parth Kaushik, Chessmasters pairs Stockfish sixteen precision with a fine-tuned chess AI, turning engine data into human grandmaster lessons. Beyond tactics, Chessmasters profiles your chess psychology: diagnosing tilt, time trouble panic, and composure across six behavioral dimensions. Every review delivers tactical strengths, critical blunders, opening leaks, next-game rules, and curated interactive Lichess drills. Analyze your first game completely free without an account at chessmasterss dot in.",
   publisher: { "@id": ORGANIZATION_ID },
   author: {
     "@type": "Person",

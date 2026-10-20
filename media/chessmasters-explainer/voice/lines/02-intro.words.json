@@ -1,91 +1,151 @@
 {
   "source": "02-intro.wav",
-  "duration": 6.676,
+  "duration": 11.412,
   "language": "en",
   "model": "kokoro-v1.0-timestamped-fp16.onnx",
   "words": [
     {
       "text": "Meet",
-      "start": 0.04,
-      "end": 0.275,
+      "start": 0.05,
+      "end": 0.273,
       "type": "word"
     },
     {
       "text": "Chessmasters:",
-      "start": 0.31,
-      "end": 1.22,
+      "start": 0.28,
+      "end": 1.2,
       "type": "word"
     },
     {
       "text": "the",
-      "start": 1.64,
-      "end": 1.734,
+      "start": 1.58,
+      "end": 1.697,
       "type": "word"
     },
     {
       "text": "intelligent",
-      "start": 1.79,
-      "end": 2.448,
+      "start": 1.752,
+      "end": 2.4,
       "type": "word"
     },
     {
       "text": "AI",
-      "start": 2.49,
-      "end": 2.996,
+      "start": 2.45,
+      "end": 3.013,
       "type": "word"
     },
     {
       "text": "chess",
-      "start": 3.055,
-      "end": 3.31,
-      "type": "word"
-    },
-    {
-      "text": "game",
-      "start": 3.33,
-      "end": 3.585,
+      "start": 3.075,
+      "end": 3.353,
       "type": "word"
     },
     {
       "text": "analyzer",
-      "start": 3.643,
-      "end": 4.278,
+      "start": 3.405,
+      "end": 4.03,
       "type": "word"
     },
     {
       "text": "for",
-      "start": 4.334,
-      "end": 4.44,
+      "start": 4.081,
+      "end": 4.191,
       "type": "word"
     },
     {
       "text": "Chess",
-      "start": 4.506,
-      "end": 4.805,
+      "start": 4.259,
+      "end": 4.559,
       "type": "word"
     },
     {
       "text": "dot",
-      "start": 4.81,
-      "end": 5.137,
+      "start": 4.56,
+      "end": 4.894,
       "type": "word"
     },
     {
       "text": "com",
-      "start": 5.18,
-      "end": 5.496,
+      "start": 4.94,
+      "end": 5.281,
       "type": "word"
     },
     {
       "text": "and",
-      "start": 5.539,
-      "end": 5.62,
+      "start": 5.326,
+      "end": 5.408,
       "type": "word"
     },
     {
       "text": "Lichess.",
-      "start": 5.67,
-      "end": 6.286,
+      "start": 5.458,
+      "end": 6.1,
+      "type": "word"
+    },
+    {
+      "text": "Paste",
+      "start": 6.64,
+      "end": 6.886,
+      "type": "word"
+    },
+    {
+      "text": "any",
+      "start": 6.89,
+      "end": 7.104,
+      "type": "word"
+    },
+    {
+      "text": "game,",
+      "start": 7.171,
+      "end": 7.61,
+      "type": "word"
+    },
+    {
+      "text": "or",
+      "start": 7.8,
+      "end": 8.166,
+      "type": "word"
+    },
+    {
+      "text": "analyze",
+      "start": 8.25,
+      "end": 8.815,
+      "type": "word"
+    },
+    {
+      "text": "a",
+      "start": 8.852,
+      "end": 8.896,
+      "type": "word"
+    },
+    {
+      "text": "batch",
+      "start": 8.967,
+      "end": 9.292,
+      "type": "word"
+    },
+    {
+      "text": "to",
+      "start": 9.31,
+      "end": 9.441,
+      "type": "word"
+    },
+    {
+      "text": "uncover",
+      "start": 9.48,
+      "end": 9.992,
+      "type": "word"
+    },
+    {
+      "text": "recurring",
+      "start": 10.042,
+      "end": 10.537,
+      "type": "word"
+    },
+    {
+      "text": "leaks.",
+      "start": 10.587,
+      "end": 11.022,
       "type": "word"
     }
   ]
