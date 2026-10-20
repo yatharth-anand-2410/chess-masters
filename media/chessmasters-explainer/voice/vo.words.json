@@ -1,0 +1,652 @@
+{
+  "source": "vo.wav",
+  "duration": 46.181,
+  "language": "en",
+  "model": "showtime-voice",
+  "words": [
+    {
+      "text": "Engine",
+      "start": 0.4,
+      "end": 0.766,
+      "type": "word",
+      "line": "hook"
+    },
+    {
+      "text": "numbers",
+      "start": 0.818,
+      "end": 1.181,
+      "type": "word",
+      "line": "hook"
+    },
+    {
+      "text": "like",
+      "start": 1.228,
+      "end": 1.401,
+      "type": "word",
+      "line": "hook"
+    },
+    {
+      "text": "plus",
+      "start": 1.44,
+      "end": 1.698,
+      "type": "word",
+      "line": "hook"
+    },
+    {
+      "text": "two",
+      "start": 1.81,
+      "end": 1.981,
+      "type": "word",
+      "line": "hook"
+    },
+    {
+      "text": "point",
+      "start": 2.042,
+      "end": 2.358,
+      "type": "word",
+      "line": "hook"
+    },
+    {
+      "text": "four",
+      "start": 2.458,
+      "end": 2.796,
+      "type": "word",
+      "line": "hook"
+    },
+    {
+      "text": "don't",
+      "start": 2.853,
+      "end": 3.04,
+      "type": "word",
+      "line": "hook"
+    },
+    {
+      "text": "tell",
+      "start": 3.14,
+      "end": 3.302,
+      "type": "word",
+      "line": "hook"
+    },
+    {
+      "text": "you",
+      "start": 3.351,
+      "end": 3.427,
+      "type": "word",
+      "line": "hook"
+    },
+    {
+      "text": "how",
+      "start": 3.476,
+      "end": 3.63,
+      "type": "word",
+      "line": "hook"
+    },
+    {
+      "text": "to",
+      "start": 3.666,
+      "end": 3.74,
+      "type": "word",
+      "line": "hook"
+    },
+    {
+      "text": "win.",
+      "start": 3.816,
+      "end": 4.23,
+      "type": "word",
+      "line": "hook"
+    },
+    {
+      "text": "Club",
+      "start": 4.66,
+      "end": 4.903,
+      "type": "word",
+      "line": "hook"
+    },
+    {
+      "text": "players",
+      "start": 4.959,
+      "end": 5.358,
+      "type": "word",
+      "line": "hook"
+    },
+    {
+      "text": "don't",
+      "start": 5.419,
+      "end": 5.625,
+      "type": "word",
+      "line": "hook"
+    },
+    {
+      "text": "need",
+      "start": 5.675,
+      "end": 5.921,
+      "type": "word",
+      "line": "hook"
+    },
+    {
+      "text": "raw",
+      "start": 5.972,
+      "end": 6.186,
+      "type": "word",
+      "line": "hook"
+    },
+    {
+      "text": "math;",
+      "start": 6.246,
+      "end": 6.7,
+      "type": "word",
+      "line": "hook"
+    },
+    {
+      "text": "they",
+      "start": 7.06,
+      "end": 7.177,
+      "type": "word",
+      "line": "hook"
+    },
+    {
+      "text": "need",
+      "start": 7.226,
+      "end": 7.447,
+      "type": "word",
+      "line": "hook"
+    },
+    {
+      "text": "plain",
+      "start": 7.52,
+      "end": 7.838,
+      "type": "word",
+      "line": "hook"
+    },
+    {
+      "text": "English",
+      "start": 7.897,
+      "end": 8.223,
+      "type": "word",
+      "line": "hook"
+    },
+    {
+      "text": "coaching.",
+      "start": 8.28,
+      "end": 8.847,
+      "type": "word",
+      "line": "hook"
+    },
+    {
+      "text": "Meet",
+      "start": 9.617,
+      "end": 9.852,
+      "type": "word",
+      "line": "intro"
+    },
+    {
+      "text": "Chessmasters:",
+      "start": 9.887,
+      "end": 10.797,
+      "type": "word",
+      "line": "intro"
+    },
+    {
+      "text": "the",
+      "start": 11.217,
+      "end": 11.311,
+      "type": "word",
+      "line": "intro"
+    },
+    {
+      "text": "intelligent",
+      "start": 11.367,
+      "end": 12.025,
+      "type": "word",
+      "line": "intro"
+    },
+    {
+      "text": "AI",
+      "start": 12.067,
+      "end": 12.573,
+      "type": "word",
+      "line": "intro"
+    },
+    {
+      "text": "chess",
+      "start": 12.632,
+      "end": 12.887,
+      "type": "word",
+      "line": "intro"
+    },
+    {
+      "text": "game",
+      "start": 12.907,
+      "end": 13.162,
+      "type": "word",
+      "line": "intro"
+    },
+    {
+      "text": "analyzer",
+      "start": 13.22,
+      "end": 13.855,
+      "type": "word",
+      "line": "intro"
+    },
+    {
+      "text": "for",
+      "start": 13.911,
+      "end": 14.017,
+      "type": "word",
+      "line": "intro"
+    },
+    {
+      "text": "Chess",
+      "start": 14.083,
+      "end": 14.382,
+      "type": "word",
+      "line": "intro"
+    },
+    {
+      "text": "dot",
+      "start": 14.387,
+      "end": 14.714,
+      "type": "word",
+      "line": "intro"
+    },
+    {
+      "text": "com",
+      "start": 14.757,
+      "end": 15.073,
+      "type": "word",
+      "line": "intro"
+    },
+    {
+      "text": "and",
+      "start": 15.116,
+      "end": 15.197,
+      "type": "word",
+      "line": "intro"
+    },
+    {
+      "text": "Lichess.",
+      "start": 15.247,
+      "end": 15.863,
+      "type": "word",
+      "line": "intro"
+    },
+    {
+      "text": "Designed",
+      "start": 16.643,
+      "end": 17.093,
+      "type": "word",
+      "line": "expert"
+    },
+    {
+      "text": "with",
+      "start": 17.135,
+      "end": 17.264,
+      "type": "word",
+      "line": "expert"
+    },
+    {
+      "text": "FIDE",
+      "start": 17.351,
+      "end": 17.718,
+      "type": "word",
+      "line": "expert"
+    },
+    {
+      "text": "AIM",
+      "start": 17.763,
+      "end": 18.528,
+      "type": "word",
+      "line": "expert"
+    },
+    {
+      "text": "Parth",
+      "start": 18.573,
+      "end": 18.852,
+      "type": "word",
+      "line": "expert"
+    },
+    {
+      "text": "Kaushik,",
+      "start": 18.893,
+      "end": 19.333,
+      "type": "word",
+      "line": "expert"
+    },
+    {
+      "text": "Chessmasters",
+      "start": 19.883,
+      "end": 20.681,
+      "type": "word",
+      "line": "expert"
+    },
+    {
+      "text": "translates",
+      "start": 20.703,
+      "end": 21.397,
+      "type": "word",
+      "line": "expert"
+    },
+    {
+      "text": "deep",
+      "start": 21.492,
+      "end": 21.718,
+      "type": "word",
+      "line": "expert"
+    },
+    {
+      "text": "Stockfish",
+      "start": 21.78,
+      "end": 22.293,
+      "type": "word",
+      "line": "expert"
+    },
+    {
+      "text": "evaluation",
+      "start": 22.34,
+      "end": 23.178,
+      "type": "word",
+      "line": "expert"
+    },
+    {
+      "text": "into",
+      "start": 23.203,
+      "end": 23.393,
+      "type": "word",
+      "line": "expert"
+    },
+    {
+      "text": "plain",
+      "start": 23.463,
+      "end": 23.845,
+      "type": "word",
+      "line": "expert"
+    },
+    {
+      "text": "English",
+      "start": 23.883,
+      "end": 24.251,
+      "type": "word",
+      "line": "expert"
+    },
+    {
+      "text": "chess",
+      "start": 24.283,
+      "end": 24.594,
+      "type": "word",
+      "line": "expert"
+    },
+    {
+      "text": "lessons.",
+      "start": 24.623,
+      "end": 25.172,
+      "type": "word",
+      "line": "expert"
+    },
+    {
+      "text": "Every",
+      "start": 25.952,
+      "end": 26.212,
+      "type": "word",
+      "line": "features"
+    },
+    {
+      "text": "review",
+      "start": 26.273,
+      "end": 26.69,
+      "type": "word",
+      "line": "features"
+    },
+    {
+      "text": "delivers",
+      "start": 26.739,
+      "end": 27.177,
+      "type": "word",
+      "line": "features"
+    },
+    {
+      "text": "five",
+      "start": 27.265,
+      "end": 27.593,
+      "type": "word",
+      "line": "features"
+    },
+    {
+      "text": "core",
+      "start": 27.662,
+      "end": 27.887,
+      "type": "word",
+      "line": "features"
+    },
+    {
+      "text": "sections:",
+      "start": 27.957,
+      "end": 28.572,
+      "type": "word",
+      "line": "features"
+    },
+    {
+      "text": "tactical",
+      "start": 29.002,
+      "end": 29.48,
+      "type": "word",
+      "line": "features"
+    },
+    {
+      "text": "strengths,",
+      "start": 29.554,
+      "end": 30.162,
+      "type": "word",
+      "line": "features"
+    },
+    {
+      "text": "critical",
+      "start": 30.482,
+      "end": 30.862,
+      "type": "word",
+      "line": "features"
+    },
+    {
+      "text": "blunder",
+      "start": 30.937,
+      "end": 31.26,
+      "type": "word",
+      "line": "features"
+    },
+    {
+      "text": "classification,",
+      "start": 31.31,
+      "end": 32.244,
+      "type": "word",
+      "line": "features"
+    },
+    {
+      "text": "opening",
+      "start": 32.373,
+      "end": 32.794,
+      "type": "word",
+      "line": "features"
+    },
+    {
+      "text": "leaks,",
+      "start": 32.851,
+      "end": 33.332,
+      "type": "word",
+      "line": "features"
+    },
+    {
+      "text": "focus",
+      "start": 33.592,
+      "end": 33.976,
+      "type": "word",
+      "line": "features"
+    },
+    {
+      "text": "areas,",
+      "start": 34.028,
+      "end": 34.51,
+      "type": "word",
+      "line": "features"
+    },
+    {
+      "text": "and",
+      "start": 34.587,
+      "end": 34.671,
+      "type": "word",
+      "line": "features"
+    },
+    {
+      "text": "curated",
+      "start": 34.762,
+      "end": 35.253,
+      "type": "word",
+      "line": "features"
+    },
+    {
+      "text": "Lichess",
+      "start": 35.303,
+      "end": 35.655,
+      "type": "word",
+      "line": "features"
+    },
+    {
+      "text": "study",
+      "start": 35.705,
+      "end": 35.977,
+      "type": "word",
+      "line": "features"
+    },
+    {
+      "text": "drills.",
+      "start": 36.04,
+      "end": 36.527,
+      "type": "word",
+      "line": "features"
+    },
+    {
+      "text": "Paste",
+      "start": 37.337,
+      "end": 37.583,
+      "type": "word",
+      "line": "cta"
+    },
+    {
+      "text": "any",
+      "start": 37.587,
+      "end": 37.768,
+      "type": "word",
+      "line": "cta"
+    },
+    {
+      "text": "game",
+      "start": 37.832,
+      "end": 38.112,
+      "type": "word",
+      "line": "cta"
+    },
+    {
+      "text": "link",
+      "start": 38.163,
+      "end": 38.374,
+      "type": "word",
+      "line": "cta"
+    },
+    {
+      "text": "at",
+      "start": 38.377,
+      "end": 38.505,
+      "type": "word",
+      "line": "cta"
+    },
+    {
+      "text": "chessmasterss",
+      "start": 38.547,
+      "end": 39.274,
+      "type": "word",
+      "line": "cta"
+    },
+    {
+      "text": "dot",
+      "start": 39.343,
+      "end": 39.618,
+      "type": "word",
+      "line": "cta"
+    },
+    {
+      "text": "in.",
+      "start": 39.659,
+      "end": 39.967,
+      "type": "word",
+      "line": "cta"
+    },
+    {
+      "text": "Your",
+      "start": 40.487,
+      "end": 40.584,
+      "type": "word",
+      "line": "cta"
+    },
+    {
+      "text": "first",
+      "start": 40.67,
+      "end": 40.945,
+      "type": "word",
+      "line": "cta"
+    },
+    {
+      "text": "analysis",
+      "start": 40.977,
+      "end": 41.644,
+      "type": "word",
+      "line": "cta"
+    },
+    {
+      "text": "is",
+      "start": 41.702,
+      "end": 41.803,
+      "type": "word",
+      "line": "cta"
+    },
+    {
+      "text": "completely",
+      "start": 41.854,
+      "end": 42.473,
+      "type": "word",
+      "line": "cta"
+    },
+    {
+      "text": "free,",
+      "start": 42.589,
+      "end": 43.107,
+      "type": "word",
+      "line": "cta"
+    },
+    {
+      "text": "with",
+      "start": 43.375,
+      "end": 43.516,
+      "type": "word",
+      "line": "cta"
+    },
+    {
+      "text": "no",
+      "start": 43.593,
+      "end": 43.781,
+      "type": "word",
+      "line": "cta"
+    },
+    {
+      "text": "account",
+      "start": 43.832,
+      "end": 44.22,
+      "type": "word",
+      "line": "cta"
+    },
+    {
+      "text": "required.",
+      "start": 44.267,
+      "end": 44.991,
+      "type": "word",
+      "line": "cta"
+    }
+  ]
+}

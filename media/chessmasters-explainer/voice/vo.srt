@@ -1,0 +1,82 @@
+1
+00:00:00,400 --> 00:00:02,358
+Engine numbers
+like plus two point
+
+2
+00:00:02,458 --> 00:00:04,230
+four don't tell you how to win.
+
+3
+00:00:04,660 --> 00:00:06,700
+Club players don't
+need raw math;
+
+4
+00:00:07,060 --> 00:00:08,847
+they need plain
+English coaching.
+
+5
+00:00:09,617 --> 00:00:10,797
+Meet Chessmasters:
+
+6
+00:00:11,217 --> 00:00:13,855
+the intelligent AI
+chess game analyzer
+
+7
+00:00:13,911 --> 00:00:15,863
+for Chess dot com and Lichess.
+
+8
+00:00:16,643 --> 00:00:19,333
+Designed with FIDE
+AIM Parth Kaushik,
+
+9
+00:00:19,883 --> 00:00:20,681
+Chessmasters
+
+10
+00:00:20,703 --> 00:00:25,172
+translates deep Stockfish evaluation
+into plain English chess lessons.
+
+11
+00:00:25,952 --> 00:00:28,572
+Every review delivers
+five core sections:
+
+12
+00:00:29,002 --> 00:00:31,260
+tactical strengths,
+critical blunder
+
+13
+00:00:31,310 --> 00:00:33,976
+classification,
+opening leaks, focus
+
+14
+00:00:34,028 --> 00:00:36,527
+areas, and curated
+Lichess study drills.
+
+15
+00:00:37,337 --> 00:00:38,505
+Paste any game link at
+
+16
+00:00:38,547 --> 00:00:39,967
+chessmasterss dot in.
+
+17
+00:00:40,487 --> 00:00:43,107
+Your first analysis
+is completely free,
+
+18
+00:00:43,375 --> 00:00:44,991
+with no account required.

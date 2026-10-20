@@ -1,0 +1,92 @@
+{
+  "source": "02-intro.wav",
+  "duration": 6.676,
+  "language": "en",
+  "model": "kokoro-v1.0-timestamped-fp16.onnx",
+  "words": [
+    {
+      "text": "Meet",
+      "start": 0.04,
+      "end": 0.275,
+      "type": "word"
+    },
+    {
+      "text": "Chessmasters:",
+      "start": 0.31,
+      "end": 1.22,
+      "type": "word"
+    },
+    {
+      "text": "the",
+      "start": 1.64,
+      "end": 1.734,
+      "type": "word"
+    },
+    {
+      "text": "intelligent",
+      "start": 1.79,
+      "end": 2.448,
+      "type": "word"
+    },
+    {
+      "text": "AI",
+      "start": 2.49,
+      "end": 2.996,
+      "type": "word"
+    },
+    {
+      "text": "chess",
+      "start": 3.055,
+      "end": 3.31,
+      "type": "word"
+    },
+    {
+      "text": "game",
+      "start": 3.33,
+      "end": 3.585,
+      "type": "word"
+    },
+    {
+      "text": "analyzer",
+      "start": 3.643,
+      "end": 4.278,
+      "type": "word"
+    },
+    {
+      "text": "for",
+      "start": 4.334,
+      "end": 4.44,
+      "type": "word"
+    },
+    {
+      "text": "Chess",
+      "start": 4.506,
+      "end": 4.805,
+      "type": "word"
+    },
+    {
+      "text": "dot",
+      "start": 4.81,
+      "end": 5.137,
+      "type": "word"
+    },
+    {
+      "text": "com",
+      "start": 5.18,
+      "end": 5.496,
+      "type": "word"
+    },
+    {
+      "text": "and",
+      "start": 5.539,
+      "end": 5.62,
+      "type": "word"
+    },
+    {
+      "text": "Lichess.",
+      "start": 5.67,
+      "end": 6.286,
+      "type": "word"
+    }
+  ]
+}

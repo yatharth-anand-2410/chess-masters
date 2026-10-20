@@ -22,3 +22,5 @@ books/
 e2e-screenshots/
 scratch/
 stitch-skills/
+*.qa/
+*.work/

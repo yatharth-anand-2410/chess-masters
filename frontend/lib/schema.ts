@@ -182,3 +182,25 @@ export const schemaGraph = (nodes: Array<Record<string, unknown>>) => ({
   "@context": "https://schema.org",
   "@graph": nodes,
 });
+
+export const VIDEO_OBJECT_SCHEMA = {
+  "@type": "VideoObject",
+  name: "Chessmasters: AI Chess Game Analyzer Explainer",
+  description:
+    "Turn Stockfish 16 engine depth into plain English coaching lessons. Learn how Chessmasters analyzes Chess.com and Lichess games with FIDE-accredited methodology.",
+  thumbnailUrl: [abs("/videos/chessmasters-explainer.poster.jpg")],
+  uploadDate: "2026-10-20T00:00:00Z",
+  duration: "PT48S",
+  contentUrl: abs("/videos/chessmasters-explainer.mp4"),
+  embedUrl: abs("/videos/chessmasters-explainer.mp4"),
+  transcript:
+    "Engine numbers like plus two point four don't tell you how to win. Club players don't need raw math; they need plain English coaching. Meet Chessmasters: the intelligent AI chess game analyzer for Chess dot com and Lichess. Designed with FIDE AIM Parth Kaushik, Chessmasters translates deep Stockfish evaluation into plain English chess lessons. Every review delivers five core sections: tactical strengths, critical blunder classification, opening leaks, focus areas, and curated Lichess study drills. Paste any game link at chessmasterss dot in. Your first analysis is completely free, with no account required.",
+  publisher: { "@id": ORGANIZATION_ID },
+  author: {
+    "@type": "Person",
+    name: "Parth Kaushik",
+    jobTitle: "FIDE Arena International Master (AIM)",
+    sameAs: FOUNDERS[0].sameAs,
+  },
+};
+

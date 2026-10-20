@@ -1,0 +1,777 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Chessmasters: AI Chess Game Analyzer</title>
+<script src="/_st/stage.js"></script>
+<link rel="stylesheet" href="/_st/themes/bold.css">
+<link rel="stylesheet" href="/_st/themes/fonts/geist.css">
+<link rel="stylesheet" href="/_st/themes/fonts/geist-mono.css">
+<script type="module" src="/_st/components/index.js"></script>
+<style>
+  /* ==========================================================================
+     CHESSMASTERS PRODUCT EXPLAINER VIDEO
+     ========================================================================== */
+  .stage {
+    --bg: #0b0d13;
+    --fg: #f8fafc;
+    --muted: #94a3b8;
+    --accent: #f59e0b; /* Gold */
+    --accent-ink: #1a1200;
+    --accent-cyan: #38bdf8;
+    --accent-emerald: #10b981;
+    --accent-red: #ef4444;
+    --surface: #131722;
+    --surface-card: #181d2a;
+    --surface-border: rgba(248, 250, 252, 0.1);
+    --gold-glow: rgba(245, 158, 11, 0.25);
+    font-feature-settings: 'ss01', 'cv11';
+    font-family: 'Geist', sans-serif;
+  }
+
+  .scene {
+    background: var(--bg);
+    --s-hero: 8.8cqh;
+    --s-title: 6.8cqh;
+    --s-sub: 3.6cqh;
+    --s-card-t: 3.8cqh;
+    --s-card: 2.8cqh;
+    --s-label: 3.0cqh;
+    overflow: hidden;
+  }
+
+  /* Ground lighting */
+  .bg {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background:
+      radial-gradient(55% 65% at 85% 15%, rgba(245, 158, 11, 0.14), transparent 70%),
+      radial-gradient(60% 70% at 15% 85%, rgba(56, 189, 248, 0.09), transparent 75%),
+      var(--bg);
+  }
+  .bg::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(to right, rgba(248, 250, 252, 0.035) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(248, 250, 252, 0.035) 1px, transparent 1px);
+    background-size: 6cqmin 6cqmin;
+    background-position: 50% 50%;
+    mask-image: radial-gradient(75% 75% at 50% 50%, black 20%, transparent 80%);
+  }
+  .bg::after {
+    content: '';
+    position: absolute;
+    inset: -20%;
+    background: radial-gradient(40% 40% at 50% 50%, rgba(245, 158, 11, 0.08), transparent 70%);
+    animation: driftSweep 10s cubic-bezier(0.37, 0, 0.63, 1) infinite alternate;
+  }
+  @keyframes driftSweep {
+    from { transform: translate(-4%, -3%) scale(0.98); }
+    to { transform: translate(4%, 3%) scale(1.02); }
+  }
+
+  .vig {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: radial-gradient(110% 85% at 50% 45%, transparent 60%, rgba(0,0,0,0.55));
+  }
+
+  /* Continuous subtle camera breath on all scene contents */
+  .scene-content {
+    position: absolute;
+    inset: 0;
+    animation: sceneBreath 12s cubic-bezier(0.4, 0, 0.2, 1) infinite alternate;
+  }
+  @keyframes sceneBreath {
+    from { transform: scale(1) translateY(0); }
+    to { transform: scale(1.02) translateY(-0.6cqmin); }
+  }
+
+  /* Shared Brand Header */
+  .brand {
+    position: absolute;
+    left: 8cqw;
+    top: 5cqh;
+    display: flex;
+    align-items: center;
+    gap: 1.6cqmin;
+    font: 700 var(--s-label)/1 'Geist', sans-serif;
+    letter-spacing: -0.01em;
+    color: var(--fg);
+    z-index: 10;
+  }
+  .brand-badge {
+    background: rgba(245, 158, 11, 0.15);
+    border: 1px solid rgba(245, 158, 11, 0.35);
+    color: var(--accent);
+    padding: 0.5cqh 1.4cqw;
+    border-radius: 999px;
+    font-size: 0.95em;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .chess-knight {
+    width: 2.6cqmin;
+    height: 2.6cqmin;
+    fill: var(--accent);
+  }
+
+  /* SCENE 1: Hook */
+  .hook-wrap {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 0 8cqw;
+    padding-top: 6cqh;
+  }
+  .hook-header {
+    margin-bottom: 3.8cqh;
+    max-width: 65cqw;
+  }
+  .hook-header h1 {
+    font-size: var(--s-hero);
+    line-height: 1.05;
+    letter-spacing: -0.035em;
+    font-weight: 700;
+    margin: 0 0 1.5cqh 0;
+  }
+  .hook-header h1 em {
+    font-style: normal;
+    color: var(--accent);
+  }
+  .hook-header p {
+    font-size: var(--s-sub);
+    color: var(--muted);
+    margin: 0;
+    line-height: 1.35;
+  }
+
+  .compare-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 3.5cqw;
+    max-width: 84cqw;
+  }
+  .card-compare {
+    background: var(--surface-card);
+    border: 1px solid var(--surface-border);
+    border-radius: 2cqmin;
+    padding: 3.8cqh 2.8cqw;
+    display: flex;
+    flex-direction: column;
+    gap: 2cqh;
+    box-shadow: 0 2cqmin 6cqmin rgba(0,0,0,0.4);
+    animation: floatSlow 5s ease-in-out infinite alternate;
+  }
+  .card-bad {
+    border-color: rgba(239, 68, 68, 0.35);
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.08), rgba(19, 23, 34, 0.9));
+  }
+  .card-good {
+    border-color: rgba(245, 158, 11, 0.5);
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.1), rgba(19, 23, 34, 0.9));
+    box-shadow: 0 2cqmin 6cqmin rgba(245, 158, 11, 0.18);
+  }
+  .tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 1cqmin;
+    font-size: var(--s-label);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .tag-bad { color: var(--accent-red); }
+  .tag-good { color: var(--accent); }
+  .compare-content {
+    font-size: var(--s-card-t);
+    line-height: 1.3;
+    font-weight: 500;
+  }
+  .mono-eval {
+    font-family: 'Geist Mono', monospace;
+    font-size: 1.3em;
+    color: #cbd5e1;
+    background: rgba(0,0,0,0.45);
+    padding: 1.2cqh 1.8cqw;
+    border-radius: 1cqmin;
+    display: inline-block;
+  }
+  .human-insight {
+    color: #f1f5f9;
+  }
+  .human-insight strong {
+    color: var(--accent);
+  }
+  @keyframes floatSlow {
+    from { transform: translateY(0); }
+    to { transform: translateY(-1.2cqmin); }
+  }
+
+  /* SCENE 2: Intro / Product Frame */
+  .intro-wrap {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 0 8cqw;
+    padding-top: 6cqh;
+  }
+  .intro-header {
+    text-align: center;
+    margin-bottom: 3.5cqh;
+  }
+  .intro-header h2 {
+    font-size: var(--s-title);
+    letter-spacing: -0.03em;
+    margin: 0 0 1cqh 0;
+  }
+  .intro-header h2 em {
+    font-style: normal;
+    color: var(--accent);
+  }
+  .intro-header p {
+    font-size: var(--s-sub);
+    color: var(--muted);
+    margin: 0;
+  }
+
+  .browser-mock {
+    margin: 0 auto;
+    width: 66cqw;
+    background: var(--surface);
+    border: 1px solid rgba(248, 250, 252, 0.14);
+    border-radius: 2cqmin;
+    box-shadow: 0 3cqmin 8cqmin rgba(0,0,0,0.6);
+    overflow: hidden;
+  }
+  .mock-nav {
+    display: flex;
+    align-items: center;
+    gap: 1.2cqmin;
+    padding: 1.6cqh 2cqw;
+    background: #0f121b;
+    border-bottom: 1px solid rgba(248, 250, 252, 0.08);
+  }
+  .dots {
+    display: flex;
+    gap: 0.6cqmin;
+  }
+  .dots span {
+    width: 1.2cqmin;
+    height: 1.2cqmin;
+    border-radius: 50%;
+    background: rgba(248, 250, 252, 0.25);
+  }
+  .mock-url {
+    margin-left: 2cqw;
+    background: rgba(0,0,0,0.3);
+    border-radius: 0.8cqmin;
+    padding: 0.7cqh 2cqw;
+    font-family: 'Geist Mono', monospace;
+    font-size: var(--s-label);
+    color: var(--muted);
+  }
+  .mock-body {
+    padding: 3.5cqh 3.5cqw;
+    display: flex;
+    flex-direction: column;
+    gap: 2.2cqh;
+  }
+  .toggle-row {
+    display: flex;
+    gap: 1.4cqw;
+  }
+  .pill-tab {
+    padding: 1.1cqh 2.2cqw;
+    border-radius: 0.9cqmin;
+    font-size: var(--s-label);
+    font-weight: 600;
+    background: rgba(248, 250, 252, 0.06);
+    color: var(--muted);
+  }
+  .pill-tab.active {
+    background: var(--accent);
+    color: var(--accent-ink);
+  }
+  .input-box {
+    display: flex;
+    gap: 1.5cqw;
+    align-items: center;
+  }
+  .url-field {
+    flex: 1;
+    background: #090b10;
+    border: 1px solid rgba(245, 158, 11, 0.45);
+    box-shadow: 0 0 1.5cqmin var(--gold-glow);
+    border-radius: 1.1cqmin;
+    padding: 1.6cqh 2cqw;
+    font-family: 'Geist Mono', monospace;
+    font-size: var(--s-card-t);
+    color: #f8fafc;
+  }
+  .btn-analyze {
+    background: var(--accent);
+    color: #1a1200;
+    border: 1px solid #f59e0b;
+    font-family: 'Geist', sans-serif;
+    font-weight: 700;
+    font-size: var(--s-card-t);
+    padding: 1.6cqh 2.6cqw;
+    border-radius: 1.1cqmin;
+    white-space: nowrap;
+    box-shadow: 0 0 2.5cqmin rgba(245, 158, 11, 0.4);
+    display: inline-block;
+  }
+
+  /* SCENE 3: Expert Pedigree */
+  .expert-wrap {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 0 8cqw;
+    padding-top: 6cqh;
+  }
+  .pedigree-box {
+    display: grid;
+    grid-template-columns: 38% 1fr;
+    gap: 4cqw;
+    align-items: center;
+    max-width: 84cqw;
+  }
+  .fide-profile {
+    background: var(--surface-card);
+    border: 1px solid rgba(245, 158, 11, 0.35);
+    box-shadow: 0 2cqmin 6cqmin rgba(0,0,0,0.5);
+    border-radius: 2.2cqmin;
+    padding: 4.2cqh 3.2cqw;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.5cqh;
+  }
+  .fide-shield {
+    width: 6.8cqmin;
+    height: 6.8cqmin;
+    background: rgba(245, 158, 11, 0.15);
+    border: 2px solid var(--accent);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .fide-name {
+    font-size: var(--s-card-t);
+    font-weight: 700;
+    color: #f8fafc;
+    margin: 0;
+  }
+  .fide-title {
+    color: var(--accent);
+    font-size: var(--s-label);
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+  .fide-creds {
+    font-size: var(--s-label);
+    color: var(--muted);
+    line-height: 1.45;
+  }
+
+  .engine-pipeline {
+    display: flex;
+    flex-direction: column;
+    gap: 2.2cqh;
+  }
+  .pipeline-step {
+    background: var(--surface);
+    border: 1px solid var(--surface-border);
+    border-radius: 1.4cqmin;
+    padding: 2.4cqh 2.8cqw;
+    display: flex;
+    align-items: center;
+    gap: 2cqw;
+  }
+  .step-num {
+    background: rgba(248, 250, 252, 0.1);
+    color: var(--muted);
+    font-family: 'Geist Mono', monospace;
+    font-size: var(--s-label);
+    font-weight: 700;
+    width: 3.4cqmin;
+    height: 3.4cqmin;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .pipeline-step.active-step {
+    border-color: rgba(245, 158, 11, 0.55);
+    background: linear-gradient(90deg, rgba(245, 158, 11, 0.1), var(--surface));
+  }
+  .pipeline-step.active-step .step-num {
+    background: var(--accent);
+    color: var(--accent-ink);
+  }
+  .step-txt h3 {
+    margin: 0 0 0.5cqh 0;
+    font-size: var(--s-card-t);
+    font-weight: 600;
+  }
+  .step-txt p {
+    margin: 0;
+    font-size: var(--s-label);
+    color: var(--muted);
+  }
+
+  /* SCENE 4: 5 Core Report Sections */
+  .features-wrap {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 0 8cqw;
+    padding-top: 6cqh;
+  }
+  .features-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 1.6cqw;
+    margin-top: 3cqh;
+  }
+  .feature-box {
+    background: var(--surface-card);
+    border: 1px solid var(--surface-border);
+    border-radius: 1.8cqmin;
+    padding: 3.2cqh 1.8cqw;
+    display: flex;
+    flex-direction: column;
+    gap: 1.6cqh;
+    box-shadow: 0 1.5cqmin 4cqmin rgba(0,0,0,0.3);
+  }
+  .feature-icon {
+    width: 4.2cqmin;
+    height: 4.2cqmin;
+    border-radius: 1.1cqmin;
+    background: rgba(245, 158, 11, 0.14);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--accent);
+    font-size: 2cqmin;
+    font-weight: 700;
+  }
+  .feature-box h3 {
+    font-size: var(--s-card-t);
+    font-weight: 700;
+    margin: 0;
+    color: #f8fafc;
+    line-height: 1.2;
+  }
+  .feature-box p {
+    font-size: var(--s-label);
+    color: var(--muted);
+    margin: 0;
+    line-height: 1.35;
+  }
+  .feature-box.highlight {
+    border-color: rgba(245, 158, 11, 0.65);
+    box-shadow: 0 0 3.5cqmin rgba(245, 158, 11, 0.22);
+    background: linear-gradient(180deg, rgba(245, 158, 11, 0.1), var(--surface-card));
+  }
+
+  /* SCENE 5: Close / CTA */
+  .close-wrap {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    gap: 2.6cqh;
+  }
+  .close-crest {
+    width: 8.5cqmin;
+    height: 8.5cqmin;
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+    border-radius: 2.4cqmin;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 0 5cqmin rgba(245, 158, 11, 0.45);
+  }
+  .close-crest svg {
+    width: 5cqmin;
+    height: 5cqmin;
+    fill: #1a1200;
+  }
+  .close-title {
+    font-size: var(--s-hero);
+    font-weight: 800;
+    letter-spacing: -0.04em;
+    margin: 0;
+    line-height: 1;
+    color: #f8fafc;
+  }
+  .close-sub {
+    font-size: var(--s-sub);
+    color: var(--muted);
+    margin: 0;
+    max-width: 45cqw;
+  }
+  .cta-badge {
+    background: var(--accent);
+    color: var(--accent-ink);
+    font-size: var(--s-card-t);
+    font-weight: 700;
+    padding: 1.8cqh 3.8cqw;
+    border-radius: 999px;
+    box-shadow: 0 0 3.5cqmin rgba(245, 158, 11, 0.45);
+    letter-spacing: -0.01em;
+  }
+  .url-label {
+    font-family: 'Geist Mono', monospace;
+    font-size: var(--s-card-t);
+    color: #cbd5e1;
+    letter-spacing: 0.02em;
+  }
+  .byline-tag {
+    font-size: var(--s-label);
+    color: var(--muted);
+    margin-top: 1cqh;
+  }
+  .byline-tag strong {
+    color: #f8fafc;
+  }
+</style>
+</head>
+<body>
+<div class="stage">
+
+  <!-- ========================================================================
+       SCENE 1: HOOK (0.00s to 9.60s)
+       "Engine numbers like plus two point four don't tell you how to win..."
+       ======================================================================== -->
+  <section class="scene" id="hook" data-start="0" data-dur="9.60">
+    <div class="bg"></div>
+    <div class="brand">
+      <svg class="chess-knight" viewBox="0 0 24 24"><path d="M19 22H5v-2h14v2m-6-19.8c-2.3 0-4.3 1.6-4.8 3.9-.3 1.1-.1 2.3.5 3.3l-1.9 2c-.5.5-.8 1.2-.8 1.9v2.7h10v-2.7c0-.7-.3-1.4-.8-1.9l-1.9-2c.6-1 .8-2.2.5-3.3-.5-2.3-2.5-3.9-4.8-3.9z"/></svg>
+      Chessmasters
+      <span class="brand-badge" data-st-decor>AI Chess Game Analyzer</span>
+    </div>
+
+    <div class="scene-content hook-wrap">
+      <div class="hook-header">
+        <h1 data-st="kinetic-type" data-style="mask" data-at="0.2">Engine numbers don't teach you <em>how to win.</em></h1>
+        <p data-st="kinetic-type" data-style="rise" data-at="1.2">Club players don't need raw math. They need plain-English coaching.</p>
+      </div>
+
+      <div class="compare-grid">
+        <div class="card-compare card-bad" data-st="kinetic-type" data-style="rise" data-at="2.2">
+          <div class="tag tag-bad">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+            Standard Engine Output
+          </div>
+          <div class="mono-eval" data-st-decor>+2.45 · depth 28 · eval -420cp</div>
+          <div class="compare-content" style="color: #94a3b8;">
+            Raw evaluation leaves you guessing why your position collapsed.
+          </div>
+        </div>
+
+        <div class="card-compare card-good" data-st="kinetic-type" data-style="rise" data-at="4.2">
+          <div class="tag tag-good">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><polyline points="9 11 12 14 22 4"/></svg>
+            Chessmasters AI Lesson
+          </div>
+          <div class="compare-content human-insight">
+            "Your <strong>Knight fork on c7</strong> wins Black's rook, but your bishop on g2 was left undefended."
+          </div>
+          <div class="tag tag-good" style="font-size: 0.85em;">Actionable Plain English · Curated Drills</div>
+        </div>
+      </div>
+    </div>
+    <div class="vig"></div>
+  </section>
+
+  <!-- ========================================================================
+       SCENE 2: INTRO (9.60s to 16.60s)
+       "Meet Chessmasters: the intelligent AI chess game analyzer for Chess.com and Lichess."
+       ======================================================================== -->
+  <section class="scene" id="intro" data-start="#hook" data-dur="7.00" data-transition="push left 0.5">
+    <div class="bg"></div>
+    <div class="brand">
+      <svg class="chess-knight" viewBox="0 0 24 24"><path d="M19 22H5v-2h14v2m-6-19.8c-2.3 0-4.3 1.6-4.8 3.9-.3 1.1-.1 2.3.5 3.3l-1.9 2c-.5.5-.8 1.2-.8 1.9v2.7h10v-2.7c0-.7-.3-1.4-.8-1.9l-1.9-2c.6-1 .8-2.2.5-3.3-.5-2.3-2.5-3.9-4.8-3.9z"/></svg>
+      Chessmasters
+    </div>
+
+    <div class="scene-content intro-wrap">
+      <div class="intro-header">
+        <h2 data-st="kinetic-type" data-style="mask" data-at="0.2">Meet <em>Chessmasters</em></h2>
+        <p data-st="kinetic-type" data-style="rise" data-at="1.0">The intelligent AI game analyzer for Chess.com and Lichess.</p>
+      </div>
+
+      <div class="browser-mock" data-st-decor>
+        <div class="mock-nav">
+          <div class="dots"><span></span><span></span><span></span></div>
+          <div class="mock-url">https://www.chessmasterss.in</div>
+        </div>
+        <div class="mock-body">
+          <div class="toggle-row">
+            <div class="pill-tab active">Lichess.org</div>
+            <div class="pill-tab">Chess.com</div>
+          </div>
+          <div class="input-box">
+            <div class="url-field" data-st="typewriter" data-at="1.2" data-fit="1.4">https://lichess.org/game/export/WzK9e4Q1</div>
+            <button class="btn-analyze" id="analyze-btn">Analyze Game</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div data-st="cursor" data-at="3.0" data-path='[{"at":0.5,"x":75,"y":68},{"at":1.8,"target":"#analyze-btn","hover":true},{"at":2.2,"target":"#analyze-btn","click":true}]'></div>
+    <div class="vig"></div>
+  </section>
+
+  <!-- ========================================================================
+       SCENE 3: EXPERT PEDIGREE (16.60s to 25.93s)
+       "Designed with FIDE AIM Parth Kaushik, Chessmasters translates deep Stockfish evaluation..."
+       ======================================================================== -->
+  <section class="scene" id="expert" data-start="#intro" data-dur="9.33" data-transition="push left 0.5">
+    <div class="bg"></div>
+    <div class="brand">
+      <svg class="chess-knight" viewBox="0 0 24 24"><path d="M19 22H5v-2h14v2m-6-19.8c-2.3 0-4.3 1.6-4.8 3.9-.3 1.1-.1 2.3.5 3.3l-1.9 2c-.5.5-.8 1.2-.8 1.9v2.7h10v-2.7c0-.7-.3-1.4-.8-1.9l-1.9-2c.6-1 .8-2.2.5-3.3-.5-2.3-2.5-3.9-4.8-3.9z"/></svg>
+      Chessmasters
+    </div>
+
+    <div class="scene-content expert-wrap">
+      <div class="hook-header" style="margin-bottom: 2.5cqh;">
+        <h2 data-st="kinetic-type" data-style="mask" data-at="0.2">FIDE-Accredited <em>Coaching Methodology</em></h2>
+        <p data-st="kinetic-type" data-style="rise" data-at="1.0">Grandmaster heuristic translation built on top of Stockfish 16 depth.</p>
+      </div>
+
+      <div class="pedigree-box">
+        <div class="fide-profile" data-st="kinetic-type" data-style="rise" data-at="1.5">
+          <div class="fide-shield">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="#f59e0b"><path d="M12 2L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-3z"/></svg>
+          </div>
+          <h3 class="fide-name">Parth Kaushik</h3>
+          <div class="fide-title">FIDE AIM &amp; Arena Grandmaster</div>
+          <div class="fide-creds">
+            Peak Rating 2000+ FIDE<br>
+            Associate Instructor Candidate Master<br>
+            Direct algorithmic coaching overlay
+          </div>
+        </div>
+
+        <div class="engine-pipeline">
+          <div class="pipeline-step" data-st="kinetic-type" data-style="rise" data-at="2.5">
+            <div class="step-num" data-st-decor>01</div>
+            <div class="step-txt">
+              <h3>Stockfish 16 Engine Depth</h3>
+              <p>Move-by-move evaluation and exact centipawn loss calculation.</p>
+            </div>
+          </div>
+          <div class="pipeline-step active-step" data-st="kinetic-type" data-style="rise" data-at="4.8">
+            <div class="step-num" data-st-decor>02</div>
+            <div class="step-txt">
+              <h3>Gemini 1.5 Flash AI Engine</h3>
+              <p>Translates engine deltas into plain English tactical explanations.</p>
+            </div>
+          </div>
+          <div class="pipeline-step" data-st="kinetic-type" data-style="rise" data-at="6.8">
+            <div class="step-num" data-st-decor>03</div>
+            <div class="step-txt">
+              <h3>Curated Lichess Practice Library</h3>
+              <p>Direct targeted practice drills for the motifs you failed.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="vig"></div>
+  </section>
+
+  <!-- ========================================================================
+       SCENE 4: 5 CORE REPORT SECTIONS (25.93s to 37.30s)
+       "Every review delivers five core sections: tactical strengths, critical blunder classification..."
+       ======================================================================== -->
+  <section class="scene" id="features" data-start="#expert" data-dur="11.37" data-transition="push left 0.5">
+    <div class="bg"></div>
+    <div class="brand">
+      <svg class="chess-knight" viewBox="0 0 24 24"><path d="M19 22H5v-2h14v2m-6-19.8c-2.3 0-4.3 1.6-4.8 3.9-.3 1.1-.1 2.3.5 3.3l-1.9 2c-.5.5-.8 1.2-.8 1.9v2.7h10v-2.7c0-.7-.3-1.4-.8-1.9l-1.9-2c.6-1 .8-2.2.5-3.3-.5-2.3-2.5-3.9-4.8-3.9z"/></svg>
+      Chessmasters
+    </div>
+
+    <div class="scene-content features-wrap">
+      <div class="hook-header" style="margin-bottom: 2cqh;">
+        <h2 data-st="kinetic-type" data-style="mask" data-at="0.2">Five Core <em>Diagnostic Sections</em></h2>
+        <p data-st="kinetic-type" data-style="rise" data-at="0.8">Complete actionable game breakdown tailored to your playing style.</p>
+      </div>
+
+      <div class="features-grid">
+        <div class="feature-box highlight" data-st="kinetic-type" data-style="rise" data-at="1.2">
+          <div class="feature-icon" data-st-decor>01</div>
+          <h3>Tactical Strengths</h3>
+          <p>Motif execution: forks, pins, skewers &amp; deflections.</p>
+        </div>
+        <div class="feature-box" data-st="kinetic-type" data-style="rise" data-at="3.2">
+          <div class="feature-icon" data-st-decor>02</div>
+          <h3>Blunder Analysis</h3>
+          <p>Pinpoints the exact move where evaluation collapsed.</p>
+        </div>
+        <div class="feature-box" data-st="kinetic-type" data-style="rise" data-at="5.2">
+          <div class="feature-icon" data-st-decor>03</div>
+          <h3>Opening Leaks</h3>
+          <p>Identifies exact deviations from master opening theory.</p>
+        </div>
+        <div class="feature-box" data-st="kinetic-type" data-style="rise" data-at="7.2">
+          <div class="feature-icon" data-st-decor>04</div>
+          <h3>Focus Areas</h3>
+          <p>Actionable middlegame and endgame priorities.</p>
+        </div>
+        <div class="feature-box highlight" data-st="kinetic-type" data-style="rise" data-at="9.0">
+          <div class="feature-icon" data-st-decor>05</div>
+          <h3>Curated Drills</h3>
+          <p>Direct clickable Lichess studies mapped to your leaks.</p>
+        </div>
+      </div>
+    </div>
+    <div class="vig"></div>
+  </section>
+
+  <!-- ========================================================================
+       SCENE 5: CLOSE / CTA (37.30s to 48.00s)
+       "Paste any game link at chessmasterss dot in. Your first analysis is completely free..."
+       ======================================================================== -->
+  <section class="scene" id="cta" data-start="#features" data-dur="10.70" data-transition="sdf-iris 0.7">
+    <div class="bg"></div>
+    <div class="scene-content close-wrap">
+      <div class="close-crest" data-st="kinetic-type" data-style="rise" data-at="0.2">
+        <svg viewBox="0 0 24 24"><path d="M19 22H5v-2h14v2m-6-19.8c-2.3 0-4.3 1.6-4.8 3.9-.3 1.1-.1 2.3.5 3.3l-1.9 2c-.5.5-.8 1.2-.8 1.9v2.7h10v-2.7c0-.7-.3-1.4-.8-1.9l-1.9-2c.6-1 .8-2.2.5-3.3-.5-2.3-2.5-3.9-4.8-3.9z"/></svg>
+      </div>
+      <h2 class="close-title" data-st="kinetic-type" data-style="mask" data-at="0.6">Chessmasters</h2>
+      <p class="close-sub" data-st="kinetic-type" data-style="rise" data-at="1.2">The AI Chess Game Analyzer for Chess.com &amp; Lichess</p>
+      <div class="cta-badge" data-st="kinetic-type" data-style="rise" data-at="2.2">Analyze Your Game Free</div>
+      <div class="url-label" data-st="kinetic-type" data-style="rise" data-at="3.6">chessmasterss.in</div>
+      <div class="byline-tag" data-st="kinetic-type" data-style="rise" data-at="4.8">Methodology by <strong>FIDE AIM Parth Kaushik</strong> · No Account Required</div>
+    </div>
+    <div class="vig"></div>
+  </section>
+
+  <!-- Film grain overlay -->
+  <div data-st="grain"></div>
+</div>
+</body>
+</html>

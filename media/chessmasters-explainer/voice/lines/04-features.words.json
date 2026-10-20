@@ -1,0 +1,128 @@
+{
+  "source": "04-features.wav",
+  "duration": 11.015,
+  "language": "en",
+  "model": "kokoro-v1.0-timestamped-fp16.onnx",
+  "words": [
+    {
+      "text": "Every",
+      "start": 0.02,
+      "end": 0.28,
+      "type": "word"
+    },
+    {
+      "text": "review",
+      "start": 0.341,
+      "end": 0.758,
+      "type": "word"
+    },
+    {
+      "text": "delivers",
+      "start": 0.807,
+      "end": 1.245,
+      "type": "word"
+    },
+    {
+      "text": "five",
+      "start": 1.333,
+      "end": 1.661,
+      "type": "word"
+    },
+    {
+      "text": "core",
+      "start": 1.73,
+      "end": 1.955,
+      "type": "word"
+    },
+    {
+      "text": "sections:",
+      "start": 2.025,
+      "end": 2.64,
+      "type": "word"
+    },
+    {
+      "text": "tactical",
+      "start": 3.07,
+      "end": 3.548,
+      "type": "word"
+    },
+    {
+      "text": "strengths,",
+      "start": 3.622,
+      "end": 4.23,
+      "type": "word"
+    },
+    {
+      "text": "critical",
+      "start": 4.55,
+      "end": 4.93,
+      "type": "word"
+    },
+    {
+      "text": "blunder",
+      "start": 5.005,
+      "end": 5.328,
+      "type": "word"
+    },
+    {
+      "text": "classification,",
+      "start": 5.378,
+      "end": 6.312,
+      "type": "word"
+    },
+    {
+      "text": "opening",
+      "start": 6.441,
+      "end": 6.862,
+      "type": "word"
+    },
+    {
+      "text": "leaks,",
+      "start": 6.919,
+      "end": 7.4,
+      "type": "word"
+    },
+    {
+      "text": "focus",
+      "start": 7.66,
+      "end": 8.044,
+      "type": "word"
+    },
+    {
+      "text": "areas,",
+      "start": 8.096,
+      "end": 8.578,
+      "type": "word"
+    },
+    {
+      "text": "and",
+      "start": 8.655,
+      "end": 8.739,
+      "type": "word"
+    },
+    {
+      "text": "curated",
+      "start": 8.83,
+      "end": 9.321,
+      "type": "word"
+    },
+    {
+      "text": "Lichess",
+      "start": 9.371,
+      "end": 9.723,
+      "type": "word"
+    },
+    {
+      "text": "study",
+      "start": 9.773,
+      "end": 10.045,
+      "type": "word"
+    },
+    {
+      "text": "drills.",
+      "start": 10.108,
+      "end": 10.595,
+      "type": "word"
+    }
+  ]
+}

@@ -6,6 +6,7 @@ import {
   faqPageSchema,
   schemaGraph,
   SOFTWARE_APPLICATION_SCHEMA,
+  VIDEO_OBJECT_SCHEMA,
   webPageSchema,
 } from "../lib/schema";
 import {
@@ -51,6 +52,7 @@ export default function HomePage() {
           }),
           SOFTWARE_APPLICATION_SCHEMA,
           faqPageSchema(FAQS),
+          VIDEO_OBJECT_SCHEMA,
         ])}
       />
       <HomeDashboard />

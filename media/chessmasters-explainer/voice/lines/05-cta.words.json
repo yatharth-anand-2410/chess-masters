@@ -1,0 +1,116 @@
+{
+  "source": "05-cta.wav",
+  "duration": 8.084,
+  "language": "en",
+  "model": "kokoro-v1.0-timestamped-fp16.onnx",
+  "words": [
+    {
+      "text": "Paste",
+      "start": 0.04,
+      "end": 0.286,
+      "type": "word"
+    },
+    {
+      "text": "any",
+      "start": 0.29,
+      "end": 0.471,
+      "type": "word"
+    },
+    {
+      "text": "game",
+      "start": 0.535,
+      "end": 0.815,
+      "type": "word"
+    },
+    {
+      "text": "link",
+      "start": 0.866,
+      "end": 1.077,
+      "type": "word"
+    },
+    {
+      "text": "at",
+      "start": 1.08,
+      "end": 1.208,
+      "type": "word"
+    },
+    {
+      "text": "chessmasterss",
+      "start": 1.25,
+      "end": 1.977,
+      "type": "word"
+    },
+    {
+      "text": "dot",
+      "start": 2.046,
+      "end": 2.321,
+      "type": "word"
+    },
+    {
+      "text": "in.",
+      "start": 2.362,
+      "end": 2.67,
+      "type": "word"
+    },
+    {
+      "text": "Your",
+      "start": 3.19,
+      "end": 3.287,
+      "type": "word"
+    },
+    {
+      "text": "first",
+      "start": 3.373,
+      "end": 3.648,
+      "type": "word"
+    },
+    {
+      "text": "analysis",
+      "start": 3.68,
+      "end": 4.347,
+      "type": "word"
+    },
+    {
+      "text": "is",
+      "start": 4.405,
+      "end": 4.506,
+      "type": "word"
+    },
+    {
+      "text": "completely",
+      "start": 4.557,
+      "end": 5.176,
+      "type": "word"
+    },
+    {
+      "text": "free,",
+      "start": 5.292,
+      "end": 5.81,
+      "type": "word"
+    },
+    {
+      "text": "with",
+      "start": 6.078,
+      "end": 6.219,
+      "type": "word"
+    },
+    {
+      "text": "no",
+      "start": 6.296,
+      "end": 6.484,
+      "type": "word"
+    },
+    {
+      "text": "account",
+      "start": 6.535,
+      "end": 6.923,
+      "type": "word"
+    },
+    {
+      "text": "required.",
+      "start": 6.97,
+      "end": 7.694,
+      "type": "word"
+    }
+  ]
+}

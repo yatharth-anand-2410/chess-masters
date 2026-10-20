@@ -1068,6 +1068,23 @@ export default function HomePage() {
         </p>
       </section>
 
+      <section className="explainer-video-panel my-8" aria-labelledby="video-explainer-title">
+        <div className="section-head mb-4">
+          <h2 id="video-explainer-title" className="text-xl font-bold text-cream">Watch: How Chessmasters Analyzes Your Game</h2>
+        </div>
+        <div className="explainer-video-container max-w-3xl mx-auto rounded-xl overflow-hidden border border-border/40 shadow-2xl bg-ink-2">
+          <video
+            controls
+            preload="metadata"
+            poster="/videos/chessmasters-explainer.poster.jpg"
+            className="w-full aspect-video rounded-xl"
+          >
+            <source src="/videos/chessmasters-explainer.mp4" type="video/mp4" />
+            Your browser does not support the video tag.
+          </video>
+        </div>
+      </section>
+
       <FaqSection items={FAQS} showMeta={false} showTitle={true} showMoreLink={true} />
 
       {guestLimitHit && (

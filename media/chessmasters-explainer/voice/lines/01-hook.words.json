@@ -1,0 +1,152 @@
+{
+  "source": "01-hook.wav",
+  "duration": 8.927,
+  "language": "en",
+  "model": "kokoro-v1.0-timestamped-fp16.onnx",
+  "words": [
+    {
+      "text": "Engine",
+      "start": 0.1,
+      "end": 0.466,
+      "type": "word"
+    },
+    {
+      "text": "numbers",
+      "start": 0.518,
+      "end": 0.881,
+      "type": "word"
+    },
+    {
+      "text": "like",
+      "start": 0.928,
+      "end": 1.101,
+      "type": "word"
+    },
+    {
+      "text": "plus",
+      "start": 1.14,
+      "end": 1.398,
+      "type": "word"
+    },
+    {
+      "text": "two",
+      "start": 1.51,
+      "end": 1.681,
+      "type": "word"
+    },
+    {
+      "text": "point",
+      "start": 1.742,
+      "end": 2.058,
+      "type": "word"
+    },
+    {
+      "text": "four",
+      "start": 2.158,
+      "end": 2.496,
+      "type": "word"
+    },
+    {
+      "text": "don't",
+      "start": 2.553,
+      "end": 2.74,
+      "type": "word"
+    },
+    {
+      "text": "tell",
+      "start": 2.84,
+      "end": 3.002,
+      "type": "word"
+    },
+    {
+      "text": "you",
+      "start": 3.051,
+      "end": 3.127,
+      "type": "word"
+    },
+    {
+      "text": "how",
+      "start": 3.176,
+      "end": 3.33,
+      "type": "word"
+    },
+    {
+      "text": "to",
+      "start": 3.366,
+      "end": 3.44,
+      "type": "word"
+    },
+    {
+      "text": "win.",
+      "start": 3.516,
+      "end": 3.93,
+      "type": "word"
+    },
+    {
+      "text": "Club",
+      "start": 4.36,
+      "end": 4.603,
+      "type": "word"
+    },
+    {
+      "text": "players",
+      "start": 4.659,
+      "end": 5.058,
+      "type": "word"
+    },
+    {
+      "text": "don't",
+      "start": 5.119,
+      "end": 5.325,
+      "type": "word"
+    },
+    {
+      "text": "need",
+      "start": 5.375,
+      "end": 5.621,
+      "type": "word"
+    },
+    {
+      "text": "raw",
+      "start": 5.672,
+      "end": 5.886,
+      "type": "word"
+    },
+    {
+      "text": "math;",
+      "start": 5.946,
+      "end": 6.4,
+      "type": "word"
+    },
+    {
+      "text": "they",
+      "start": 6.76,
+      "end": 6.877,
+      "type": "word"
+    },
+    {
+      "text": "need",
+      "start": 6.926,
+      "end": 7.147,
+      "type": "word"
+    },
+    {
+      "text": "plain",
+      "start": 7.22,
+      "end": 7.538,
+      "type": "word"
+    },
+    {
+      "text": "English",
+      "start": 7.597,
+      "end": 7.923,
+      "type": "word"
+    },
+    {
+      "text": "coaching.",
+      "start": 7.98,
+      "end": 8.547,
+      "type": "word"
+    }
+  ]
+}

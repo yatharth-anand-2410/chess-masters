@@ -1,0 +1,374 @@
+{
+  "schema": "showtime.mix.report/1",
+  "output": "mix.wav",
+  "duration": 48.0,
+  "sample_rate": 48000,
+  "master": {
+    "target_lufs": -14.0,
+    "target_true_peak": -1.0,
+    "engine": "st",
+    "input_lufs": -16.17,
+    "gain_db": 2.17,
+    "limiting_db": 0.0,
+    "output_lufs": -14.0,
+    "output_tp": -1.85
+  },
+  "integrated_lufs": -14.0,
+  "true_peak_dbtp": -1.85,
+  "lra": 1.95,
+  "short_term_max_lufs": -12.88,
+  "sample_peak_dbfs": -1.88,
+  "premaster": {
+    "integrated_lufs": -16.17,
+    "true_peak_dbtp": -4.02
+  },
+  "voice_to_music_db": 17.97,
+  "speaker": {
+    "on": true,
+    "highpass_hz": 40.0,
+    "gap_300_lu_before": 3.05,
+    "shelf_db": 0.0,
+    "set_by": "default",
+    "integrated_lufs": -14.0,
+    "above_300_lufs": -17.04,
+    "gap_300_lu": 3.04,
+    "above_1k_lufs": -20.38,
+    "gap_1k_lu": 6.38
+  },
+  "sections": [
+    {
+      "name": "intro",
+      "start": 0.0,
+      "end": 9.6,
+      "rms_dbfs": -17.04,
+      "peak_dbfs": -2.2,
+      "lufs": -13.82,
+      "buses_rms_dbfs": {
+        "music": -36.8,
+        "voice": -17.1,
+        "sfx": -40.1
+      }
+    },
+    {
+      "name": "build",
+      "start": 9.6,
+      "end": 26.0,
+      "rms_dbfs": -16.98,
+      "peak_dbfs": -1.93,
+      "lufs": -13.84,
+      "buses_rms_dbfs": {
+        "music": -32.5,
+        "voice": -17.1,
+        "sfx": -38.1
+      }
+    },
+    {
+      "name": "drop",
+      "start": 26.0,
+      "end": 37.3,
+      "rms_dbfs": -16.97,
+      "peak_dbfs": -1.88,
+      "lufs": -13.92,
+      "buses_rms_dbfs": {
+        "music": -31.9,
+        "voice": -17.1,
+        "sfx": -239.7
+      }
+    },
+    {
+      "name": "outro",
+      "start": 37.3,
+      "end": 46.47,
+      "rms_dbfs": -17.0,
+      "peak_dbfs": -1.97,
+      "lufs": -14.1,
+      "buses_rms_dbfs": {
+        "music": -31.1,
+        "voice": -17.4,
+        "sfx": -30.6
+      }
+    },
+    {
+      "name": "ending",
+      "start": 46.47,
+      "end": 48.0,
+      "rms_dbfs": -24.79,
+      "peak_dbfs": -7.0,
+      "lufs": -20.6,
+      "buses_rms_dbfs": {
+        "music": -24.8,
+        "voice": -240.0,
+        "sfx": -62.5
+      }
+    }
+  ],
+  "tracks": [
+    {
+      "id": "bed",
+      "index": 0,
+      "kind": "music",
+      "source": "compose",
+      "path": "showtime-home:cache/audio/compose-6fba36cd5245a17a/music.wav",
+      "gain_db": -7.99,
+      "level": {
+        "reference": "-20 LUFS integrated",
+        "measured": -14.01
+      },
+      "start": 0.0,
+      "end": 48.0,
+      "license": "generated",
+      "compose": {
+        "style": "upbeat-tech",
+        "duration": 48.0,
+        "bpm": 118,
+        "key": null,
+        "sections": "0.0:intro,9.6:build,26.0:drop,37.3:outro",
+        "seed": 42,
+        "backend": "auto",
+        "soundfont": null,
+        "backend_used": "synth",
+        "soundfont_file": null
+      },
+      "beats_file": "showtime-home:cache/audio/compose-6fba36cd5245a17a/music.beats.json",
+      "end_hit": 46.47,
+      "music_sections": [
+        {
+          "name": "intro",
+          "start": 0.0,
+          "end": 9.6
+        },
+        {
+          "name": "build",
+          "start": 9.6,
+          "end": 26.0
+        },
+        {
+          "name": "drop",
+          "start": 26.0,
+          "end": 37.3
+        },
+        {
+          "name": "outro",
+          "start": 37.3,
+          "end": 46.47
+        }
+      ],
+      "downbeats": [
+        0.0,
+        2.021,
+        4.042,
+        6.063,
+        8.084,
+        9.6,
+        11.65,
+        13.7,
+        15.75,
+        17.8,
+        19.85,
+        21.9,
+        23.95,
+        26.0,
+        28.055,
+        30.109,
+        32.164,
+        34.218,
+        36.273,
+        37.3,
+        39.338,
+        41.376,
+        43.414,
+        45.451
+      ],
+      "carve": {
+        "bands": [
+          {
+            "hz": 400,
+            "max_cut_db": 4.7
+          },
+          {
+            "hz": 1600,
+            "max_cut_db": 8.4
+          },
+          {
+            "hz": 2500,
+            "max_cut_db": 7.8
+          }
+        ],
+        "strength": 0.4
+      },
+      "duck": {
+        "under": [
+          "voice"
+        ],
+        "depth_db": 11.0,
+        "active_seconds": 40.12,
+        "max_reduction_db": 11.0,
+        "word_timings": true
+      }
+    },
+    {
+      "id": "voice",
+      "index": 1,
+      "kind": "voice",
+      "source": "file",
+      "path": "../voice/vo.wav",
+      "gain_db": -2.99,
+      "level": {
+        "reference": "-16 LUFS integrated",
+        "measured": -13.01
+      },
+      "start": 0.0,
+      "end": 46.1812
+    },
+    {
+      "id": "sfx2",
+      "index": 2,
+      "kind": "sfx",
+      "source": "synth",
+      "path": null,
+      "gain_db": -4.0,
+      "level": {
+        "reference": "sfx category (already levelled)",
+        "category": "transition"
+      },
+      "aligned": {
+        "at": 9.6,
+        "align": "hit",
+        "anchor": 0.6
+      },
+      "start": 9.0,
+      "end": 10.5561,
+      "license": "generated",
+      "synth": {
+        "type": "whoosh",
+        "hit": 0.6,
+        "category": "transition",
+        "duration": 1.5561
+      },
+      "speaker_gap_lu": 0.1,
+      "above_bed_db": 8.6
+    },
+    {
+      "id": "sfx3",
+      "index": 3,
+      "kind": "sfx",
+      "source": "synth",
+      "path": null,
+      "gain_db": -3.0,
+      "level": {
+        "reference": "sfx category (already levelled)",
+        "category": "ui"
+      },
+      "aligned": {
+        "at": 16.6,
+        "align": "hit",
+        "anchor": 0.0
+      },
+      "start": 16.6,
+      "end": 16.64,
+      "license": "generated",
+      "synth": {
+        "type": "click",
+        "hit": 0.0,
+        "category": "ui",
+        "duration": 0.04
+      },
+      "speaker_gap_lu": 0.0,
+      "above_bed_db": -5.9
+    },
+    {
+      "id": "sfx4",
+      "index": 4,
+      "kind": "sfx",
+      "source": "synth",
+      "path": null,
+      "gain_db": -4.0,
+      "level": {
+        "reference": "sfx category (already levelled)",
+        "category": "transition"
+      },
+      "aligned": {
+        "at": 25.9,
+        "align": "hit",
+        "anchor": 0.6
+      },
+      "start": 25.3,
+      "end": 25.9,
+      "license": "generated",
+      "synth": {
+        "type": "swoosh-in",
+        "hit": 0.6,
+        "category": "transition",
+        "duration": 0.6
+      },
+      "speaker_gap_lu": 0.4,
+      "above_bed_db": 7.0
+    },
+    {
+      "id": "sfx5",
+      "index": 5,
+      "kind": "sfx",
+      "source": "synth",
+      "path": null,
+      "gain_db": -3.0,
+      "level": {
+        "reference": "sfx category (already levelled)",
+        "category": "impact"
+      },
+      "aligned": {
+        "at": 37.3,
+        "align": "hit",
+        "anchor": 0.0
+      },
+      "start": 37.3,
+      "end": 37.6,
+      "license": "generated",
+      "synth": {
+        "type": "thock",
+        "hit": 0.0,
+        "category": "impact",
+        "duration": 0.3
+      },
+      "speaker_gap_lu": 10.2,
+      "above_bed_db": 21.1
+    },
+    {
+      "id": "sfx6",
+      "index": 6,
+      "kind": "sfx",
+      "source": "synth",
+      "path": null,
+      "gain_db": -2.0,
+      "level": {
+        "reference": "sfx category (already levelled)",
+        "category": "musical"
+      },
+      "aligned": {
+        "at": 45.4,
+        "align": "hit",
+        "anchor": 0.28
+      },
+      "start": 45.12,
+      "end": 47.32,
+      "license": "generated",
+      "synth": {
+        "type": "logo-sting",
+        "hit": 0.28,
+        "category": "musical",
+        "duration": 2.2
+      },
+      "speaker_gap_lu": 0.7,
+      "above_bed_db": 14.2
+    }
+  ],
+  "library_items": [],
+  "credits": [],
+  "credit_items": [],
+  "catalog_items": [],
+  "credits_file": null,
+  "warnings": [
+    "track bed (compose): intro, drop have a 2-beat bar. No bpm near 118 puts every marker on whole bars; or keep 118 bpm with markers on whole bars: --sections 0:intro,10.17:build,26.44:drop,36.61:outro",
+    "sfx sfx3 at 16.60s is 5.9 dB under the rest of the mix there (likely masked): raise its gain_db, duck the bed under it (\"duck\": {\"under\": [\"sfx3\"]}), or mark it \"texture\": true if it is meant to sit under"
+  ],
+  "voice_stem": "mix.voice.wav"
+}
