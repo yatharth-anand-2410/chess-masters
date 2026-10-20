@@ -4543,6 +4543,28 @@ main.progress-page > .app-topbar {
   margin: 3.5rem 0 1.5rem;
 }
 
+.explainer-video-panel {
+  margin: 2.5rem 0 3.5rem;
+}
+
+.explainer-video-container {
+  max-width: 860px;
+  margin: 1.5rem auto 0;
+  border-radius: var(--radius-card);
+  overflow: hidden;
+  border: 1px solid var(--line);
+  background: var(--ink-2);
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.5);
+}
+
+.explainer-video-player {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  display: block;
+  background: #000;
+  border-radius: var(--radius-card);
+}
+
 .homepage-about-lede {
   color: var(--text-muted);
   font-size: 0.95rem;
