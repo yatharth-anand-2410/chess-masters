@@ -361,9 +361,12 @@ export default function CoachStudentPage() {
         token,
         {
           platform: request.platform,
+          // Top-level, matching BatchAnalysisRequest: a username nested inside a
+          // game object is silently dropped by the backend, which then fails
+          // every Chess.com game with "A Chess.com username is required."
+          username: request.username || undefined,
           games: request.games.map((g) => ({
             game_url: g.gameUrl,
-            username: request.username || undefined,
             player_color: g.playerColor || undefined,
           })),
           student_id: studentId,

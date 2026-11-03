@@ -895,6 +895,17 @@ async def stream_batch_analysis(
                 f"A multi-game analysis can include at most {MAX_BATCH_GAMES} games."
             ),
         )
+    # Chess.com needs the player's handle to find their side of the game. Reject
+    # the batch before a credit is consumed: otherwise every game fails during
+    # extraction and the caller only sees "None of the games could be analyzed."
+    if (
+        payload.platform.strip().lower() in ("chess.com", "chesscom", "chess")
+        and not (payload.username or "").strip()
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail="A Chess.com username is required for a multi-game analysis.",
+        )
 
     user_id = str(user["id"])
     student_id = (payload.student_id or "").strip() or None
