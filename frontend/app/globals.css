@@ -335,10 +335,7 @@ main.progress-page > .app-topbar {
   width: 100%;
   max-width: 960px;
   margin: 6rem auto;
-  margin-inline: auto;
   box-sizing: border-box;
-  align-self: center;
-  justify-self: center;
   min-width: 0;
 }
 
@@ -530,7 +527,7 @@ main.progress-page > .app-topbar {
 
 .field input::placeholder {
   color: var(--text-muted);
-  opacity: 0.45;
+  opacity: 0.7;
 }
 
 .field input:focus {
@@ -690,8 +687,19 @@ main.progress-page > .app-topbar {
   text-underline-offset: 3px;
 }
 
-.trust-strip-dot {
-  color: var(--line-strong);
+.trust-strip-item + .trust-strip-item {
+  padding-left: 1.4rem;
+  border-left: 1px solid var(--line-strong);
+}
+
+@media (max-width: 560px) {
+  .trust-strip-item {
+    white-space: normal;
+  }
+  .trust-strip-item + .trust-strip-item {
+    padding-left: 0;
+    border-left: 0;
+  }
 }
 
 .review-error {
@@ -4600,23 +4608,6 @@ main.progress-page > .app-topbar {
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--gold);
-}
-
-.homepage-about-panel {
-  margin: 6rem auto;
-  margin-inline: auto;
-  max-width: 960px;
-  width: 100%;
-  box-sizing: border-box;
-  align-self: center;
-  justify-self: center;
-  min-width: 0;
-}
-
-.homepage-about-panel > div {
-  margin-inline: auto;
-  box-sizing: border-box;
-  max-width: 100%;
 }
 
 .explainer-video-panel {

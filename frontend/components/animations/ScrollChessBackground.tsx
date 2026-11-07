@@ -237,6 +237,15 @@ export function ScrollChessBackground({
         }}
       />
 
+      {/* Content-column vignette: keeps hero and section text legible over the board */}
+      <div
+        className="absolute inset-0 z-[1]"
+        style={{
+          background:
+            "radial-gradient(ellipse 620px 100% at 50% 50%, rgba(6, 10, 12, 0.82), rgba(6, 10, 12, 0.45) 70%, transparent 100%)",
+        }}
+      />
+
       {/* Full-Stage 3D Chessboard (1140px max width so both left and right sides are filled) */}
       <div
         className="absolute inset-0 flex items-center justify-center"
@@ -252,7 +261,7 @@ export function ScrollChessBackground({
             transformStyle: "preserve-3d",
             willChange: "transform",
           }}
-          className="relative w-[min(114vw,1140px)] aspect-square opacity-80"
+          className="relative w-[min(114vw,1140px)] aspect-square opacity-45"
         >
           <div className="relative w-full h-full rounded-[22px] p-3.5 bg-[#090e12]/90 border border-[rgba(226,182,95,0.38)] shadow-[0_40px_110px_rgba(0,0,0,0.92)]">
             <div className="relative w-full h-full rounded-[14px] overflow-hidden grid grid-cols-8 grid-rows-8 border border-[rgba(226,182,95,0.24)]">

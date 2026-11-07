@@ -1529,7 +1529,13 @@ export default function AnalyzerForm({
       <button type="submit" className="btn" disabled={submitDisabled}>
         {disabled
           ? "Analyzing..."
-          : lastCreditsConfirm === activeGameCount
+          : activeGameCount === 0
+            ? inputMode === "profile"
+              ? "Pick a game to analyze"
+              : inputMode === "url"
+                ? "Paste a game link to analyze"
+                : "Paste a PGN or FEN to analyze"
+            : lastCreditsConfirm === activeGameCount
             ? `Use my last ${activeGameCount} ${
                 activeGameCount === 1 ? "credit" : "credits"
               }`

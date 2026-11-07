@@ -29,7 +29,7 @@ import ScrollChessBackground from "./animations/ScrollChessBackground";
 import type { InsightsData } from "./insights";
 import { initAnalytics, trackEvent } from "../lib/analytics";
 import { warmBackend } from "../lib/backend-wake";
-import { CONTENT_PUBLISHED, CONTENT_PUBLISHED_LABEL, PRODUCT_FACTS } from "../lib/site";
+import { CONTENT_PUBLISHED, CONTENT_PUBLISHED_LABEL } from "../lib/site";
 import { Check, Sparkles } from "lucide-react";
 import {
   API_BASE,
@@ -1100,29 +1100,17 @@ export default function HomePage() {
       >
         <span className="trust-strip-item">
           <Check size={13} strokeWidth={3} aria-hidden="true" />
-          Stockfish-checked · logic designed by{" "}
+          Stockfish-checked, logic designed by{" "}
           <Link href="/about" rel="author" className="byline-author font-medium text-cream hover:underline">
             Parth Kaushik
           </Link>{" "}
           (FIDE AIM)
         </span>
-        <span className="trust-strip-dot" aria-hidden="true">·</span>
         <span className="trust-strip-item">
           Updated{" "}
           <time dateTime={CONTENT_PUBLISHED}>
             {CONTENT_PUBLISHED_LABEL}
           </time>
-        </span>
-        <span className="trust-strip-dot" aria-hidden="true">·</span>
-        <span className="trust-strip-item">Psychology profile after 3 games</span>
-        <span className="trust-strip-dot" aria-hidden="true">·</span>
-        <span className="trust-strip-item">
-          Pro: &#8377;{PRODUCT_FACTS.proPriceInr}/month ·{" "}
-          {PRODUCT_FACTS.proAnalysesPerPeriod} analyses
-        </span>
-        <span className="trust-strip-dot" aria-hidden="true">·</span>
-        <span className="trust-strip-item">
-          <Link href="#pricing">View Pricing</Link>
         </span>
       </section>
 

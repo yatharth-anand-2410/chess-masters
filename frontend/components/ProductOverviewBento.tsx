@@ -26,7 +26,7 @@ const PILLARS = [
 ];
 
 export default function ProductOverviewBento() {
-  const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(0);
+  const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(null);
 
   return (
     <section
@@ -45,10 +45,8 @@ export default function ProductOverviewBento() {
               What is Chessmasters?
             </h2>
             <p className="homepage-about-lede text-sm sm:text-base text-[var(--text-muted)] leading-relaxed mt-3 mb-0">
-              Chessmasters is an AI chess game analyzer for Chess.com and Lichess players.
-              It evaluates finished games with Stockfish to pinpoint tactical blunders and centipawn loss swings,
-              then translates the raw engine evaluations into plain-English coaching reports covering Strengths,
-              Weaknesses, Game Overview, Focus Areas, and curated Lichess study drills.
+              Paste a finished Chess.com or Lichess game. Stockfish finds the blunders, and you get a
+              plain-English coaching report with Lichess drills for what to fix.
             </p>
 
             {/* Clean Typographic Pillars (No Nested Cards) */}
@@ -64,24 +62,6 @@ export default function ProductOverviewBento() {
                 </div>
               ))}
             </div>
-
-            <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[var(--text-muted)]">
-              <span>
-                Coaching pedagogy by{" "}
-                <Link
-                  href="/about"
-                  rel="author"
-                  className="text-[var(--gold-bright)] font-semibold hover:underline"
-                >
-                  Parth Kaushik
-                </Link>{" "}
-                (FIDE AIM · 2300+ Peak)
-              </span>
-              <span aria-hidden="true">·</span>
-              <span>
-                Updated <time dateTime={CONTENT_PUBLISHED}>{CONTENT_PUBLISHED_LABEL}</time>
-              </span>
-            </div>
           </div>
 
           {/* Right: 60s Walkthrough Video */}
@@ -93,7 +73,7 @@ export default function ProductOverviewBento() {
               id="video-explainer-title"
               className="text-base font-serif font-semibold text-[var(--text)] m-0"
             >
-              Watch: How Chessmasters Analyzes Your Game
+              Watch the 60-second walkthrough
             </h3>
             <div className="explainer-video-container rounded-xl overflow-hidden border border-[var(--line)] bg-[#06090b] shadow-lg">
               <video
@@ -107,14 +87,26 @@ export default function ProductOverviewBento() {
               </video>
             </div>
             <p className="text-xs text-[var(--text-muted)] m-0">
-              60-second walkthrough of single-game reports, interactive drills, and psychology insights.
+              Single-game reports, interactive drills, and psychology insights.
+            </p>
+            <p className="text-xs text-[var(--text-muted)] m-0">
+              Coaching pedagogy by{" "}
+              <Link
+                href="/about"
+                rel="author"
+                className="text-[var(--gold-bright)] font-semibold hover:underline"
+              >
+                Parth Kaushik
+              </Link>{" "}
+              (FIDE AIM, 2300+ peak). Updated{" "}
+              <time dateTime={CONTENT_PUBLISHED}>{CONTENT_PUBLISHED_LABEL}</time>.
             </p>
           </div>
         </div>
       </div>
 
       {/* Single-Column Hairline Accordion for Canonical FAQs (Zero Box Clutter, 100% SEO/GEO Preserved) */}
-      <div className="w-full mt-16 rounded-2xl bg-[#0a1014]/90 backdrop-blur-xl border border-[var(--line)] p-6 sm:p-9 shadow-2xl">
+      <div className="w-full mt-16 px-2 sm:px-0">
         <div className="flex flex-wrap items-baseline justify-between gap-2 pb-4 border-b border-[var(--line)]">
           <h2 className="text-xl sm:text-2xl font-serif font-bold text-[var(--text)] m-0">
             Common Questions
