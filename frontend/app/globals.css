@@ -2518,8 +2518,7 @@ main.progress-page > .app-topbar {
 .upgrade-prompt {
   padding: 1.5rem;
   background: var(--ink-2);
-  border: 1px solid var(--line);
-  border-left: 2px solid var(--gold);
+  border: 1px solid rgba(226, 182, 95, 0.35);
   border-radius: var(--radius-card);
 }
 
@@ -3247,20 +3246,7 @@ main.progress-page > .app-topbar {
   padding: 0.5rem 0.6rem;
   background: var(--ink-3);
   border: 1px solid var(--line-soft);
-  border-left: 3px solid var(--line);
   border-radius: 8px;
-}
-
-.batch-progress-item.state-active {
-  border-left-color: var(--gold);
-}
-
-.batch-progress-item.state-done {
-  border-left-color: var(--green);
-}
-
-.batch-progress-item.state-failed {
-  border-left-color: var(--red);
 }
 
 .batch-progress-index {
@@ -4499,10 +4485,29 @@ main.progress-page > .app-topbar {
   margin: 2rem 0 0.5rem;
 }
 
+.content-board {
+  margin: 1.75rem 0;
+  width: min(320px, 100%);
+}
+
+.content-board > :first-child {
+  padding: 0.5rem;
+  background: var(--surface-well);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+}
+
+.content-board figcaption {
+  margin-top: 0.6rem;
+  color: var(--text-muted);
+  font-size: 0.84rem;
+  line-height: 1.5;
+}
+
 .content-note {
   font-size: 0.88rem;
-  border-left: 2px solid var(--gold);
-  padding-left: 0.85rem;
+  border-top: 1px solid var(--line);
+  padding-top: 0.85rem;
   margin: 1.25rem 0;
   color: var(--text-muted);
 }
@@ -4610,8 +4615,6 @@ main.progress-page > .app-topbar {
   margin-bottom: 0.5rem;
   font-size: 0.74rem;
   font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
   color: var(--gold);
 }
 
@@ -4785,8 +4788,6 @@ main.progress-page > .app-topbar {
   color: var(--gold-bright);
   font-size: 0.78rem;
   font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
 }
 
 .onboarding-card-title {

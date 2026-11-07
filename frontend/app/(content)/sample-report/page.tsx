@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import ArticleMeta from "../../../components/ArticleMeta";
 import JsonLd from "../../../components/JsonLd";
+import CriticalPositionBoard from "../../../components/CriticalPositionBoard";
 import {
   articleSchema,
   breadcrumbSchema,
@@ -83,6 +84,21 @@ export default function SampleReportPage() {
         and instantly verifiable. Your own reports are generated from your own
         games.
       </p>
+
+      <figure className="content-board">
+        <CriticalPositionBoard
+          fen="4kb1r/p2n1ppp/4q3/4p1B1/4P3/1Q6/PPP2PPP/2KR4 w k - 1 16"
+          orientation="white"
+          arrows={[
+            { orig: "b3", dest: "b8", color: "green" },
+            { orig: "d1", dest: "d8", color: "green" },
+          ]}
+        />
+        <figcaption>
+          The Opera Game before 16.Qb8+, with White&apos;s queen sacrifice and
+          the rook that finishes it on d8.
+        </figcaption>
+      </figure>
 
       <div className="report-block">
         <span className="report-block-tag">Section 1 · Strength</span>

@@ -162,7 +162,7 @@ export default function TacticsPage() {
                 target="_blank"
                 rel="noopener"
               >
-                Train {tactic.name.toLowerCase()} on Lichess →
+                Train {tactic.name.toLowerCase()} on Lichess
               </a>
             </p>
           </div>
