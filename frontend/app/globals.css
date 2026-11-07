@@ -335,6 +335,11 @@ main.progress-page > .app-topbar {
   width: 100%;
   max-width: 960px;
   margin: 6rem auto;
+  margin-inline: auto;
+  box-sizing: border-box;
+  align-self: center;
+  justify-self: center;
+  min-width: 0;
 }
 
 .hero-copy {
@@ -4599,8 +4604,19 @@ main.progress-page > .app-topbar {
 
 .homepage-about-panel {
   margin: 6rem auto;
+  margin-inline: auto;
   max-width: 960px;
   width: 100%;
+  box-sizing: border-box;
+  align-self: center;
+  justify-self: center;
+  min-width: 0;
+}
+
+.homepage-about-panel > div {
+  margin-inline: auto;
+  box-sizing: border-box;
+  max-width: 100%;
 }
 
 .explainer-video-panel {
