@@ -289,9 +289,45 @@ export function externalGameUrl(
 
 export type UserRole = "player" | "coach";
 
+export type LinkedAccount = {
+  platform: "lichess" | "chess.com";
+  username: string;
+  added_at?: string;
+};
+
 export type UserProfile = {
   /** Null until the one-time onboarding choice is made. */
   role: UserRole | null;
+  linked_accounts?: LinkedAccount[];
+};
+
+export type ProfileRecentGame = {
+  game_id: string;
+  game_url: string;
+  platform: "lichess" | "chess.com";
+  white_username: string;
+  black_username: string;
+  player_color: "white" | "black";
+  player_rating?: number | null;
+  opponent_username: string;
+  opponent_rating?: number | null;
+  result: "win" | "loss" | "draw" | "unknown";
+  pgn_result: string;
+  time_control?: string | null;
+  time_control_label: string;
+  time_class: "bullet" | "blitz" | "rapid" | "classical";
+  rated: boolean;
+  started_at?: string | null;
+  eco?: string | null;
+  opening_name?: string | null;
+};
+
+export type ProfileGamesResponse = {
+  platform: "lichess" | "chess.com";
+  username: string;
+  time_control: string;
+  games: ProfileRecentGame[];
+  linked_accounts?: LinkedAccount[] | null;
 };
 
 export type StudentSummary = {

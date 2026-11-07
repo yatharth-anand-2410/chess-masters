@@ -178,6 +178,7 @@ def _limit_reached_detail(
 
 
 MAX_BATCH_GAMES = 5
+MAX_PAID_BATCH_GAMES = 20
 
 #: Stockfish runs on one vCPU per container, and every analysis opens its own
 #: engine. Allowing a burst of analyses onto the same instance made all of them
@@ -395,6 +396,13 @@ def analyze_game(
     pool: engine.EnginePool,
 ) -> engine.AnalysisResult:
     analyzer_engine = engine.StockfishAnalyzer()
+    if game.platform == "fen":
+        return analyzer_engine.analyze_fen(
+            game.pgn,
+            player_color=game.player_color,
+            player_name=game.player_name,
+            pool=pool,
+        )
     move_times = {
         (entry.color, entry.move_number): (entry.seconds_spent, entry.clock_remaining)
         for entry in game.player_move_times
@@ -553,11 +561,35 @@ async def health() -> dict[str, object]:
 
 class AnalysisRequest(BaseModel):
     platform: str
-    game_url: str
+    game_url: str = ""
     username: Optional[str] = None
     player_color: Optional[str] = None
+    pgn: Optional[str] = None
+    fen: Optional[str] = None
     # Coach mode: run the analysis on behalf of one of the coach's students.
     student_id: Optional[str] = None
+
+
+def _extract_single_game(payload: AnalysisRequest) -> extractor.GameData:
+    plat = (payload.platform or "").strip().lower()
+    if payload.fen and payload.fen.strip():
+        return extractor.build_game_from_fen(payload.fen, payload.player_color)
+    if plat == "fen":
+        return extractor.build_game_from_fen(payload.game_url, payload.player_color)
+    if payload.pgn and payload.pgn.strip():
+        return extractor.build_game_from_raw_pgn(
+            payload.pgn, payload.player_color, payload.username
+        )
+    if plat == "pgn":
+        return extractor.build_game_from_raw_pgn(
+            payload.game_url, payload.player_color, payload.username
+        )
+    return extractor.fetch_game(
+        payload.platform,
+        payload.game_url,
+        payload.username,
+        payload.player_color,
+    )
 
 
 @app.post("/api/stream-analysis")
@@ -638,16 +670,27 @@ async def stream_analysis(
 
         try:
             yield sse_event("status_update", {"message": "Extracting game PGN..."})
-            game = await asyncio.to_thread(
-                extractor.fetch_game,
-                payload.platform,
-                payload.game_url,
-                payload.username,
-                payload.player_color,
-            )
+            game = await asyncio.to_thread(_extract_single_game, payload)
             if await _client_gone():
                 await _cancel_analysis()
                 return
+
+            if (
+                user_id
+                and not student_id
+                and payload.username
+                and payload.username.strip()
+                and game.platform in ("lichess", "chess.com")
+            ):
+                try:
+                    await asyncio.to_thread(
+                        db.add_linked_account,
+                        user_id,
+                        game.platform,
+                        payload.username.strip(),
+                    )
+                except Exception:
+                    pass
 
             if user_id is None:
                 guest_usage = await asyncio.to_thread(
@@ -888,11 +931,11 @@ async def stream_batch_analysis(
             status_code=400,
             detail="Select at least two games for a multi-game analysis.",
         )
-    if len(games) > MAX_BATCH_GAMES:
+    if len(games) > MAX_PAID_BATCH_GAMES:
         raise HTTPException(
             status_code=400,
             detail=(
-                f"A multi-game analysis can include at most {MAX_BATCH_GAMES} games."
+                f"A multi-game analysis can include at most {MAX_PAID_BATCH_GAMES} games."
             ),
         )
     # Chess.com needs the player's handle to find their side of the game. Reject
@@ -917,6 +960,21 @@ async def stream_batch_analysis(
             status_code=402,
             detail=_batch_limit_detail(usage, len(games)),
         )
+    if (
+        not student_id
+        and payload.username
+        and payload.username.strip()
+        and payload.platform.strip().lower() in ("lichess", "chess.com", "chesscom", "chess")
+    ):
+        try:
+            await asyncio.to_thread(
+                db.add_linked_account,
+                user_id,
+                payload.platform.strip(),
+                payload.username.strip(),
+            )
+        except Exception:
+            pass
 
     async def event_generator() -> AsyncIterator[str]:
         batch_id: Optional[str] = None
@@ -1646,7 +1704,13 @@ async def claim_guest_trial(
 
 
 class ProfileRequest(BaseModel):
-    role: str
+    role: Optional[str] = None
+    linked_accounts: Optional[list[dict[str, object]]] = None
+
+
+class LinkedAccountInput(BaseModel):
+    platform: str
+    username: str
 
 
 @app.get("/api/account/profile")
@@ -1654,7 +1718,12 @@ async def get_account_profile(
     user: Dict[str, object] = Depends(get_current_user),
 ) -> dict:
     row = await asyncio.to_thread(db.get_user_profile, str(user["id"]))
-    return {"role": (row or {}).get("role")}
+    return {
+        "role": (row or {}).get("role"),
+        "linked_accounts": db.normalize_linked_accounts(
+            (row or {}).get("linked_accounts")
+        ),
+    }
 
 
 @app.put("/api/account/profile")
@@ -1662,12 +1731,110 @@ async def set_account_profile(
     payload: ProfileRequest,
     user: Dict[str, object] = Depends(get_current_user),
 ) -> dict:
+    user_id = str(user["id"])
+    row = await asyncio.to_thread(db.get_user_profile, user_id) or {}
+    role = row.get("role")
+    if payload.role is not None:
+        try:
+            role = coach.validate_role(payload.role)
+        except coach.CoachError as exc:
+            raise _coach_error(exc) from exc
+        row = await asyncio.to_thread(db.upsert_user_profile, user_id, role)
+    accounts = db.normalize_linked_accounts(row.get("linked_accounts"))
+    if payload.linked_accounts is not None:
+        accounts = await asyncio.to_thread(
+            db.save_linked_accounts,
+            user_id,
+            payload.linked_accounts,
+            role or "player",
+        )
+    return {
+        "role": row.get("role", role),
+        "linked_accounts": accounts,
+    }
+
+
+@app.post("/api/account/profile/accounts")
+async def add_account_profile_handle(
+    payload: LinkedAccountInput,
+    user: Dict[str, object] = Depends(get_current_user),
+) -> dict:
+    plat = (payload.platform or "").strip().lower()
+    if plat in ("chesscom", "chess"):
+        plat = "chess.com"
+    if plat not in ("lichess", "chess.com"):
+        raise HTTPException(
+            status_code=400, detail="Platform must be 'lichess' or 'chess.com'."
+        )
     try:
-        role = coach.validate_role(payload.role)
+        clean_user = coach.clean_username(payload.username)
     except coach.CoachError as exc:
         raise _coach_error(exc) from exc
-    row = await asyncio.to_thread(db.upsert_user_profile, str(user["id"]), role)
-    return {"role": row.get("role", role)}
+    if not clean_user:
+        raise HTTPException(status_code=400, detail="Username is required.")
+    accounts = await asyncio.to_thread(
+        db.add_linked_account, str(user["id"]), plat, clean_user
+    )
+    return {"linked_accounts": accounts}
+
+
+@app.delete("/api/account/profile/accounts")
+async def remove_account_profile_handle(
+    platform: str = Query(...),
+    username: str = Query(...),
+    user: Dict[str, object] = Depends(get_current_user),
+) -> dict:
+    accounts = await asyncio.to_thread(
+        db.remove_linked_account, str(user["id"]), platform, username
+    )
+    return {"linked_accounts": accounts}
+
+
+@app.get("/api/profile/games")
+async def get_profile_recent_games(
+    platform: str = Query(..., description="lichess or chess.com"),
+    username: str = Query(..., description="Player username"),
+    max_games: int = Query(30, ge=1, le=50),
+    time_control: str = Query("all", description="all, bullet, blitz, rapid, or classical"),
+    bind: bool = Query(True, description="Automatically bind handle to signed-in user profile"),
+    user: Optional[Dict[str, object]] = Depends(get_optional_user),
+) -> dict:
+    try:
+        games = await asyncio.to_thread(
+            extractor.fetch_profile_recent_games,
+            platform,
+            username,
+            max_games,
+            time_control,
+        )
+    except extractor.InvalidGameUrlError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except extractor.GameNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except extractor.RateLimitError as exc:
+        raise HTTPException(status_code=429, detail=str(exc)) from exc
+    except extractor.ExtractionError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+    linked_accounts: Optional[list[dict]] = None
+    if user and bind and username.strip():
+        try:
+            linked_accounts = await asyncio.to_thread(
+                db.add_linked_account,
+                str(user["id"]),
+                platform,
+                username.strip(),
+            )
+        except Exception:
+            linked_accounts = None
+
+    return {
+        "platform": "chess.com" if platform.strip().lower() in ("chess.com", "chesscom", "chess") else "lichess",
+        "username": username.strip().lstrip("@"),
+        "time_control": time_control,
+        "games": games,
+        "linked_accounts": linked_accounts,
+    }
 
 
 class StudentCreateRequest(BaseModel):

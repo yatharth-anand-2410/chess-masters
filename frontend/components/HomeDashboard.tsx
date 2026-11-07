@@ -7,36 +7,39 @@ import type { User } from "@supabase/supabase-js";
 import { Topbar } from "./ui/Topbar";
 import AnalyzerForm, {
   MAX_BATCH_GAMES,
+  MAX_PAID_BATCH_GAMES,
   type AnalysisRequest,
   type BatchAnalysisRequest,
 } from "./AnalyzerForm";
 import AnalysisStatus from "./AnalysisStatus";
 import AnalysisHistory from "./AnalysisHistory";
-import AuthButton from "./AuthButton";
 import BatchProgress, {
   type BatchGameProgress,
 } from "./BatchProgress";
 import CoachingReport from "./CoachingReport";
 import GuestQnaPrompt from "./GuestQnaPrompt";
 import GuestSignInPrompt from "./GuestSignInPrompt";
-import HeroBoard from "./HeroBoard";
 import LimitReachedPrompt from "./LimitReachedPrompt";
 import ReviewSection from "./ReviewSection";
-import FaqSection from "./FaqSection";
 import UpgradePrompt from "./UpgradePrompt";
+import ProductOverviewBento from "./ProductOverviewBento";
+import SampleReportsFeed from "./SampleReportsFeed";
+import LandingPricingSection from "./LandingPricingSection";
+import ScrollChessBackground from "./animations/ScrollChessBackground";
 import type { InsightsData } from "./insights";
 import { initAnalytics, trackEvent } from "../lib/analytics";
 import { warmBackend } from "../lib/backend-wake";
 import { CONTENT_PUBLISHED, CONTENT_PUBLISHED_LABEL, PRODUCT_FACTS } from "../lib/site";
-import { FAQS } from "../lib/faqs";
-import { Check } from "lucide-react";
+import { Check, Sparkles } from "lucide-react";
 import {
   API_BASE,
+  apiDelete,
   apiPost,
   apiPut,
   mergeHistoryEntries,
   type AnalysisSummary,
   type BatchSummary,
+  type LinkedAccount,
   type StudentSummary,
   type Usage,
   type UserProfile,
@@ -71,6 +74,7 @@ export default function HomePage() {
   const [guestLimitHit, setGuestLimitHit] = useState(false);
   const [coachStudents, setCoachStudents] = useState<StudentSummary[]>([]);
   const [attachedStudentId, setAttachedStudentId] = useState<string>("");
+  const [showScrollBoardPreview, setShowScrollBoardPreview] = useState(false);
   const pendingChunks = useRef("");
   const flushHandle = useRef<number | null>(null);
   const reportRef = useRef<HTMLDivElement | null>(null);
@@ -208,10 +212,13 @@ export default function HomePage() {
     }
     const nextRole: UserRole = profile?.role === "coach" ? "player" : "coach";
     try {
-      await apiPut<UserProfile>("/api/account/profile", session.access_token, {
+      const updated = await apiPut<UserProfile>("/api/account/profile", session.access_token, {
         role: nextRole,
       });
-      setProfile({ role: nextRole });
+      setProfile((prev) => ({
+        role: updated.role ?? nextRole,
+        linked_accounts: updated.linked_accounts ?? prev?.linked_accounts ?? [],
+      }));
       if (nextRole === "coach") {
         router.push("/coach");
       }
@@ -219,6 +226,56 @@ export default function HomePage() {
       console.error("Failed to switch role:", err);
     }
   }, [profile, router]);
+
+  const handleAddLinkedAccount = useCallback(
+    async (platform: "lichess" | "chess.com", username: string) => {
+      if (!token) return;
+      try {
+        const res = await apiPost<{ linked_accounts: LinkedAccount[] }>(
+          "/api/account/profile/accounts",
+          token,
+          { platform, username }
+        );
+        invalidateApiCache("/api/account/profile");
+        setProfile((prev) => ({
+          role: prev?.role ?? "player",
+          linked_accounts: res.linked_accounts,
+        }));
+      } catch (err) {
+        console.error("Failed to bind profile:", err);
+      }
+    },
+    [token]
+  );
+
+  const handleRemoveLinkedAccount = useCallback(
+    async (platform: "lichess" | "chess.com", username: string) => {
+      if (!token) return;
+      try {
+        const params = new URLSearchParams({ platform, username });
+        const res = await apiDelete<{ linked_accounts: LinkedAccount[] }>(
+          `/api/account/profile/accounts?${params.toString()}`,
+          token
+        );
+        invalidateApiCache("/api/account/profile");
+        setProfile((prev) => ({
+          role: prev?.role ?? "player",
+          linked_accounts: res.linked_accounts,
+        }));
+      } catch (err) {
+        console.error("Failed to remove linked profile:", err);
+      }
+    },
+    [token]
+  );
+
+  const handleLinkedAccountsUpdated = useCallback((accounts: LinkedAccount[]) => {
+    invalidateApiCache("/api/account/profile");
+    setProfile((prev) => ({
+      role: prev?.role ?? "player",
+      linked_accounts: accounts,
+    }));
+  }, []);
 
   const claimGuestTrial = useCallback(async (sessionToken: string) => {
     let pending = false;
@@ -438,6 +495,9 @@ export default function HomePage() {
         });
       };
 
+      let accumulatedMarkdown = "";
+      let latestInsights: InsightsData | null = null;
+
       await streamPost(
         `${API_BASE}/api/stream-analysis`,
         accessToken,
@@ -446,6 +506,8 @@ export default function HomePage() {
           game_url: request.gameUrl,
           username: request.username,
           player_color: request.playerColor,
+          pgn: request.pgn,
+          fen: request.fen,
           student_id: request.studentId,
         },
         {
@@ -460,20 +522,15 @@ export default function HomePage() {
             if (eventName === "status_update" && payload.message) {
               setStatus(payload.message);
             } else if (eventName === "content_chunk" && payload.text) {
-              pendingChunks.current += payload.text;
-              scheduleStreamFlush();
-              revealReport();
+              accumulatedMarkdown += payload.text;
+              setStatus("Generating your coaching report...");
             } else if (eventName === "insights") {
-              setInsights(payload as unknown as InsightsData);
+              latestInsights = payload as unknown as InsightsData;
+              setInsights(latestInsights);
             } else if (eventName === "done") {
-              flushStreamContent();
               retryableRef.current = null;
-              setStatus("Analysis complete");
-              setIsAnalyzing(false);
+              setStatus("Redirecting to your report...");
               trackCompletion(true);
-              if (payload.analysis_id) {
-                setAnalysisId(payload.analysis_id);
-              }
               if (payload.usage) {
                 setUsage(payload.usage);
               }
@@ -489,6 +546,49 @@ export default function HomePage() {
                 }
                 setGuestUsed(true);
               }
+              if (payload.analysis_id) {
+                setAnalysisId(payload.analysis_id);
+                router.push(`/analysis/${payload.analysis_id}`);
+                return;
+              }
+              // Guest user: store report in sessionStorage and redirect to /analysis/guest
+              try {
+                window.sessionStorage.setItem(
+                  "cm_guest_report",
+                  JSON.stringify({
+                    analysis: {
+                      id: "guest",
+                      platform:
+                        request.platform === "chess.com" ? "chess.com" : "lichess",
+                      game_id: "guest",
+                      game_url: request.gameUrl || "",
+                      player_color:
+                        latestInsights?.player_color ||
+                        request.playerColor ||
+                        "white",
+                      player_name:
+                        latestInsights?.player_name ||
+                        request.username ||
+                        null,
+                      username: request.username || null,
+                      opening_name: "Your Analyzed Game",
+                      eco: null,
+                      result: null,
+                      status: "completed",
+                      report_markdown: accumulatedMarkdown,
+                      pgn: request.pgn || null,
+                      insights: latestInsights,
+                      game_summary: null,
+                      batch_id: null,
+                      created_at: new Date().toISOString(),
+                    },
+                    messages: [],
+                  })
+                );
+              } catch {
+                // ignore sessionStorage errors
+              }
+              router.push("/analysis/guest");
             } else if (eventName === "error") {
               flushStreamContent();
               if (payload.code === "guest_limit") {
@@ -704,29 +804,25 @@ export default function HomePage() {
                 payload.message ?? "AI generating your overall report..."
               );
             } else if (eventName === "content_chunk" && payload.text) {
-              pendingChunks.current += payload.text;
-              scheduleStreamFlush();
-              revealReport();
+              setStatus("Generating your multi-game coaching report...");
             } else if (eventName === "insights") {
               setInsights(payload as unknown as InsightsData);
             } else if (eventName === "done") {
-              flushStreamContent();
               retryableRef.current = null;
-              setStatus("Analysis complete");
-              setIsAnalyzing(false);
+              setStatus("Redirecting to your multi-game report...");
               trackCompletion(true);
-              if (payload.batch_id) {
-                setBatchId(payload.batch_id);
-              }
               if (payload.usage) {
                 setUsage(payload.usage);
               }
-              // A finished analysis changes the credit count, the history list
-              // and every derived report: drop those entries instead of letting
-              // the cache serve the pre-analysis view back to the user.
               invalidateApiCache("/api/progress");
               refreshUsage(token, { force: true });
               refreshHistory(token, { force: true });
+              if (payload.batch_id) {
+                setBatchId(payload.batch_id);
+                router.push(`/batch/${payload.batch_id}`);
+                return;
+              }
+              setIsAnalyzing(false);
             } else if (eventName === "error") {
               flushStreamContent();
               trackCompletion(false);
@@ -812,8 +908,10 @@ export default function HomePage() {
   );
 
   const quotaExhausted = usage !== null && usage.analyses_remaining <= 0;
+  const isPaidPlan = usage?.plan === "paid";
+  const maxBatchAllowed = isPaidPlan ? MAX_PAID_BATCH_GAMES : MAX_BATCH_GAMES;
   const batchGameLimit = usage
-    ? Math.min(MAX_BATCH_GAMES, usage.analyses_remaining)
+    ? Math.min(maxBatchAllowed, usage.analyses_remaining)
     : MAX_BATCH_GAMES;
   const firstWeakness = insights?.weakness_moments?.[0] ?? null;
   const guestBlunderLabel = firstWeakness
@@ -821,7 +919,9 @@ export default function HomePage() {
     : null;
 
   return (
-    <main className="dashboard">
+    <main id="top" className="dashboard relative">
+      <ScrollChessBackground />
+
       <Topbar
         user={user}
         usage={usage}
@@ -831,16 +931,12 @@ export default function HomePage() {
         onToggleRole={profile ? toggleRole : undefined}
       />
 
-      <section className="hero">
-        <div className="hero-copy">
+      <section className="hero hero-single relative z-10">
+        <div className="hero-copy w-full">
           <h1 className="hero-title">Your AI chess game analyzer</h1>
-          <p className="hero-subtitle">
-            Turn a finished game into your next lesson.
-          </p>
           <p className="hero-lede">
-            Paste a Lichess or Chess.com game and get a plain-English coaching
-            report: what you did well, the moves that cost you, and the one rule
-            to carry into your next game.
+            Pick a game from your Lichess or Chess.com account, paste a game link,
+            or drop a PGN / FEN position to get a plain-English coaching report.
           </p>
 
           {user && quotaExhausted ? (
@@ -891,6 +987,7 @@ export default function HomePage() {
               <AnalyzerForm
                 disabled={isAnalyzing}
                 maxGames={user ? batchGameLimit : 1}
+                isPaidPlan={isPaidPlan}
                 remainingCredits={user ? usage?.analyses_remaining ?? null : null}
                 defaultUsername={
                   attachedStudentId
@@ -898,6 +995,11 @@ export default function HomePage() {
                     : undefined
                 }
                 studentId={attachedStudentId || undefined}
+                token={token || undefined}
+                linkedAccounts={profile?.linked_accounts ?? []}
+                onAddLinkedAccount={user ? handleAddLinkedAccount : undefined}
+                onRemoveLinkedAccount={user ? handleRemoveLinkedAccount : undefined}
+                onLinkedAccountsUpdated={user ? handleLinkedAccountsUpdated : undefined}
                 onSubmit={startAnalysis}
                 onSubmitBatch={user ? startBatchAnalysis : undefined}
               />
@@ -968,43 +1070,10 @@ export default function HomePage() {
             </div>
           )}
         </div>
-
-        <aside className="hero-visual">
-          <div className="hero-visual-inner">
-            <div aria-hidden="true" className="w-full flex justify-center">
-              <HeroBoard />
-            </div>
-            <p className="hero-caption">Every game has a square worth fighting for.</p>
-          </div>
-        </aside>
       </section>
 
-      {/* The report is the product: it renders immediately below the form, so a
-          submitted game is visible without scrolling past the marketing bands.
-          The first streamed chunk scrolls it into view (see revealReport). */}
-      {(isAnalyzing || markdown) && (
-        <div className="report-anchor" ref={reportRef}>
-          <CoachingReport
-            content={markdown}
-            insights={insights}
-            pending={isAnalyzing}
-            analysisId={analysisId}
-          />
-        </div>
-      )}
-
-      {markdown && !user && <GuestQnaPrompt moveLabel={guestBlunderLabel} />}
-
-      {user && batchId && (
-        <div className="batch-report-link">
-          <Link href={`/batch/${batchId}`} className="btn btn-ghost">
-            Open full multi-game report
-          </Link>
-        </div>
-      )}
-
       {user && (
-        <section className="history-panel">
+        <section className="history-panel relative z-10">
           <div className="section-head">
             <h2>Recent analyses</h2>
             {recentEntries.length > 0 && (
@@ -1025,7 +1094,10 @@ export default function HomePage() {
         </section>
       )}
 
-      <section className="trust-strip" aria-label="About Chessmasters">
+      <section
+        className="trust-strip relative z-10 rounded-2xl bg-[#0a1014]/92 backdrop-blur-md border border-[var(--line)] shadow-lg"
+        aria-label="About Chessmasters"
+      >
         <span className="trust-strip-item">
           <Check size={13} strokeWidth={3} aria-hidden="true" />
           Stockfish-checked · logic designed by{" "}
@@ -1050,42 +1122,21 @@ export default function HomePage() {
         </span>
         <span className="trust-strip-dot" aria-hidden="true">·</span>
         <span className="trust-strip-item">
-          <Link href="/faq">Read the FAQ</Link>
+          <Link href="#pricing">View Pricing</Link>
         </span>
       </section>
 
+      {/* Unified Product Overview Bento Grid (includes canonical What is Chessmasters + Video + FAQ items) */}
+      <ProductOverviewBento />
+
+      {/* Featured Championship & Grandmaster Sample Reports Feed */}
+      <SampleReportsFeed />
+
+      {/* Community Reviews */}
       <ReviewSection user={user} token={token} onAuthChange={clearSessionState} />
 
-      <section className="homepage-about-panel" aria-labelledby="about-chessmasters-title">
-        <div className="section-head">
-          <h2 id="about-chessmasters-title">What is Chessmasters?</h2>
-        </div>
-        <p className="homepage-about-lede">
-          Chessmasters is an AI chess game analyzer for Chess.com and Lichess players.
-          It evaluates finished games with Stockfish to pinpoint tactical blunders and centipawn loss swings,
-          then translates the raw engine evaluations into plain-English coaching reports covering Strengths,
-          Weaknesses, Game Overview, Focus Areas, and curated Lichess study drills.
-        </p>
-      </section>
-
-      <section className="explainer-video-panel" aria-labelledby="video-explainer-title">
-        <div className="section-head mb-4">
-          <h2 id="video-explainer-title" className="text-xl font-bold text-cream">Watch: How Chessmasters Analyzes Your Game</h2>
-        </div>
-        <div className="explainer-video-container">
-          <video
-            controls
-            preload="metadata"
-            poster="/videos/chessmasters-explainer.poster.jpg"
-            className="explainer-video-player"
-          >
-            <source src="/videos/chessmasters-explainer.mp4" type="video/mp4" />
-            Your browser does not support the video tag.
-          </video>
-        </div>
-      </section>
-
-      <FaqSection items={FAQS} showMeta={false} showTitle={true} showMoreLink={true} />
+      {/* AI-SaaS Style Pricing Section at Bottom */}
+      <LandingPricingSection currentPlan={usage?.plan ?? null} />
 
       {guestLimitHit && (
         <GuestSignInPrompt onClose={() => setGuestLimitHit(false)} />

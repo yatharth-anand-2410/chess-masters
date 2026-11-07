@@ -3,6 +3,7 @@
 import React from "react";
 import { ArrowDown, Check, Loader2, Sparkles, Brain, FileText, X } from "lucide-react";
 import { cn } from "../lib/utils";
+import MovingPiecesLoader from "./animations/MovingPiecesLoader";
 
 type AnalysisStatusProps = {
   status?: string;
@@ -185,6 +186,17 @@ export default function AnalysisStatus({
           );
         })}
       </div>
+
+      {/* Animated Chessboard Loader while analyzing */}
+      {isAnalyzing && (
+        <div className="w-full pt-1">
+          <MovingPiecesLoader
+            stage={(currentStep <= 3 ? currentStep : 3) as 1 | 2 | 3}
+            statusText={status}
+            compact
+          />
+        </div>
+      )}
 
       {/* Live Message Description */}
       {status && (

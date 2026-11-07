@@ -1065,7 +1065,49 @@ def _coach_check(response: requests.Response) -> None:
     response.raise_for_status()
 
 
+_fallback_linked_accounts: Dict[str, List[Dict[str, Any]]] = {}
+_fallback_linked_lock = threading.Lock()
+
+
+def normalize_linked_accounts(raw: Any) -> List[Dict[str, Any]]:
+    if not isinstance(raw, list):
+        return []
+    cleaned: List[Dict[str, Any]] = []
+    seen = set()
+    for item in raw:
+        if not isinstance(item, dict):
+            continue
+        platform = str(item.get("platform") or "").strip().lower()
+        if platform in ("chesscom", "chess"):
+            platform = "chess.com"
+        if platform not in ("lichess", "chess.com"):
+            continue
+        username = str(item.get("username") or "").strip().lstrip("@")
+        if not username:
+            continue
+        key = (platform, username.lower())
+        if key in seen:
+            continue
+        seen.add(key)
+        cleaned.append(
+            {
+                "platform": platform,
+                "username": username[:40],
+                "added_at": str(
+                    item.get("added_at") or datetime.now(timezone.utc).isoformat()
+                ),
+            }
+        )
+    return cleaned
+
+
 def get_user_profile(user_id: str) -> Optional[Dict[str, Any]]:
+    with _fallback_linked_lock:
+        fallback = list(_fallback_linked_accounts.get(user_id, []))
+    if not configured():
+        if fallback:
+            return {"user_id": user_id, "role": None, "linked_accounts": fallback}
+        return None
     url, _key = _config()
     response = _get(
         f"{url}/rest/v1/user_profiles",
@@ -1075,7 +1117,16 @@ def get_user_profile(user_id: str) -> Optional[Dict[str, Any]]:
     )
     _coach_check(response)
     rows = response.json()
-    return rows[0] if rows else None
+    row = dict(rows[0]) if rows else None
+    if row is None:
+        if fallback:
+            return {"user_id": user_id, "role": None, "linked_accounts": fallback}
+        return None
+    stored = normalize_linked_accounts(row.get("linked_accounts"))
+    if fallback:
+        stored = normalize_linked_accounts(stored + fallback)
+    row["linked_accounts"] = stored
+    return row
 
 
 def upsert_user_profile(user_id: str, role: str) -> Dict[str, Any]:
@@ -1097,6 +1148,83 @@ def upsert_user_profile(user_id: str, role: str) -> Dict[str, Any]:
     _coach_check(response)
     rows = response.json()
     return rows[0] if rows else {}
+
+
+def save_linked_accounts(
+    user_id: str, accounts: List[Dict[str, Any]], default_role: str = "player"
+) -> List[Dict[str, Any]]:
+    normalized = normalize_linked_accounts(accounts)
+    with _fallback_linked_lock:
+        _fallback_linked_accounts[user_id] = normalized
+    if not configured():
+        return normalized
+    url, _key = _config()
+    existing = get_user_profile(user_id)
+    role = (existing or {}).get("role") or default_role
+    response = _post(
+        f"{url}/rest/v1/user_profiles",
+        params={"on_conflict": "user_id"},
+        json={
+            "user_id": user_id,
+            "role": role,
+            "linked_accounts": normalized,
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        },
+        headers={
+            **_service_headers(),
+            "Prefer": "resolution=merge-duplicates,return=representation",
+        },
+        timeout=TIMEOUT,
+    )
+    # If migration 0018_linked_accounts.sql has not been applied yet on the DB,
+    # keep the in-memory fallback rather than failing the request.
+    if response.status_code == 400 and (
+        "42703" in response.text or "PGRST204" in response.text or "linked_accounts" in response.text
+    ):
+        return normalized
+    _coach_check(response)
+    rows = response.json()
+    if rows and isinstance(rows[0], dict):
+        return normalize_linked_accounts(rows[0].get("linked_accounts") or normalized)
+    return normalized
+
+
+def add_linked_account(
+    user_id: str, platform: str, username: str
+) -> List[Dict[str, Any]]:
+    current = (get_user_profile(user_id) or {}).get("linked_accounts") or []
+    updated = normalize_linked_accounts(
+        list(current)
+        + [
+            {
+                "platform": platform,
+                "username": username,
+                "added_at": datetime.now(timezone.utc).isoformat(),
+            }
+        ]
+    )
+    return save_linked_accounts(user_id, updated)
+
+
+def remove_linked_account(
+    user_id: str, platform: str, username: str
+) -> List[Dict[str, Any]]:
+    norm_plat = platform.strip().lower()
+    if norm_plat in ("chesscom", "chess"):
+        norm_plat = "chess.com"
+    norm_user = username.strip().lstrip("@").lower()
+    current = normalize_linked_accounts(
+        (get_user_profile(user_id) or {}).get("linked_accounts") or []
+    )
+    remaining = [
+        item
+        for item in current
+        if not (
+            item["platform"] == norm_plat
+            and item["username"].lower() == norm_user
+        )
+    ]
+    return save_linked_accounts(user_id, remaining)
 
 
 def create_student(coach_id: str, data: Dict[str, Any]) -> Dict[str, Any]:

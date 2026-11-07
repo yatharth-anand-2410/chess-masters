@@ -20,6 +20,7 @@ import { warmBackend } from "../../../lib/backend-wake";
 import { createClient } from "../../../lib/supabase-client";
 import LimitReachedPrompt from "../../../components/LimitReachedPrompt";
 import UpgradePrompt from "../../../components/UpgradePrompt";
+import GuestQnaPrompt from "../../../components/GuestQnaPrompt";
 import type { User } from "@supabase/supabase-js";
 
 type AnalysisDetail = {
@@ -84,6 +85,22 @@ export default function AnalysisDetailPage() {
     supabase.auth.getSession().then(async ({ data }) => {
       const session = data.session;
       setUser(session?.user ?? null);
+
+      if (analysisId === "guest") {
+        try {
+          const raw = window.sessionStorage.getItem("cm_guest_report");
+          if (raw) {
+            const parsed = JSON.parse(raw) as AnalysisDetail;
+            setDetail(parsed);
+            return;
+          }
+        } catch {
+          // ignore
+        }
+        router.push("/");
+        return;
+      }
+
       if (!session) {
         router.push("/");
         return;
@@ -249,6 +266,16 @@ export default function AnalysisDetailPage() {
             <div className="error-banner">
               {analysis.error_message ?? "This analysis has no report."}
             </div>
+          )}
+
+          {!user && analysisId === "guest" && (
+            <GuestQnaPrompt
+              moveLabel={
+                insights?.weakness_moments?.[0]
+                  ? `${insights.weakness_moments[0].move_number}. ${insights.weakness_moments[0].san}`
+                  : null
+              }
+            />
           )}
 
           {token && (

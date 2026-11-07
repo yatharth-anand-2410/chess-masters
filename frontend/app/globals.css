@@ -180,6 +180,29 @@ main.progress-page > .app-topbar {
   margin-top: -1rem;
 }
 
+@media (min-width: 720px) {
+  body:has(.app-nav-shell) {
+    padding-left: 232px;
+    transition: padding-left 0.2s ease;
+  }
+  html[data-sidebar="collapsed"] body:has(.app-nav-shell) {
+    padding-left: 68px;
+  }
+}
+
+@media (max-width: 719px) {
+  body:has(.app-nav-shell) {
+    padding-bottom: 4.5rem;
+  }
+  main.dashboard > .app-nav-shell,
+  main.progress-page > .app-nav-shell {
+    width: auto;
+    margin-left: calc(50% - 50vw);
+    margin-right: calc(50% - 50vw);
+    margin-top: -1.25rem;
+  }
+}
+
 .wordmark {
   display: inline-flex;
   align-items: baseline;
@@ -278,6 +301,40 @@ main.progress-page > .app-topbar {
   gap: 3.5rem;
   align-items: center;
   padding: 2.75rem 0 1rem;
+}
+
+.hero.hero-single {
+  grid-template-columns: minmax(0, 1fr);
+  max-width: 960px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 1.5rem 0 1rem;
+}
+
+.hero.hero-single .hero-copy {
+  max-width: 960px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.hero.hero-single .hero-title,
+.hero.hero-single .hero-subtitle,
+.hero.hero-single .hero-lede {
+  text-align: center;
+  margin-inline: auto;
+}
+
+.hero.hero-single .hero-subtitle,
+.hero.hero-single .hero-lede {
+  max-width: 62ch;
+}
+
+.landing-section {
+  position: relative;
+  z-index: 10;
+  width: 100%;
+  max-width: 960px;
+  margin: 6rem auto;
 }
 
 .hero-copy {
@@ -392,10 +449,11 @@ main.progress-page > .app-topbar {
   padding: 1.6rem;
   background: linear-gradient(
     180deg,
-    rgba(226, 182, 95, 0.06) 0%,
-    var(--ink-2) 30%
+    rgba(24, 32, 36, 0.96) 0%,
+    rgba(12, 18, 21, 0.96) 35%
   );
-  border: 1px solid rgba(226, 182, 95, 0.32);
+  backdrop-filter: blur(14px);
+  border: 1px solid rgba(226, 182, 95, 0.36);
   border-radius: var(--radius-card);
   box-shadow: 0 26px 50px -40px rgba(0, 0, 0, 0.95);
 }
@@ -467,7 +525,7 @@ main.progress-page > .app-topbar {
 
 .field input::placeholder {
   color: var(--text-muted);
-  opacity: 1;
+  opacity: 0.45;
 }
 
 .field input:focus {
@@ -598,13 +656,13 @@ main.progress-page > .app-topbar {
   flex-wrap: wrap;
   align-items: center;
   justify-content: center;
-  gap: 0.4rem 1.4rem;
-  margin: 3rem auto 0;
-  padding: 0.9rem 1.25rem;
-  border-top: 1px solid var(--line-soft);
-  border-bottom: 1px solid var(--line-soft);
-  color: var(--text-muted);
-  font-size: 0.85rem;
+  gap: 0.45rem 1.4rem;
+  max-width: 960px;
+  width: 100%;
+  margin: 3.5rem auto 0;
+  padding: 0.95rem 1.5rem;
+  color: var(--text);
+  font-size: 0.86rem;
   line-height: 1.5;
 }
 
@@ -2081,9 +2139,9 @@ main.progress-page > .app-topbar {
 }
 
 .review-panel {
-  margin-top: 3.5rem;
-  /* Three comfortable columns; a 4th would leave the grid ragged. */
-  max-width: 1080px;
+  margin: 6rem auto;
+  max-width: 960px;
+  width: 100%;
 }
 
 .review-summary {
@@ -4540,11 +4598,13 @@ main.progress-page > .app-topbar {
 }
 
 .homepage-about-panel {
-  margin: 3.5rem 0 1.5rem;
+  margin: 6rem auto;
+  max-width: 960px;
+  width: 100%;
 }
 
 .explainer-video-panel {
-  margin: 2.5rem 0 3.5rem;
+  margin: 0;
 }
 
 .explainer-video-container {

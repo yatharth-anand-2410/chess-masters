@@ -1,14 +1,17 @@
 from __future__ import annotations
 
+import hashlib
 import io
+import os
 import re
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from functools import lru_cache
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urlsplit
 
+import chess
 import chess.pgn
 import requests
 
@@ -154,12 +157,20 @@ def _get(
     url: str,
     params: Optional[dict[str, str]] = None,
     allow_redirects: bool = True,
+    extra_headers: Optional[dict[str, str]] = None,
 ) -> requests.Response:
+    req_headers: dict[str, str] = {"User-Agent": DEFAULT_USER_AGENT}
+    if LICHESS_HOST in url:
+        lichess_token = os.environ.get("LICHESS_TOKEN", "").strip()
+        if lichess_token:
+            req_headers["Authorization"] = f"Bearer {lichess_token}"
+    if extra_headers:
+        req_headers.update(extra_headers)
     try:
         response = http.get(
             url,
             params=params,
-            headers={"User-Agent": DEFAULT_USER_AGENT},
+            headers=req_headers,
             timeout=REQUEST_TIMEOUT_SECONDS,
             allow_redirects=allow_redirects,
         )
@@ -416,7 +427,7 @@ def _looks_like_pgn(body: str) -> bool:
 # ``%clk`` / ``%eval`` comments) byte-for-byte intact.
 _PGN_EVENT_SPLIT = re.compile(r"(?m)^(?=\[Event\s)")
 _PGN_SITE_HEADER = re.compile(r'(?m)^\[Site\s+"([^"]*)"\]')
-_LICHESS_SITE_ID = re.compile(r"lichess\.org/([A-Za-z0-9]{8})")
+_LICHESS_SITE_ID = re.compile(r"lichess\.org/(?:game/(?:export/)?)?([A-Za-z0-9]{8})")
 
 
 def _lichess_player_user_ids(game_id: str) -> List[str]:
@@ -722,3 +733,338 @@ def fetch_game(
     entirely. Failures are not cached.
     """
     return _fetch_game_uncached(platform, game_url, username, player_color)
+
+
+def build_game_from_raw_pgn(
+    raw_pgn: str,
+    player_color: Optional[str] = None,
+    username: Optional[str] = None,
+) -> GameData:
+    """Parse a user-pasted PGN string into a normalized :class:`GameData`."""
+    cleaned_input = (raw_pgn or "").strip()
+    if not cleaned_input:
+        raise InvalidGameUrlError("Please paste a valid PGN to analyze.")
+
+    game = _read_pgn(cleaned_input)
+    if game is None or not list(game.mainline()):
+        raise InvalidGameUrlError(
+            "Could not parse moves from the pasted PGN. Check the PGN text and try again."
+        )
+
+    headers = game.headers
+    white_name = (headers.get("White") or "").strip()
+    black_name = (headers.get("Black") or "").strip()
+
+    explicit_color = (player_color or "").strip().lower()
+    resolved_color: Optional[str] = (
+        explicit_color if explicit_color in ("white", "black") else None
+    )
+    player_name: Optional[str] = None
+
+    if resolved_color is None and username and username.strip():
+        target = username.strip().lower()
+        if white_name.lower() == target:
+            resolved_color = "white"
+            player_name = white_name
+        elif black_name.lower() == target:
+            resolved_color = "black"
+            player_name = black_name
+
+    if resolved_color is None:
+        resolved_color = "white"
+
+    if player_name is None:
+        if resolved_color == "white" and white_name and white_name != "?":
+            player_name = white_name
+        elif resolved_color == "black" and black_name and black_name != "?":
+            player_name = black_name
+
+    digest = hashlib.sha1(cleaned_input.encode("utf-8")).hexdigest()[:10]
+    metadata = parse_game_metadata(cleaned_input)
+    return GameData(
+        platform="pgn",
+        game_id=f"pgn-{digest}",
+        pgn=clean_pgn(cleaned_input),
+        player_color=resolved_color,
+        player_name=player_name,
+        started_at=metadata["started_at"],
+        time_control=metadata["time_control"],
+        player_move_times=parse_player_move_times(cleaned_input, resolved_color),
+        server_evals=parse_server_evals(cleaned_input),
+    )
+
+
+def build_game_from_fen(
+    fen: str,
+    player_color: Optional[str] = None,
+) -> GameData:
+    """Validate a user-pasted FEN position and wrap it in :class:`GameData`."""
+    cleaned_fen = (fen or "").strip()
+    if not cleaned_fen:
+        raise InvalidGameUrlError("Please paste a valid FEN string to analyze.")
+    try:
+        board = chess.Board(cleaned_fen)
+    except ValueError as exc:
+        raise InvalidGameUrlError(f"Invalid FEN string: {exc}") from exc
+
+    if not board.is_valid():
+        raise InvalidGameUrlError(
+            "That FEN position is not legal (check king counts and checks)."
+        )
+
+    explicit_color = (player_color or "").strip().lower()
+    if explicit_color in ("white", "black"):
+        color = explicit_color
+    else:
+        color = "white" if board.turn == chess.WHITE else "black"
+
+    normalized_fen = board.fen()
+    digest = hashlib.sha1(normalized_fen.encode("utf-8")).hexdigest()[:10]
+    return GameData(
+        platform="fen",
+        game_id=f"fen-{digest}",
+        pgn=normalized_fen,
+        player_color=color,
+        player_name=None,
+        started_at=None,
+        time_control=None,
+    )
+
+
+def _classify_time_control(
+    time_control: Optional[str],
+    event_header: Optional[str] = None,
+    time_class_hint: Optional[str] = None,
+) -> str:
+    """Classify a game into bullet, blitz, rapid, classical, or daily."""
+    if time_class_hint:
+        hint = time_class_hint.strip().lower()
+        if hint in ("bullet", "blitz", "rapid", "classical", "daily"):
+            return "classical" if hint == "daily" else hint
+
+    ev = (event_header or "").lower()
+    for label in ("bullet", "blitz", "rapid", "classical", "correspondence", "daily"):
+        if label in ev:
+            return "classical" if label in ("correspondence", "daily") else label
+
+    base, increment = _time_control_parts(time_control)
+    if base is None:
+        return "rapid"
+    estimated_seconds = base + 40.0 * increment
+    if estimated_seconds < 180:
+        return "bullet"
+    if estimated_seconds < 480:
+        return "blitz"
+    if estimated_seconds < 1500:
+        return "rapid"
+    return "classical"
+
+
+def _format_time_control_label(time_control: Optional[str], time_class: str) -> str:
+    base, increment = _time_control_parts(time_control)
+    if base is None:
+        return time_class.capitalize()
+    mins = int(round(base / 60)) if base >= 60 else f"{int(base)}s"
+    inc = int(round(increment))
+    return f"{mins}+{inc}"
+
+
+def _result_for_player(pgn_result: str, player_color: str) -> str:
+    if pgn_result == "1-0":
+        return "win" if player_color == "white" else "loss"
+    if pgn_result == "0-1":
+        return "win" if player_color == "black" else "loss"
+    if pgn_result == "1/2-1/2":
+        return "draw"
+    return "unknown"
+
+
+def fetch_profile_recent_games(
+    platform: str,
+    username: str,
+    max_games: int = 30,
+    time_control: str = "all",
+) -> List[Dict[str, Any]]:
+    """Fetch a player's recent public games from Lichess or Chess.com with soft filtering."""
+    norm_plat = (platform or "").strip().lower()
+    if norm_plat in ("chesscom", "chess"):
+        norm_plat = "chess.com"
+    if norm_plat not in ("lichess", "chess.com"):
+        raise InvalidGameUrlError(f"Unsupported platform: {platform}")
+
+    clean_user = (username or "").strip().lstrip("@")
+    if not clean_user:
+        raise InvalidGameUrlError("Please enter a username.")
+
+    capped_max = max(1, min(int(max_games or 30), 50))
+    tc_filter = (time_control or "all").strip().lower()
+    if tc_filter not in ("all", "bullet", "blitz", "rapid", "classical"):
+        tc_filter = "all"
+
+    items: List[Dict[str, Any]] = []
+
+    if norm_plat == "lichess":
+        params: Dict[str, str] = {
+            "max": str(min(capped_max * 2 if tc_filter != "all" else capped_max, 60)),
+            "clocks": "false",
+            "evals": "false",
+            "opening": "true",
+        }
+        if tc_filter != "all":
+            params["perfType"] = tc_filter
+        response = _get(
+            LICHESS_USER_GAMES_URL.format(username=clean_user),
+            params=params,
+            extra_headers={"Accept": "application/x-chess-pgn"},
+        )
+        pgn_blob = response.text
+        if not pgn_blob.strip() or not _looks_like_pgn(pgn_blob):
+            return []
+
+        target_lower = clean_user.lower()
+        for block in _PGN_EVENT_SPLIT.split(pgn_blob):
+            if not _looks_like_pgn(block):
+                continue
+            game = _read_pgn(block)
+            if game is None:
+                continue
+            headers = game.headers
+            game_id = (headers.get("GameId") or "").strip()
+            if not game_id:
+                site = headers.get("Site", "")
+                site_match = _LICHESS_SITE_ID.search(site)
+                if not site_match:
+                    continue
+                game_id = site_match.group(1)
+            white_user = (headers.get("White") or "").strip()
+            black_user = (headers.get("Black") or "").strip()
+            if white_user.lower() == target_lower:
+                p_color = "white"
+                opp_name = black_user or "Opponent"
+                opp_rating = headers.get("BlackElo")
+                player_rating = headers.get("WhiteElo")
+            elif black_user.lower() == target_lower:
+                p_color = "black"
+                opp_name = white_user or "Opponent"
+                opp_rating = headers.get("WhiteElo")
+                player_rating = headers.get("BlackElo")
+            else:
+                p_color = "white"
+                opp_name = black_user or "Opponent"
+                opp_rating = headers.get("BlackElo")
+                player_rating = headers.get("WhiteElo")
+
+            tc_raw = headers.get("TimeControl")
+            ev_raw = headers.get("Event")
+            t_class = _classify_time_control(tc_raw, ev_raw)
+            if tc_filter != "all" and t_class != tc_filter:
+                continue
+
+            pgn_res = (headers.get("Result") or "*").strip()
+            meta = parse_game_metadata(block)
+            items.append(
+                {
+                    "game_id": game_id,
+                    "game_url": f"https://lichess.org/{game_id}/{p_color}",
+                    "platform": "lichess",
+                    "white_username": white_user,
+                    "black_username": black_user,
+                    "player_color": p_color,
+                    "player_rating": int(player_rating) if (player_rating and player_rating.isdigit()) else None,
+                    "opponent_username": opp_name,
+                    "opponent_rating": int(opp_rating) if (opp_rating and opp_rating.isdigit()) else None,
+                    "result": _result_for_player(pgn_res, p_color),
+                    "pgn_result": pgn_res,
+                    "time_control": tc_raw,
+                    "time_control_label": _format_time_control_label(tc_raw, t_class),
+                    "time_class": t_class,
+                    "rated": "casual" not in (ev_raw or "").lower(),
+                    "started_at": meta["started_at"],
+                    "eco": headers.get("ECO"),
+                    "opening_name": headers.get("Opening"),
+                }
+            )
+            if len(items) >= capped_max:
+                break
+        return items
+
+    # Chess.com archive lookup
+    response = _get(CHESS_COM_ARCHIVES_URL.format(username=clean_user.lower()))
+    archives: list[str] = response.json().get("archives", [])
+    if not archives:
+        return []
+
+    month_urls = list(reversed(archives[-2:]))
+    newest_month = archives[-1]
+    target_lower = clean_user.lower()
+
+    for month_url in month_urls:
+        games, _err = _get_chesscom_month(month_url, immutable=month_url != newest_month)
+        for raw_game in reversed(games):
+            game_url = str(raw_game.get("url") or "").strip()
+            raw_pgn = str(raw_game.get("pgn") or "").strip()
+            if not game_url or not raw_pgn:
+                continue
+            p_color = _player_color_for_game(raw_game, clean_user)
+            if p_color not in ("white", "black"):
+                continue
+            t_class = _classify_time_control(
+                str(raw_game.get("time_control") or ""),
+                None,
+                str(raw_game.get("time_class") or ""),
+            )
+            if tc_filter != "all" and t_class != tc_filter:
+                continue
+
+            white_info = raw_game.get("white") or {}
+            black_info = raw_game.get("black") or {}
+            white_user = str(white_info.get("username") or "White")
+            black_user = str(black_info.get("username") or "Black")
+            if p_color == "white":
+                opp_name = black_user
+                opp_rating = black_info.get("rating")
+                player_rating = white_info.get("rating")
+            else:
+                opp_name = white_user
+                opp_rating = white_info.get("rating")
+                player_rating = black_info.get("rating")
+
+            parsed_pgn = _read_pgn(raw_pgn)
+            headers = parsed_pgn.headers if parsed_pgn is not None else {}
+            pgn_res = str(headers.get("Result") or "*")
+            meta = parse_game_metadata(raw_pgn)
+            tc_raw = str(headers.get("TimeControl") or raw_game.get("time_control") or "")
+            try:
+                game_id = extract_chesscom_game_id(game_url)
+            except InvalidGameUrlError:
+                game_id = game_url.rsplit("/", 1)[-1]
+
+            opening_name = headers.get("Opening") or headers.get("ECOUrl", "").rsplit("/", 1)[-1].replace("-", " ") or None
+            items.append(
+                {
+                    "game_id": game_id,
+                    "game_url": game_url,
+                    "platform": "chess.com",
+                    "white_username": white_user,
+                    "black_username": black_user,
+                    "player_color": p_color,
+                    "player_rating": int(player_rating) if isinstance(player_rating, int) else None,
+                    "opponent_username": opp_name,
+                    "opponent_rating": int(opp_rating) if isinstance(opp_rating, int) else None,
+                    "result": _result_for_player(pgn_res, p_color),
+                    "pgn_result": pgn_res,
+                    "time_control": tc_raw,
+                    "time_control_label": _format_time_control_label(tc_raw, t_class),
+                    "time_class": t_class,
+                    "rated": bool(raw_game.get("rated", True)),
+                    "started_at": meta["started_at"],
+                    "eco": headers.get("ECO"),
+                    "opening_name": opening_name,
+                }
+            )
+            if len(items) >= capped_max:
+                break
+        if len(items) >= capped_max:
+            break
+
+    return items

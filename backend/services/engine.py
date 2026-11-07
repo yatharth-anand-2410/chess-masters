@@ -512,6 +512,102 @@ class StockfishAnalyzer:
             server_evals_used=server_evals_used,
         )
 
+    def analyze_fen(
+        self,
+        fen: str,
+        player_color: Optional[str] = None,
+        player_name: Optional[str] = None,
+        pool: Optional[EnginePool] = None,
+    ) -> AnalysisResult:
+        try:
+            board = chess.Board(fen.strip())
+        except ValueError as exc:
+            raise EngineError(f"Could not parse FEN position: {exc}") from exc
+        if not board.is_valid():
+            raise EngineError("The provided FEN position is not legal.")
+
+        side_to_move = "white" if board.turn == chess.WHITE else "black"
+        resolved_color = (
+            player_color
+            if player_color in ("white", "black")
+            else side_to_move
+        )
+
+        own_pool = pool is None
+        active_pool = pool or EnginePool.create(
+            engine_path=self.engine_path,
+            size=self.workers,
+            depth=self.depth,
+            time_limit=self.time_limit,
+        )
+        try:
+            score_before = active_pool.score(board)
+            best_move = score_before.best
+            if best_move is None:
+                legal = list(board.legal_moves)
+                best_move = legal[0] if legal else None
+
+            moves: List[MoveInfo] = []
+            eval_curve_cp = [score_before.cp]
+            if best_move is not None and best_move in board.legal_moves:
+                san = board.san(best_move)
+                pv_san = moves_san(board, score_before.pv)
+                board_after = board.copy()
+                board_after.push(best_move)
+                score_after = active_pool.score(board_after)
+                eval_curve_cp.append(score_after.cp)
+                piece_count = len(board.piece_map())
+                phase = (
+                    PHASE_ENDGAME
+                    if piece_count <= 12
+                    else PHASE_OPENING
+                    if board.fullmove_number <= OPENING_MOVE_LIMIT
+                    else PHASE_MIDDLEGAME
+                )
+                moves.append(
+                    MoveInfo(
+                        move_number=max(1, board.fullmove_number),
+                        san=san,
+                        color=side_to_move,
+                        phase=phase,
+                        fen_before=board.fen(),
+                        played_move=best_move.uci(),
+                        best_move=best_move.uci(),
+                        best_move_san=san,
+                        pv=[m.uci() for m in score_before.pv],
+                        pv_san=pv_san,
+                        eval_before_cp=score_before.cp,
+                        eval_after_cp=score_after.cp,
+                        centipawn_loss=0,
+                        quality=QUALITY_BEST,
+                    )
+                )
+        finally:
+            if own_pool:
+                active_pool.close()
+
+        return AnalysisResult(
+            player_color=resolved_color,
+            player_name=player_name,
+            result="*",
+            opening_name="Custom FEN Position",
+            eco=None,
+            eval_curve_pawns=[round(cp / 100, 2) for cp in eval_curve_cp],
+            moves=moves,
+            statistics={
+                QUALITY_BLUNDER: 0,
+                QUALITY_MISTAKE: 0,
+                QUALITY_INACCURACY: 0,
+            },
+            phase_accuracies=self._compute_phase_accuracies(moves, resolved_color),
+            overall_accuracy=100.0 if moves else None,
+            started_at=None,
+            time_control=None,
+            termination=None,
+            ended_in_checkmate=board.is_checkmate(),
+            server_evals_used=False,
+        )
+
     def _position_scores(
         self,
         positions: List[chess.Board],

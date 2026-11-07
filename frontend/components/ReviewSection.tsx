@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { User } from "@supabase/supabase-js";
+import { MessageSquarePlus, Star, CheckCircle2 } from "lucide-react";
 import {
   apiPost,
   type ReviewsResponse,
@@ -20,17 +21,31 @@ function Stars({ value }: { value: number }) {
   const rounded = Math.round(value);
   return (
     <span
-      className="stars"
+      className="inline-flex items-center gap-0.5 text-[var(--gold-bright)] text-xs"
       role="img"
       aria-label={`${value.toFixed(1)} out of 5 stars`}
     >
       {[1, 2, 3, 4, 5].map((star) => (
-        <span key={star} className={star <= rounded ? "star filled" : "star"}>
+        <span
+          key={star}
+          className={star <= rounded ? "text-[var(--gold-bright)]" : "text-[var(--text-muted)]/30"}
+        >
           ★
         </span>
       ))}
     </span>
   );
+}
+
+function getInitials(name: string): string {
+  const parts = (name || "Player").trim().split(/\s+/);
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
+function isShortOrEmojiComment(text?: string | null): boolean {
+  const cleaned = (text || "").trim();
+  return cleaned.length <= 4;
 }
 
 export default function ReviewSection({ user, token, onAuthChange }: ReviewSectionProps) {
@@ -40,6 +55,7 @@ export default function ReviewSection({ user, token, onAuthChange }: ReviewSecti
   const [comment, setComment] = useState("");
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [showForm, setShowForm] = useState(false);
   const [error, setError] = useState("");
   const [retryable, setRetryable] = useState(false);
   const requestId = useRef(0);
@@ -54,8 +70,6 @@ export default function ReviewSection({ user, token, onAuthChange }: ReviewSecti
         let result: ReviewsResponse | undefined;
         for (let attempt = 0; attempt < 2; attempt += 1) {
           try {
-            // The community rating row is not per-tab data: reusing it for a
-            // minute keeps the landing tab from re-reading it on every visit.
             result = await apiGetCached<ReviewsResponse>("/api/reviews", token || undefined, {
               ttlMs: CACHE_TTL.account,
               force: options?.force ?? false,
@@ -120,8 +134,8 @@ export default function ReviewSection({ user, token, onAuthChange }: ReviewSecti
         rating,
         comment: comment.trim() || null,
       });
-      // The submitted review changes the row: re-read it instead of the cache.
       await load(true, { force: true });
+      setShowForm(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not save your review.");
       setRetryable(false);
@@ -134,26 +148,67 @@ export default function ReviewSection({ user, token, onAuthChange }: ReviewSecti
   const reviews = data?.reviews ?? [];
   const hasReview = Boolean(data?.mine);
 
+  // Sort substantive text reviews first so the top row always reads like a rich testimonial wall
+  const sortedReviews = [...reviews].sort((a, b) => {
+    const aLen = (a.comment || "").trim().length;
+    const bLen = (b.comment || "").trim().length;
+    if ((aLen > 4) !== (bLen > 4)) {
+      return aLen > 4 ? -1 : 1;
+    }
+    return bLen - aLen;
+  });
+
   return (
-    <section className="review-panel">
-      <div className="section-head">
-        <h2>Player reviews</h2>
-        {summary && summary.count > 0 && (
-          <span className="review-summary">
-            <Stars value={summary.average ?? 0} />
-            <span>
-              {(summary.average ?? 0).toFixed(1)} · {summary.count}{" "}
-              {summary.count === 1 ? "review" : "reviews"}
-            </span>
-          </span>
-        )}
+    <section className="review-panel landing-section">
+      {/* Compact Header Bar */}
+      <div className="rounded-2xl bg-[#0a1014]/90 backdrop-blur-xl border border-[var(--line)] p-6 mb-5 flex flex-wrap items-center justify-between gap-4 shadow-xl">
+        <div className="flex flex-wrap items-center gap-3">
+          <h2 className="text-2xl font-serif font-bold text-[var(--text)] m-0">
+            Player Reviews
+          </h2>
+          {summary && summary.count > 0 && (
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[var(--gold)]/15 border border-[var(--gold)]/40 text-xs font-mono">
+              <Stars value={summary.average ?? 0} />
+              <span className="font-bold text-[var(--gold-bright)]">
+                {(summary.average ?? 0).toFixed(1)}
+              </span>
+              <span className="text-[var(--text-muted)]">
+                ({summary.count} {summary.count === 1 ? "review" : "reviews"})
+              </span>
+            </div>
+          )}
+        </div>
+
+        <div className="flex items-center gap-2">
+          {user && token ? (
+            <button
+              type="button"
+              onClick={() => setShowForm((prev) => !prev)}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-[var(--radius-control)] bg-[var(--ink-3)] border border-[var(--gold)]/40 text-xs font-semibold text-[var(--gold-bright)] hover:bg-[var(--gold)]/15 transition-colors cursor-pointer"
+            >
+              <MessageSquarePlus size={14} />
+              <span>{hasReview ? "Edit Your Review" : "Write a Review"}</span>
+            </button>
+          ) : (
+            <div className="flex items-center gap-2.5">
+              <span className="text-xs text-[var(--text-muted)] hidden sm:inline">
+                Analyzed a game?
+              </span>
+              <AuthButton user={user} onAuthChange={onAuthChange} />
+            </div>
+          )}
+        </div>
       </div>
 
-      {user && token ? (
-        <form className="review-form" onSubmit={submit}>
-          <div className="review-form-head">
-            <span className="review-form-label">
-              {hasReview ? "Update your review" : "Rate Chessmasters"}
+      {/* Collapsible Review Form (for signed-in users when toggled) */}
+      {user && token && showForm && (
+        <form
+          className="review-form mb-5 rounded-2xl bg-[#0c1317]/95 backdrop-blur-md border border-[var(--gold)]/40 p-5 shadow-xl"
+          onSubmit={submit}
+        >
+          <div className="review-form-head flex items-center justify-between gap-2 mb-3">
+            <span className="review-form-label text-sm font-semibold text-[var(--text)]">
+              {hasReview ? "Update your review" : "Rate your Chessmasters experience"}
             </span>
             <div className="star-input" role="radiogroup" aria-label="Your rating">
               {[1, 2, 3, 4, 5].map((value) => (
@@ -186,66 +241,104 @@ export default function ReviewSection({ user, token, onAuthChange }: ReviewSecti
             rows={3}
             disabled={submitting}
           />
-          <div className="review-form-actions">
-            <button
-              type="submit"
-              className="btn"
-              disabled={submitting || rating < 1}
-            >
-              {submitting ? "Saving..." : hasReview ? "Update review" : "Submit review"}
-            </button>
+          <div className="review-form-actions mt-3 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <button
+                type="submit"
+                className="btn"
+                disabled={submitting || rating < 1}
+              >
+                {submitting ? "Saving..." : hasReview ? "Update review" : "Submit review"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowForm(false)}
+                className="btn btn-ghost"
+              >
+                Cancel
+              </button>
+            </div>
             {comment.length > 0 && (
-              <span className="review-char-count">{comment.length}/500</span>
+              <span className="review-char-count text-xs text-[var(--text-muted)]">
+                {comment.length}/500
+              </span>
             )}
           </div>
         </form>
-      ) : (
-        <div className="review-signin">
-          <p>Sign in to rate Chessmasters and share your experience.</p>
-          <AuthButton user={null} onAuthChange={onAuthChange} />
-        </div>
       )}
 
       {error && (
-        <div className="error-banner review-error">
+        <div className="error-banner review-error mb-4" role="alert">
           <span>{error}</span>
           {retryable && (
             <button
               type="button"
               className="btn btn-ghost"
-              onClick={() => load()}
+              onClick={() => load(false)}
               disabled={loading}
             >
-              {loading ? "Retrying..." : "Retry"}
+              Retry
             </button>
           )}
         </div>
       )}
 
       {loading ? (
-        <p className="history-empty">Loading reviews...</p>
-      ) : reviews.length > 0 ? (
-        <div className="review-list">
-          {reviews.map((review) => (
-            <article
-              key={review.id}
-              className={`review-card${review.is_mine ? " review-card-mine" : ""}`}
-            >
-              <div className="review-card-head">
-                <Stars value={review.rating} />
-                <span className="review-author">{review.display_name}</span>
-                {review.is_mine && <span className="review-mine-badge">Your review</span>}
-              </div>
-              <p className={`review-comment${review.comment ? "" : " review-comment-empty"}`}>
-                {review.comment || "Rated without a comment."}
-              </p>
-            </article>
-          ))}
+        <div className="rounded-2xl bg-[#0c1317]/95 border border-[var(--line)] p-6 text-xs text-[var(--text-muted)]">
+          Loading player reviews...
         </div>
-      ) : error ? null : (
-        <p className="history-empty">
-          No reviews yet. Be the first to rate Chessmasters.
-        </p>
+      ) : sortedReviews.length === 0 ? (
+        !error && (
+          <div className="rounded-2xl bg-[#0c1317]/95 border border-[var(--line)] p-6 text-xs text-[var(--text-muted)]">
+            No reviews yet. Be the first to rate Chessmasters!
+          </div>
+        )
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {sortedReviews.map((review) => {
+            const shortEmoji = isShortOrEmojiComment(review.comment);
+            const initials = getInitials(review.display_name);
+            return (
+              <article
+                key={review.id}
+                className="rounded-2xl bg-[#0c1317]/95 backdrop-blur-md border border-[var(--line)] hover:border-[var(--gold)]/35 p-5 flex flex-col justify-between gap-4 shadow-md transition-colors"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-9 h-9 rounded-full bg-[var(--gold)]/15 border border-[var(--gold)]/45 text-[var(--gold-bright)] font-mono font-bold text-xs flex items-center justify-center shrink-0">
+                      {initials}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-sm font-semibold text-[var(--text)] truncate">
+                        {review.display_name}
+                      </div>
+                      <div className="text-[11px] text-emerald-400 flex items-center gap-1">
+                        <CheckCircle2 size={11} />
+                        <span>Verified Player</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="shrink-0">
+                    <Stars value={review.rating} />
+                  </div>
+                </div>
+
+                {shortEmoji ? (
+                  <div className="flex items-center justify-between gap-2 pt-2 border-t border-[var(--line-soft)] text-xs text-[var(--text-muted)]">
+                    <span>Rated {review.rating}.0 / 5.0 after game analysis</span>
+                    {review.comment && (
+                      <span className="text-base leading-none">{review.comment}</span>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-xs sm:text-sm text-[var(--text)] leading-relaxed m-0 pt-2 border-t border-[var(--line-soft)]">
+                    &ldquo;{review.comment}&rdquo;
+                  </p>
+                )}
+              </article>
+            );
+          })}
+        </div>
       )}
     </section>
   );

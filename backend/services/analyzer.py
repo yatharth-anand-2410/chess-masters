@@ -277,6 +277,13 @@ def _build_contents(game: extractor.GameData, engine_data: Dict[str, object]) ->
         + (f"\nPlayer name: {player_name}" if player_name else "")
         + "\n\nAnalyze ONLY this player's decisions. Never attribute the opponent's moves to them."
     )
+    if game.platform == "fen":
+        return (
+            "Analyze this chess position (FEN) and coach the player on the key ideas, threats, and best continuation.\n\n"
+            f"FEN:\n{game.pgn}\n\n"
+            f"{identity}\n\n"
+            f"Engine data (JSON):\n{json.dumps(_compact_engine_data(engine_data))}\n"
+        )
     return (
         "Analyze this chess game.\n\n"
         f"PGN:\n{game.pgn}\n\n"

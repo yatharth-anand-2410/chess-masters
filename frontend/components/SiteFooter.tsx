@@ -3,7 +3,7 @@ import { CONTACT_EMAIL, SITE_NAME } from "../lib/site";
 
 export default function SiteFooter() {
   return (
-    <footer className="site-footer">
+    <footer className="site-footer relative z-20 bg-[#080c0e]/95 backdrop-blur-md">
       <div className="site-footer-inner">
         <div className="site-footer-row">
           <p className="site-footer-brand">

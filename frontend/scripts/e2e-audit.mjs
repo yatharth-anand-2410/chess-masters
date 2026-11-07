@@ -187,13 +187,13 @@ async function runAudit() {
       failures.push(`Mobile nav actions (div.flex.sm:hidden) on desktop should be display: none, got: ${topbarDisplay.mobileNavDisplay}`);
     }
 
-    // Check hero board visibility
-    const heroBoard = page.locator(".hero-board");
-    const heroBoardBox = await heroBoard.boundingBox();
+    // Check analyzer form and new landing sections visibility (HeroBoard intentionally removed)
+    const analyzerForm = page.locator(".analyzer-form");
+    const analyzerFormBox = await analyzerForm.boundingBox();
     checksRun += 1;
-    console.log("HeroBoard bounding box:", heroBoardBox);
-    if (!heroBoardBox || heroBoardBox.width < 100 || heroBoardBox.height < 100) {
-      failures.push(`Hero board is not properly rendered or has 0 size: ${JSON.stringify(heroBoardBox)}`);
+    console.log("AnalyzerForm bounding box:", analyzerFormBox);
+    if (!analyzerFormBox || analyzerFormBox.width < 200 || analyzerFormBox.height < 100) {
+      failures.push(`Analyzer form is not properly rendered or has 0 size: ${JSON.stringify(analyzerFormBox)}`);
     }
 
     // 2. Feature: 1-Click Sample Game

@@ -4,15 +4,31 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import type { User } from "@supabase/supabase-js";
-import { Menu, X, ChevronDown, Check, AlertCircle, Sparkles } from "lucide-react";
+import {
+  Menu,
+  X,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  Check,
+  AlertCircle,
+  Compass,
+  TrendingUp,
+  BookOpen,
+  Crosshair,
+  Users,
+  CreditCard,
+  Clock,
+  Zap,
+  Info,
+  HelpCircle,
+} from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
-import { apiGet } from "../../lib/api";
 import { apiGetCached, CACHE_TTL } from "../../lib/api-cache";
 import type { Usage, UserProfile } from "../../lib/api";
 import { createClient } from "../../lib/supabase-client";
 import { Pill } from "./Pill";
 import { Button } from "./Button";
-import SoundToggle from "./SoundToggle";
 
 export type TopbarProps = {
   user?: User | null;
@@ -53,28 +69,83 @@ export function GoogleIcon({ className = "w-4 h-4" }: { className?: string }) {
 type NavItem = {
   href: string;
   label: string;
+  icon: React.ComponentType<{ size?: number; className?: string }>;
   matcher: (p: string) => boolean;
   /** Rendered only for coach accounts. */
   coachOnly?: boolean;
+  /** Included in the mobile bottom dock (4 primary tabs + Menu trigger). */
+  dockPrimary?: boolean;
 };
 
 const BASE_NAV_ITEMS: NavItem[] = [
-  { href: "/", label: "Review", matcher: (p) => p === "/" || p.startsWith("/analysis") },
-  { href: "/progress", label: "Progress", matcher: (p) => p.startsWith("/progress") },
-  { href: "/studies", label: "Studies", matcher: (p) => p.startsWith("/studies") || p.startsWith("/study") },
-  { href: "/scout", label: "Scout", matcher: (p) => p.startsWith("/scout") },
+  {
+    href: "/",
+    label: "Review",
+    icon: Compass,
+    matcher: (p) => p === "/" || p.startsWith("/analysis"),
+    dockPrimary: true,
+  },
+  {
+    href: "/progress",
+    label: "Progress",
+    icon: TrendingUp,
+    matcher: (p) => p.startsWith("/progress"),
+    dockPrimary: true,
+  },
+  {
+    href: "/studies",
+    label: "Studies",
+    icon: BookOpen,
+    matcher: (p) => p.startsWith("/studies") || p.startsWith("/study"),
+    dockPrimary: true,
+  },
+  {
+    href: "/scout",
+    label: "Scout",
+    icon: Crosshair,
+    matcher: (p) => p.startsWith("/scout"),
+    dockPrimary: true,
+  },
   {
     href: "/coach",
     label: "Students",
+    icon: Users,
     matcher: (p) => p.startsWith("/coach"),
     coachOnly: true,
   },
-  { href: "/subscription", label: "Subscription", matcher: (p) => p.startsWith("/subscription") || p.startsWith("/upgrade") },
-  { href: "/history", label: "History", matcher: (p) => p.startsWith("/history") },
-  { href: "/tactics", label: "Tactics", matcher: (p) => p.startsWith("/tactics") },
-  { href: "/about", label: "About", matcher: (p) => p.startsWith("/about") },
-  { href: "/faq", label: "FAQ", matcher: (p) => p.startsWith("/faq") },
+  {
+    href: "/history",
+    label: "History",
+    icon: Clock,
+    matcher: (p) => p.startsWith("/history"),
+  },
+  {
+    href: "/tactics",
+    label: "Tactics",
+    icon: Zap,
+    matcher: (p) => p.startsWith("/tactics"),
+  },
+  {
+    href: "/subscription",
+    label: "Subscription",
+    icon: CreditCard,
+    matcher: (p) => p.startsWith("/subscription") || p.startsWith("/upgrade"),
+  },
+  {
+    href: "/about",
+    label: "About",
+    icon: Info,
+    matcher: (p) => p.startsWith("/about"),
+  },
+  {
+    href: "/faq",
+    label: "FAQ",
+    icon: HelpCircle,
+    matcher: (p) => p.startsWith("/faq"),
+  },
 ];
+
+const SIDEBAR_COLLAPSED_KEY = "cm_sidebar_collapsed";
 
 export function Topbar({
   user,
@@ -88,17 +159,37 @@ export function Topbar({
 }: TopbarProps) {
   const pathname = usePathname() || "/";
   const [menuOpen, setMenuOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   const [internalUser, setInternalUser] = useState<User | null>(user ?? null);
   const [internalRole, setInternalRole] = useState<"player" | "coach" | null>(role ?? null);
   const [authBusy, setAuthBusy] = useState(false);
   const [authNotice, setAuthNotice] = useState<string | null>(null);
 
-  /**
-   * Pages that don't pass `role` (Progress, History, Studies, …) still need the
-   * Students tab for coach accounts — and the bottom dock resolves the role the
-   * same way, so the two surfaces can never disagree.
-   */
+  // Sync desktop sidebar collapse state with CSS variable on root so page layout adapts
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "1";
+      setSidebarCollapsed(saved);
+      document.documentElement.dataset.sidebar = saved ? "collapsed" : "expanded";
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const toggleSidebarCollapse = () => {
+    setSidebarCollapsed((prev) => {
+      const next = !prev;
+      try {
+        window.localStorage.setItem(SIDEBAR_COLLAPSED_KEY, next ? "1" : "0");
+        document.documentElement.dataset.sidebar = next ? "collapsed" : "expanded";
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+  };
+
   useEffect(() => {
     if (role) {
       setInternalRole(role);
@@ -141,21 +232,23 @@ export function Topbar({
 
   const effectiveRole = role ?? internalRole;
 
-  // "Students" replaces the old "Coach" entry and is only for coach accounts.
   const navItems = useMemo(
     () => BASE_NAV_ITEMS.filter((item) => !item.coachOnly || effectiveRole === "coach"),
     [effectiveRole]
   );
 
-  // Sync internal user state with Supabase session and localStorage demo state
+  const dockItems = useMemo(
+    () => navItems.filter((item) => item.dockPrimary).slice(0, 4),
+    [navItems]
+  );
+
+  // Sync internal user state with Supabase session
   useEffect(() => {
-    // If user prop was explicitly passed and non-null, prioritize it
     if (user !== undefined && user !== null) {
       setInternalUser(user);
       return;
     }
 
-    // Check for query parameter auth errors (e.g. from /auth/callback)
     if (typeof window !== "undefined") {
       const searchParams = new URLSearchParams(window.location.search);
       const urlError = searchParams.get("auth_error");
@@ -183,7 +276,6 @@ export function Topbar({
 
     syncSession();
 
-    // Listen for Supabase session changes
     let unsubscribeSupabase = () => {};
     try {
       const supabase = createClient();
@@ -195,7 +287,6 @@ export function Topbar({
       // Ignore
     }
 
-    // Cross-tab and in-tab synchronization via custom event and storage
     const handleStorage = () => syncSession();
     window.addEventListener("cm_auth_changed", handleStorage);
     window.addEventListener("storage", handleStorage);
@@ -207,7 +298,6 @@ export function Topbar({
     };
   }, [user]);
 
-  // Active user is either prop user or internally synchronized user
   const effectiveUser = user || internalUser;
 
   const toggleMenu = () => setMenuOpen((prev) => !prev);
@@ -235,10 +325,6 @@ export function Topbar({
         provider: "google",
         options: {
           redirectTo,
-          // No extra Google params on purpose: Supabase manages offline access
-          // and the refresh token itself, and injecting access_type/prompt here
-          // is what produced Google's "Error 400: invalid_request" (the
-          // deployed production request carries neither).
         },
       });
 
@@ -283,15 +369,15 @@ export function Topbar({
     .toUpperCase();
 
   return (
-    <header className={`app-topbar relative w-full border-b border-[var(--line-soft)] py-2.5 px-3 sm:px-6 bg-[var(--ink-1)]/95 backdrop-blur-md z-40 ${className}`}>
-      {/* Top Banner Notice for Auth Alerts */}
+    <header className={`app-nav-shell z-40 ${className}`}>
+      {/* Auth Alert Notice */}
       <AnimatePresence>
         {authNotice && (
           <motion.div
             initial={{ opacity: 0, height: 0, y: -6 }}
             animate={{ opacity: 1, height: "auto", y: 0 }}
             exit={{ opacity: 0, height: 0, y: -6 }}
-            className="mb-2 max-w-7xl mx-auto px-3.5 py-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-200 text-xs flex items-center justify-between gap-3 shadow-md"
+            className="mb-2 max-w-4xl mx-auto px-3.5 py-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-200 text-xs flex items-center justify-between gap-3 shadow-md"
           >
             <div className="flex items-center gap-2 min-w-0">
               <AlertCircle size={15} className="text-amber-400 shrink-0" />
@@ -309,126 +395,183 @@ export function Topbar({
         )}
       </AnimatePresence>
 
-      <div className="flex items-center justify-between gap-2 md:gap-4 max-w-[var(--shell-max)] mx-auto flex-wrap">
-        {/* Left: Brand Wordmark */}
-        <div className="flex items-center gap-3 lg:gap-6 min-w-0 flex-1 xl:flex-none">
-          <Link
-            href="/"
-            onClick={closeMenu}
-            className="shrink-0 inline-flex items-center gap-2 font-serif text-lg sm:text-xl font-bold tracking-tight text-[var(--text)] hover:text-white transition-colors group"
-          >
-            <span className="w-7 h-7 rounded-md bg-[var(--gold)]/10 border border-[var(--gold)]/30 flex items-center justify-center text-[var(--gold-bright)] text-sm group-hover:scale-105 transition-transform">
-              ♜
-            </span>
-            <span className="inline">Chessmasters</span>
-          </Link>
-        </div>
+      {/* =====================================================================
+          DESKTOP LEFT VERTICAL SIDEBAR (>= 720px / md)
+         ===================================================================== */}
+      <aside
+        aria-label="Desktop sidebar navigation"
+        className={`hidden md:flex flex-col fixed top-0 left-0 bottom-0 z-50 bg-[var(--ink-1)]/95 backdrop-blur-md border-r border-[var(--line-soft)] transition-[width] duration-200 ${
+          sidebarCollapsed ? "w-[68px]" : "w-[232px]"
+        }`}
+      >
+        {/* Top Brand + Collapse/Expand Button */}
+        {sidebarCollapsed ? (
+          <div className="flex flex-col items-center justify-center gap-1.5 py-3 px-2 border-b border-[var(--line-soft)] shrink-0">
+            <button
+              type="button"
+              onClick={toggleSidebarCollapse}
+              className="w-11 h-10 rounded-lg bg-[var(--gold)]/12 border border-[var(--gold)]/35 flex items-center justify-center gap-0.5 text-[var(--gold-bright)] hover:bg-[var(--gold)]/22 transition-colors cursor-pointer"
+              aria-label="Expand left sidebar"
+              title="Expand sidebar"
+            >
+              <span className="text-sm font-serif">♜</span>
+              <ChevronRight size={14} />
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center justify-between px-3.5 h-16 border-b border-[var(--line-soft)] shrink-0">
+            <Link
+              href="/"
+              onClick={closeMenu}
+              className="inline-flex items-center gap-2.5 font-serif text-lg font-bold tracking-tight text-[var(--text)] hover:text-white transition-colors group min-w-0"
+              title="Chessmasters Home"
+            >
+              <span className="w-8 h-8 rounded-lg bg-[var(--gold)]/12 border border-[var(--gold)]/35 flex items-center justify-center text-[var(--gold-bright)] text-base shrink-0 group-hover:scale-105 transition-transform">
+                ♜
+              </span>
+              <span className="truncate">Chessmasters</span>
+            </Link>
+            <button
+              type="button"
+              onClick={toggleSidebarCollapse}
+              className="p-2 rounded-md text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--ink-2)] transition-colors cursor-pointer shrink-0"
+              aria-label="Collapse left sidebar"
+              title="Collapse sidebar"
+            >
+              <ChevronLeft size={16} />
+            </button>
+          </div>
+        )}
 
-        {/* Navigation Links — the full tab set. Below lg it takes its own row
-            under the brand + actions so nothing is clipped. */}
-        <nav data-nav="primary" className="hidden md:flex items-center flex-wrap gap-0.5 order-last w-full xl:order-none xl:w-auto xl:flex-1 xl:justify-center">
+        {/* Center Navigation Links */}
+        <nav
+          data-nav="primary"
+          aria-label="Primary navigation"
+          className="hidden md:flex flex-col flex-1 overflow-y-auto py-3 px-2.5 gap-1"
+        >
           {navItems.map((item) => {
             const active = item.matcher(pathname);
+            const Icon = item.icon;
             return (
               <Link
                 key={item.href}
                 href={item.href}
-                className={`px-1.5 py-1.5 text-xs font-medium rounded-[var(--radius-control)] transition-all whitespace-nowrap ${
+                title={sidebarCollapsed ? item.label : undefined}
+                className={`flex items-center gap-3 px-2.5 py-2 text-xs font-medium rounded-[var(--radius-control)] transition-all whitespace-nowrap ${
+                  sidebarCollapsed ? "justify-center" : ""
+                } ${
                   active
-                    ? "text-[var(--gold-bright)] bg-[var(--ink-3)] font-semibold shadow-xs"
-                    : "text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--ink-2)]"
+                    ? "text-[var(--gold-bright)] bg-[var(--ink-3)] font-semibold border border-[var(--gold)]/25 shadow-xs"
+                    : "text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--ink-2)] border border-transparent"
                 }`}
               >
-                {item.label}
+                <Icon
+                  size={16}
+                  className={active ? "text-[var(--gold-bright)] shrink-0" : "text-[var(--text-muted)] shrink-0"}
+                />
+                {!sidebarCollapsed && <span>{item.label}</span>}
               </Link>
             );
           })}
         </nav>
 
-        {/* Right: Actions Container (>= 560px Desktop Container required by e2e-audit) */}
-        <div className="hidden sm:flex items-center gap-2 lg:gap-3 shrink-0">
-          {/* Interface sound toggle — same preference as the bottom dock */}
-          <SoundToggle />
-
-          {/* Free Tier Usage Pill */}
-          {showUsagePill && usage?.plan === "free" && (
-            <Pill tone="neutral" size="sm">
-              Free: {usage.analyses_remaining}/{usage.free_analysis_limit}
-            </Pill>
+        {/* Bottom Actions Container (No SoundToggle) */}
+        <div className="hidden sm:flex flex-col gap-2 p-2.5 border-t border-[var(--line-soft)] shrink-0">
+          {showUsagePill && usage?.plan === "free" && !sidebarCollapsed && (
+            <div className="px-1">
+              <Pill tone="neutral" size="sm">
+                Free: {usage.analyses_remaining}/{usage.free_analysis_limit} left
+              </Pill>
+            </div>
           )}
 
           {/* Ask AI Trigger Button (⌘K) */}
           <button
             type="button"
             onClick={handleOpenAI}
-            className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-full whitespace-nowrap bg-[var(--ink-2)] border border-[var(--line)] text-[var(--text-muted)] hover:text-[var(--text)] hover:border-[var(--gold)]/40 transition-all cursor-pointer shadow-xs group"
+            className={`inline-flex items-center ${
+              sidebarCollapsed ? "justify-center px-2 py-2" : "justify-between px-3 py-2"
+            } text-xs rounded-[var(--radius-control)] bg-[var(--ink-2)] border border-[var(--line)] text-[var(--text-muted)] hover:text-[var(--text)] hover:border-[var(--gold)]/40 transition-all cursor-pointer shadow-xs group`}
             title="Open AI Coach Drawer (⌘K)"
             aria-label="Open AI Coach Drawer (⌘K)"
           >
-            <span className="text-[var(--gold-bright)] text-xs">✦</span>
-            <span className="font-medium text-xs">Ask AI</span>
-            <kbd className="px-1 py-0.5 text-[10px] font-mono bg-[var(--ink-3)] border border-[var(--line)] rounded text-[var(--text-muted)] group-hover:text-[var(--gold-bright)]">
-              ⌘K
-            </kbd>
+            <span className="inline-flex items-center gap-2">
+              <span className="text-[var(--gold-bright)] text-xs">✦</span>
+              {!sidebarCollapsed && <span className="font-medium text-xs">Ask AI Coach</span>}
+            </span>
+            {!sidebarCollapsed && (
+              <kbd className="px-1.5 py-0.5 text-[10px] font-mono bg-[var(--ink-3)] border border-[var(--line)] rounded text-[var(--text-muted)] group-hover:text-[var(--gold-bright)]">
+                ⌘K
+              </kbd>
+            )}
           </button>
 
           {/* Subscription Action Button */}
           {usage?.plan === "paid" ? (
             <Link
               href="/subscription"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-[var(--radius-control)] bg-[var(--gold)]/15 border border-[var(--gold)]/40 text-[var(--gold-bright)] hover:bg-[var(--gold)]/25 transition-all whitespace-nowrap cursor-pointer"
+              title="Manage Pro Subscription"
+              className={`inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-[var(--radius-control)] bg-[var(--gold)]/15 border border-[var(--gold)]/40 text-[var(--gold-bright)] hover:bg-[var(--gold)]/25 transition-all whitespace-nowrap cursor-pointer`}
             >
-              <span>👑 Pro Student</span>
+              <span>👑</span>
+              {!sidebarCollapsed && <span>Pro Student</span>}
             </Link>
           ) : (
             <Link
               href="/subscription"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-[var(--radius-control)] bg-gradient-to-r from-[#c9993f] to-[#e2b65f] text-[#141712] shadow-[0_2px_8px_rgba(201,153,63,0.25)] hover:shadow-[0_4px_14px_rgba(226,182,95,0.45)] hover:-translate-y-0.5 active:translate-y-0 transition-all whitespace-nowrap cursor-pointer"
+              title="Upgrade to Pro"
+              className="inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-bold rounded-[var(--radius-control)] bg-gradient-to-r from-[#c9993f] to-[#e2b65f] text-[#141712] shadow-[0_2px_8px_rgba(201,153,63,0.25)] hover:shadow-[0_4px_14px_rgba(226,182,95,0.45)] transition-all whitespace-nowrap cursor-pointer"
             >
-              <span>👑 Upgrade to Pro</span>
+              <span>👑</span>
+              {!sidebarCollapsed && <span>Upgrade to Pro</span>}
             </Link>
           )}
 
           {/* Authentication & User State Area */}
           {!effectiveUser ? (
-            <div className="flex items-center gap-2">
-              {/* Official Google Sign-in Button */}
-              <button
-                type="button"
-                onClick={handleGoogleSignIn}
-                disabled={authBusy}
-                className="inline-flex items-center gap-2 px-3.5 py-1.5 whitespace-nowrap bg-white hover:bg-neutral-100 text-neutral-800 border border-neutral-300 rounded-[var(--radius-control)] text-xs font-semibold transition-all shadow-xs active:scale-95 cursor-pointer disabled:opacity-60"
-                title="Sign in with your Google Account"
-              >
-                <GoogleIcon className="w-3.5 h-3.5 shrink-0" />
+            <button
+              type="button"
+              onClick={handleGoogleSignIn}
+              disabled={authBusy}
+              className="inline-flex items-center justify-center gap-2 px-3 py-2 whitespace-nowrap bg-white hover:bg-neutral-100 text-neutral-800 border border-neutral-300 rounded-[var(--radius-control)] text-xs font-semibold transition-all shadow-xs active:scale-95 cursor-pointer disabled:opacity-60"
+              title="Sign in with your Google Account"
+            >
+              <GoogleIcon className="w-3.5 h-3.5 shrink-0" />
+              {!sidebarCollapsed && (
                 <span>{authBusy ? "Connecting..." : "Sign in with Google"}</span>
-              </button>
-            </div>
+              )}
+            </button>
           ) : (
-            /* Signed In User Menu */
             <div className="relative">
               <button
                 type="button"
                 onClick={() => setUserDropdownOpen((prev) => !prev)}
-                className="inline-flex items-center gap-2 pl-1 pr-2.5 py-1 rounded-full bg-[var(--ink-2)] border border-[var(--line)] hover:border-[var(--line-strong)] text-xs transition-colors cursor-pointer"
+                className={`w-full inline-flex items-center ${
+                  sidebarCollapsed ? "justify-center p-1.5" : "justify-between px-2.5 py-1.5"
+                } rounded-[var(--radius-control)] bg-[var(--ink-2)] border border-[var(--line)] hover:border-[var(--line-strong)] text-xs transition-colors cursor-pointer`}
                 aria-expanded={userDropdownOpen}
                 aria-haspopup="true"
               >
-                <div className="w-6 h-6 rounded-full bg-[var(--gold)]/20 border border-[var(--gold)] text-[var(--gold-bright)] font-bold text-[10px] flex items-center justify-center">
-                  {initials || "U"}
-                </div>
-                <div className="text-left hidden md:block">
-                  <span className="block font-medium text-[var(--text)] leading-none">
-                    {displayName.split(" ")[0]}
+                <span className="inline-flex items-center gap-2 min-w-0">
+                  <span className="w-6 h-6 rounded-full bg-[var(--gold)]/20 border border-[var(--gold)] text-[var(--gold-bright)] font-bold text-[10px] flex items-center justify-center shrink-0">
+                    {initials || "U"}
                   </span>
-                  <span className="text-[9px] font-mono text-[var(--text-muted)] leading-tight">
-                    {effectiveRole === "coach" ? "Coach" : "Player"}
-                  </span>
-                </div>
-                <ChevronDown size={13} className="text-[var(--text-muted)]" />
+                  {!sidebarCollapsed && (
+                    <span className="text-left truncate">
+                      <span className="block font-medium text-[var(--text)] leading-none truncate">
+                        {displayName.split(" ")[0]}
+                      </span>
+                      <span className="text-[9px] font-mono text-[var(--text-muted)] leading-tight">
+                        {effectiveRole === "coach" ? "Coach" : "Player"}
+                      </span>
+                    </span>
+                  )}
+                </span>
+                {!sidebarCollapsed && (
+                  <ChevronDown size={13} className="text-[var(--text-muted)] shrink-0" />
+                )}
               </button>
 
-              {/* User State Dropdown Popover */}
               <AnimatePresence>
                 {userDropdownOpen && (
                   <motion.div
@@ -436,7 +579,7 @@ export function Topbar({
                     animate={{ opacity: 1, scale: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.95, y: 4 }}
                     transition={{ duration: 0.15 }}
-                    className="absolute right-0 mt-2 w-56 rounded-xl bg-[var(--ink-2)] border border-[var(--line)] shadow-xl py-2 z-50 text-xs"
+                    className="absolute bottom-full left-0 mb-2 w-56 rounded-xl bg-[var(--ink-2)] border border-[var(--line)] shadow-xl py-2 z-50 text-xs"
                   >
                     <div className="px-3.5 py-2 border-b border-[var(--line-soft)]">
                       <div className="font-semibold text-[var(--text)]">{displayName}</div>
@@ -449,7 +592,7 @@ export function Topbar({
                         </span>
                         {usage?.plan === "paid" && (
                           <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-[var(--gold)]/15 text-[var(--gold-bright)] border border-[var(--gold)]/30">
-                            👑 Pro Student
+                            👑 Pro
                           </span>
                         )}
                       </div>
@@ -465,7 +608,11 @@ export function Topbar({
                           }}
                           className="w-full text-left px-3.5 py-2 hover:bg-[var(--ink-3)] text-[var(--text)] transition-colors flex items-center justify-between"
                         >
-                          <span>{effectiveRole === "coach" ? "Switch to Player view" : "Switch to Coach mode"}</span>
+                          <span>
+                            {effectiveRole === "coach"
+                              ? "Switch to Player view"
+                              : "Switch to Coach mode"}
+                          </span>
                           <Check size={12} className="text-[var(--gold)]" />
                         </button>
                       )}
@@ -482,7 +629,9 @@ export function Topbar({
                           className="w-full text-left px-3.5 py-2 hover:bg-[var(--ink-3)] text-[var(--gold-bright)] transition-colors flex items-center justify-between"
                         >
                           <span>👥 Manage Student Profiles</span>
-                          <span className="text-[10px] font-mono bg-[var(--gold)]/20 px-1.5 py-0.5 rounded text-[var(--gold-bright)]">Pro</span>
+                          <span className="text-[10px] font-mono bg-[var(--gold)]/20 px-1.5 py-0.5 rounded text-[var(--gold-bright)]">
+                            Pro
+                          </span>
                         </button>
                       )}
 
@@ -491,7 +640,7 @@ export function Topbar({
                         onClick={() => setUserDropdownOpen(false)}
                         className="block px-3.5 py-2 hover:bg-[var(--ink-3)] text-[var(--text)] transition-colors"
                       >
-                        Student Progress & Leaks
+                        Student Progress &amp; Leaks
                       </Link>
 
                       <Link
@@ -504,7 +653,6 @@ export function Topbar({
                     </div>
 
                     <div className="border-t border-[var(--line-soft)] pt-1">
-                      {/* Sign Out */}
                       <button
                         type="button"
                         onClick={handleSignOut}
@@ -520,162 +668,246 @@ export function Topbar({
             </div>
           )}
         </div>
+      </aside>
 
-        {/* Mobile Actions Container (< 720px: the nav links hide below md, so the
-            hamburger owns navigation for the 560–719px band too) */}
-        <div className="flex md:hidden items-center gap-2">
-          {/* Ask AI Pill Mobile */}
-          <button
-            type="button"
-            onClick={handleOpenAI}
-            className="p-1.5 text-[var(--gold-bright)] hover:bg-[var(--ink-2)] rounded-md border border-[var(--line)]"
-            title="Ask AI"
-          >
-            ✦
-          </button>
-
-          {/* Upgrade to Pro Mobile */}
-          <Link
-            href="/subscription"
-            className="px-2 py-1 text-[11px] font-bold rounded bg-gradient-to-r from-[#c9993f] to-[#e2b65f] text-[#141712]"
-          >
-            👑 Pro
-          </Link>
-
-          {/* Hamburger Menu Toggle */}
+      {/* =====================================================================
+          MOBILE TOP BAR + COLLAPSIBLE LEFT SIDEBAR + BOTTOM DOCK (< 720px)
+         ===================================================================== */}
+      <div className="flex md:hidden items-center justify-between gap-2 w-full border-b border-[var(--line-soft)] py-2.5 px-3 bg-[var(--ink-1)]/95 backdrop-blur-md">
+        <div className="flex items-center gap-2">
+          {/* Left Collapsible Sidebar Trigger */}
           <Button
             variant="ghost"
             size="sm"
             onClick={toggleMenu}
             aria-expanded={menuOpen}
-            aria-controls="mobile-nav-panel"
+            aria-controls="mobile-left-drawer"
             aria-label={menuOpen ? "Close navigation menu" : "Open navigation menu"}
             iconStart={menuOpen ? <X size={18} /> : <Menu size={18} />}
           />
+          <Link
+            href="/"
+            onClick={closeMenu}
+            className="inline-flex items-center gap-2 font-serif text-lg font-bold tracking-tight text-[var(--text)]"
+          >
+            <span className="w-6 h-6 rounded-md bg-[var(--gold)]/10 border border-[var(--gold)]/30 flex items-center justify-center text-[var(--gold-bright)] text-xs">
+              ♜
+            </span>
+            <span>Chessmasters</span>
+          </Link>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleOpenAI}
+            className="p-1.5 text-[var(--gold-bright)] hover:bg-[var(--ink-2)] rounded-md border border-[var(--line)] text-xs"
+            title="Ask AI"
+          >
+            ✦
+          </button>
+          <Link
+            href="/subscription"
+            className="px-2.5 py-1 text-[11px] font-bold rounded bg-gradient-to-r from-[#c9993f] to-[#e2b65f] text-[#141712]"
+          >
+            👑 Pro
+          </Link>
         </div>
       </div>
 
-      {/* Mobile Drawer Navigation (< 720px) */}
+      {/* Mobile Collapsible Left Sidebar Drawer (always collapsed by default) */}
       <AnimatePresence>
         {menuOpen && (
-          <motion.div
-            id="mobile-nav-panel"
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
-            transition={{ duration: 0.2, ease: "easeOut" }}
-            className="md:hidden overflow-hidden border-t border-[var(--line-soft)] mt-3 pt-3 flex flex-col gap-3 pb-3"
-          >
-            {usage?.plan === "free" && (
-              <div className="px-1">
-                <Pill tone="neutral" size="sm">
-                  Free Analyses: {usage.analyses_remaining}/{usage.free_analysis_limit}
-                </Pill>
-              </div>
-            )}
-
-            {/* Mobile Nav Links: All 7 requested routes */}
-            <div className="flex flex-col gap-1 text-sm font-medium">
-              {navItems.map((item) => {
-                const active = item.matcher(pathname);
-                return (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={closeMenu}
+              className="md:hidden fixed inset-0 bg-black/65 backdrop-blur-xs z-50"
+              aria-hidden="true"
+            />
+            <motion.aside
+              id="mobile-left-drawer"
+              initial={{ x: "-100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "-100%" }}
+              transition={{ type: "spring", stiffness: 380, damping: 34 }}
+              className="md:hidden fixed top-0 left-0 bottom-0 w-72 max-w-[84vw] bg-[var(--ink-1)] border-r border-[var(--line)] z-50 flex flex-col justify-between p-4 overflow-y-auto shadow-2xl"
+              aria-label="Mobile left navigation drawer"
+            >
+              <div>
+                <div className="flex items-center justify-between pb-3 mb-3 border-b border-[var(--line-soft)]">
                   <Link
-                    key={item.href}
-                    href={item.href}
+                    href="/"
                     onClick={closeMenu}
-                    className={`px-3 py-2 rounded-md transition-colors flex items-center justify-between ${
-                      active
-                        ? "bg-[var(--ink-3)] text-[var(--gold-bright)] font-semibold"
-                        : "text-[var(--text)] hover:bg-[var(--ink-2)]"
-                    }`}
+                    className="inline-flex items-center gap-2 font-serif text-lg font-bold text-[var(--text)]"
                   >
-                    <span>{item.label}</span>
-                    {active && <span className="text-[var(--gold)] text-xs">●</span>}
+                    <span className="w-7 h-7 rounded-md bg-[var(--gold)]/15 border border-[var(--gold)]/30 flex items-center justify-center text-[var(--gold-bright)] text-sm">
+                      ♜
+                    </span>
+                    <span>Chessmasters</span>
                   </Link>
-                );
-              })}
+                  <button
+                    type="button"
+                    onClick={closeMenu}
+                    className="p-1.5 rounded-md text-[var(--text-muted)] hover:text-[var(--text)]"
+                    aria-label="Close left menu"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
 
-              {usage?.plan === "paid" && (
+                {usage?.plan === "free" && (
+                  <div className="mb-3">
+                    <Pill tone="neutral" size="sm">
+                      Free Analyses: {usage.analyses_remaining}/{usage.free_analysis_limit}
+                    </Pill>
+                  </div>
+                )}
+
+                <div className="flex flex-col gap-1 text-sm font-medium">
+                  {navItems.map((item) => {
+                    const active = item.matcher(pathname);
+                    const Icon = item.icon;
+                    return (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        onClick={closeMenu}
+                        className={`px-3 py-2.5 rounded-lg transition-colors flex items-center justify-between ${
+                          active
+                            ? "bg-[var(--ink-3)] text-[var(--gold-bright)] font-semibold"
+                            : "text-[var(--text)] hover:bg-[var(--ink-2)]"
+                        }`}
+                      >
+                        <span className="flex items-center gap-2.5">
+                          <Icon size={16} className={active ? "text-[var(--gold-bright)]" : "text-[var(--text-muted)]"} />
+                          <span>{item.label}</span>
+                        </span>
+                        {active && <span className="text-[var(--gold)] text-xs">●</span>}
+                      </Link>
+                    );
+                  })}
+
+                  {usage?.plan === "paid" && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        closeMenu();
+                        if (typeof window !== "undefined") {
+                          window.dispatchEvent(new CustomEvent("open-manage-students"));
+                        }
+                      }}
+                      className="px-3 py-2.5 rounded-lg transition-colors flex items-center justify-between text-[var(--gold-bright)] hover:bg-[var(--ink-2)] text-left"
+                    >
+                      <span className="flex items-center gap-2">
+                        <span>👥</span>
+                        <span>Manage Students</span>
+                      </span>
+                      <span className="text-[10px] font-mono bg-[var(--gold)]/20 px-1.5 py-0.5 rounded text-[var(--gold-bright)]">
+                        Pro
+                      </span>
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <div className="pt-3 border-t border-[var(--line-soft)] flex flex-col gap-2.5">
                 <button
                   type="button"
-                  onClick={() => {
-                    closeMenu();
-                    if (typeof window !== "undefined") {
-                      window.dispatchEvent(new CustomEvent("open-manage-students"));
-                    }
-                  }}
-                  className="px-3 py-2 rounded-md transition-colors flex items-center justify-between text-[var(--gold-bright)] hover:bg-[var(--ink-2)] text-left"
+                  onClick={handleOpenAI}
+                  className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg bg-[var(--ink-2)] border border-[var(--line)] text-xs font-semibold text-[var(--text)] hover:border-[var(--gold)]/40"
                 >
-                  <span className="flex items-center gap-2">
-                    <span>👥</span>
-                    <span>Manage Students</span>
-                  </span>
-                  <span className="text-[10px] font-mono bg-[var(--gold)]/20 px-1.5 py-0.5 rounded text-[var(--gold-bright)]">Pro</span>
+                  <span className="text-[var(--gold)]">✦</span>
+                  <span>Ask AI Assistant (⌘K)</span>
                 </button>
-              )}
-            </div>
 
-            {/* Mobile Actions: Ask AI & Google Sign-in / User State */}
-            <div className="pt-3 border-t border-[var(--line-soft)] flex flex-col gap-2">
-              <div className="flex items-center justify-between px-1">
-                <span className="text-xs font-semibold text-[var(--text-muted)]">
-                  Interface sounds
-                </span>
-                <SoundToggle withLabel />
-              </div>
-
-              <button
-                type="button"
-                onClick={handleOpenAI}
-                className="w-full flex items-center justify-center gap-2 py-2 rounded-lg bg-[var(--ink-2)] border border-[var(--line)] text-xs font-semibold text-[var(--text)] hover:border-[var(--gold)]/40"
-              >
-                <span className="text-[var(--gold)]">✦</span>
-                <span>Ask AI Assistant (⌘K)</span>
-              </button>
-
-              {!effectiveUser ? (
-                <div className="flex flex-col gap-1.5">
+                {!effectiveUser ? (
                   <button
                     type="button"
                     onClick={() => {
                       closeMenu();
                       handleGoogleSignIn();
                     }}
-                    className="w-full flex items-center justify-center gap-2 py-2 bg-white text-neutral-800 font-medium rounded-lg text-xs"
+                    className="w-full flex items-center justify-center gap-2 py-2.5 bg-white text-neutral-800 font-semibold rounded-lg text-xs"
                   >
                     <GoogleIcon className="w-3.5 h-3.5" />
                     <span>Sign in with Google</span>
                   </button>
-                </div>
-              ) : (
-                <div className="p-2.5 rounded-lg bg-[var(--ink-2)] border border-[var(--line)] flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 rounded-full bg-[var(--gold)]/20 border border-[var(--gold)] text-[var(--gold-bright)] font-bold text-xs flex items-center justify-center">
-                      {initials}
-                    </div>
-                    <div>
-                      <div className="font-semibold text-xs text-[var(--text)]">{displayName}</div>
-                      <div className="text-[10px] text-[var(--gold-bright)] font-mono">
-                        {effectiveRole ? effectiveRole.toUpperCase() : "PLAYER"}
+                ) : (
+                  <div className="p-2.5 rounded-lg bg-[var(--ink-2)] border border-[var(--line)] flex items-center justify-between">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className="w-7 h-7 rounded-full bg-[var(--gold)]/20 border border-[var(--gold)] text-[var(--gold-bright)] font-bold text-xs flex items-center justify-center shrink-0">
+                        {initials}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="font-semibold text-xs text-[var(--text)] truncate">
+                          {displayName}
+                        </div>
+                        <div className="text-[10px] text-[var(--gold-bright)] font-mono">
+                          {effectiveRole ? effectiveRole.toUpperCase() : "PLAYER"}
+                        </div>
                       </div>
                     </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleSignOut();
+                        closeMenu();
+                      }}
+                      className="text-xs text-rose-400 hover:underline shrink-0"
+                    >
+                      Sign out
+                    </button>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      handleSignOut();
-                      closeMenu();
-                    }}
-                    className="text-xs text-rose-400 hover:underline"
-                  >
-                    Sign out
-                  </button>
-                </div>
-              )}
-            </div>
-          </motion.div>
+                )}
+              </div>
+            </motion.aside>
+          </>
         )}
       </AnimatePresence>
+
+      {/* Mobile Bottom Dock (4 main destinations + Left Drawer Menu toggle) */}
+      <nav
+        data-nav="mobile-bottom-dock"
+        aria-label="Mobile bottom navigation dock"
+        className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[var(--ink-1)]/95 backdrop-blur-md border-t border-[var(--line)] px-2 py-1.5 flex items-center justify-around shadow-[0_-8px_24px_rgba(0,0,0,0.45)]"
+      >
+        {dockItems.map((item) => {
+          const active = item.matcher(pathname);
+          const Icon = item.icon;
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              onClick={closeMenu}
+              className={`flex flex-col items-center justify-center gap-0.5 px-2.5 py-1 rounded-lg text-[11px] font-medium transition-colors ${
+                active
+                  ? "text-[var(--gold-bright)] font-semibold"
+                  : "text-[var(--text-muted)] hover:text-[var(--text)]"
+              }`}
+            >
+              <Icon size={17} />
+              <span>{item.label}</span>
+            </Link>
+          );
+        })}
+        <button
+          type="button"
+          onClick={toggleMenu}
+          aria-expanded={menuOpen}
+          aria-controls="mobile-left-drawer"
+          className={`flex flex-col items-center justify-center gap-0.5 px-2.5 py-1 rounded-lg text-[11px] font-medium transition-colors cursor-pointer ${
+            menuOpen
+              ? "text-[var(--gold-bright)] font-semibold"
+              : "text-[var(--text-muted)] hover:text-[var(--text)]"
+          }`}
+        >
+          <Menu size={17} />
+          <span>Menu</span>
+        </button>
+      </nav>
     </header>
   );
 }
