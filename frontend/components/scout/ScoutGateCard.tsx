@@ -42,7 +42,7 @@ export default function ScoutGateCard({ gate }: { gate: ScoutGateState }) {
       </ul>
       <div className="flex flex-wrap items-center gap-3 mt-5">
         <Button variant="primary" href="/subscription">
-          {gate === "locked" ? "Upgrade to Pro ➔" : "Sign in & subscribe ➔"}
+          {gate === "locked" ? "Upgrade to Pro" : "Sign in & subscribe"}
         </Button>
         <Link
           className="text-xs text-[var(--text-muted)] hover:text-[var(--gold-bright)] underline"

@@ -114,7 +114,7 @@ export default function BatchDetailPage() {
               gamesAnalyzed={gamesAnalyzed}
               header={
                 <GameHeader
-                  pill={`${platformLabel} session · ${batch.game_count} games`}
+                  pill={`${platformLabel} session, ${batch.game_count} games`}
                   title="Multi-game report"
                   showDrills={hasDrills}
                   meta={

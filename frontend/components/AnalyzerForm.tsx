@@ -974,7 +974,7 @@ export default function AnalyzerForm({
                       : "Type Chess.com username (e.g. botevenik)"
                   }
                   disabled={disabled || fetchingProfileGames}
-                  className="flex-1"
+                  className="flex-1 min-w-0"
                 />
                 <button
                   type="button"

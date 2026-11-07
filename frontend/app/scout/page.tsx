@@ -68,9 +68,6 @@ export default function ScoutHubPage() {
       <Topbar />
 
       <main className="flex-1 max-w-4xl w-full mx-auto px-4 sm:px-6 py-12 flex flex-col items-center justify-center text-center">
-        <Pill tone="shell" size="sm" className="mb-3">
-          🔍 TOURNAMENT PREPARATION
-        </Pill>
         <h1 className="text-3xl sm:text-4xl font-display font-bold tracking-tight">
           Opponent Scouting Dossier
         </h1>
@@ -120,7 +117,7 @@ export default function ScoutHubPage() {
 
               <div>
                 <label className="block text-xs font-mono text-[var(--text-muted)] mb-1.5">
-                  TARGET PLAYER USERNAME
+                  Target player username
                 </label>
                 <input
                   type="text"
@@ -133,7 +130,7 @@ export default function ScoutHubPage() {
               </div>
 
               <Button type="submit" variant="primary" full>
-                Generate Scouting Dossier ➔
+                Generate Scouting Dossier
               </Button>
             </form>
 

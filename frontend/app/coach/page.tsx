@@ -81,7 +81,7 @@ function activityLabel(student: RosterStudent): string {
     student.analysis_count === 1 ? "analysis" : "analyses"
   }`;
   const last = formatDate(student.last_analysis_at);
-  return last ? `${count} · last ${last}` : count;
+  return last ? `${count}, last ${last}` : count;
 }
 
 /** Real rating only — never a computed or borrowed number. */
@@ -573,10 +573,10 @@ export default function CoachRosterPage() {
                 <table className="students-table">
                   <thead>
                     <tr>
-                      <th scope="col">STUDENT</th>
-                      <th scope="col">RATING</th>
-                      <th scope="col">PRIMARY TACTICAL LEAK</th>
-                      <th scope="col">HOMEWORK STATUS</th>
+                      <th scope="col">Student</th>
+                      <th scope="col">Rating</th>
+                      <th scope="col">Primary tactical leak</th>
+                      <th scope="col">Homework status</th>
                       <th scope="col" className="students-th-actions">
                         ACTIONS
                       </th>
@@ -654,12 +654,12 @@ export default function CoachRosterPage() {
                             <div className="students-handles">
                               {student.lichess_username && (
                                 <span className="students-handle students-handle-lichess">
-                                  lichess · {student.lichess_username}
+                                  lichess: {student.lichess_username}
                                 </span>
                               )}
                               {student.chesscom_username && (
                                 <span className="students-handle students-handle-chesscom">
-                                  chess.com · {student.chesscom_username}
+                                  chess.com: {student.chesscom_username}
                                 </span>
                               )}
                               {!student.lichess_username &&
@@ -689,7 +689,7 @@ export default function CoachRosterPage() {
                             )}
                             <span className="students-cell-sub">
                               {gamesLabel}
-                              {lastResultLabel ? ` · ${lastResultLabel}` : ""}
+                              {lastResultLabel ? `, ${lastResultLabel}` : ""}
                             </span>
                           </td>
 
@@ -751,7 +751,7 @@ export default function CoachRosterPage() {
                   {totalAnalyses === 1 ? "analysis" : "analyses"}
                 </span>{" "}
                 across {studentCount}{" "}
-                {studentCount === 1 ? "student" : "students"} · a dash means the
+                {studentCount === 1 ? "student" : "students"}, a dash means the
                 value is not captured yet: ratings come from analysed rated
                 games, leaks need 4+ analysed games, and homework status is
                 derived from the last analysed game until assignments are

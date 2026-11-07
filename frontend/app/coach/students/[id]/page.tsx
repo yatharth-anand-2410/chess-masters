@@ -604,12 +604,12 @@ export default function CoachStudentPage() {
                   <span className="flex items-center gap-2 flex-wrap">
                     {student.lichess_username && (
                       <span className="px-2 py-0.5 rounded text-[11px] font-mono bg-[var(--ink-2)] text-[var(--teal-light)] border border-[rgba(87,164,150,0.25)]">
-                        Lichess · {student.lichess_username}
+                        Lichess: {student.lichess_username}
                       </span>
                     )}
                     {student.chesscom_username && (
                       <span className="px-2 py-0.5 rounded text-[11px] font-mono bg-[var(--ink-2)] text-[var(--green)] border border-[rgba(111,163,131,0.25)]">
-                        Chess.com · {student.chesscom_username}
+                        Chess.com: {student.chesscom_username}
                       </span>
                     )}
                   </span>
@@ -740,7 +740,7 @@ export default function CoachStudentPage() {
                       {item.view_count}{" "}
                       {item.view_count === 1 ? "view" : "views"}
                       {item.created_at
-                        ? ` · shared ${formatDate(item.created_at)}`
+                        ? `, shared ${formatDate(item.created_at)}`
                         : ""}
                     </span>
                   </div>

@@ -115,9 +115,6 @@ export default function ScoutPlayerDossier({ params }: ScoutDossierProps) {
 
       {gate !== "unlocked" ? (
         <main className="flex-1 max-w-4xl w-full mx-auto px-4 sm:px-6 py-12 flex flex-col items-center justify-center text-center">
-          <Pill tone="shell" size="sm" className="mb-3">
-            🔍 OPPONENT SCOUTING
-          </Pill>
           <h1 className="text-2xl sm:text-3xl font-display font-bold tracking-tight">
             {decodedUsername}
           </h1>
@@ -227,7 +224,7 @@ function DossierBody({ dossier }: { dossier: OpponentScoutDossier }) {
           </div>
           <div>
             <span className="text-[0.7rem] font-mono text-[var(--text-muted)]">
-              COLOUR SPLIT
+              Colour split
             </span>
             <div className="text-xl font-bold font-mono text-[var(--text)]">
               {dossier.white_games_count}W / {dossier.black_games_count}B
@@ -238,7 +235,7 @@ function DossierBody({ dossier }: { dossier: OpponentScoutDossier }) {
           </div>
           <div>
             <span className="text-[0.7rem] font-mono text-[var(--text-muted)]">
-              CLOCK VULNERABILITY
+              Clock vulnerability
             </span>
             <div className="text-xl font-bold font-mono text-[var(--red-bright)]">
               {timeTrouble.vulnerability_multiplier.toFixed(1)}×
@@ -258,22 +255,14 @@ function DossierBody({ dossier }: { dossier: OpponentScoutDossier }) {
               key={blindspot.motif}
               surface="shell"
               pad="md"
-              className={`border-l-2 ${
-                index === 0
-                  ? "border-l-[var(--red)]"
-                  : index === 1
-                    ? "border-l-[var(--amber)]"
-                    : "border-l-[var(--teal)]"
-              }`}
             >
               <Pill tone={index === 0 ? "alert" : index === 1 ? "caution" : "positive"} size="sm" className="mb-2">
-                LEAK {index + 1}: {blindspot.motif_label.toUpperCase()}
+                Leak {index + 1}: {blindspot.motif_label}
               </Pill>
               <h3 className="font-display font-bold text-base text-[var(--text)]">
                 {blindspot.occurrences} blunders
                 <span className="text-[var(--text-muted)] font-normal">
-                  {" "}
-                  · {blindspot.percentage_of_blunders.toFixed(0)}% of their errors
+                  , {blindspot.percentage_of_blunders.toFixed(0)}% of their errors
                 </span>
               </h3>
               <p className="text-xs text-[var(--text-muted)] mt-1.5 leading-relaxed">
@@ -337,7 +326,7 @@ function DossierBody({ dossier }: { dossier: OpponentScoutDossier }) {
                     <span className={phase.blunder_rate_percent > 8 ? "text-[var(--red-bright)]" : "text-[var(--text)]"}>
                       {phase.blunder_rate_percent.toFixed(1)}% blunders
                     </span>
-                    <span className="text-[var(--text-muted)]"> · {phase.acpl.toFixed(1)} ACPL</span>
+                    <span className="text-[var(--text-muted)]">, {phase.acpl.toFixed(1)} ACPL</span>
                   </span>
                 </li>
               ))}
@@ -411,7 +400,7 @@ function RepertoireCard({
               <span>
                 <span className="font-mono text-[var(--text)]">{node.san}</span>
                 {node.opening_name ? (
-                  <span className="text-[var(--text-muted)]"> · {node.opening_name}</span>
+                  <span className="text-[var(--text-muted)]">, {node.opening_name}</span>
                 ) : null}
               </span>
               <span className="font-mono whitespace-nowrap">
@@ -420,7 +409,7 @@ function RepertoireCard({
                 </span>
                 <span className="text-[var(--text-muted)]">
                   {" "}
-                  ({node.games_count} games · {node.frequency_percent.toFixed(0)}% freq)
+                  ({node.games_count} games, {node.frequency_percent.toFixed(0)}% freq)
                 </span>
               </span>
             </li>

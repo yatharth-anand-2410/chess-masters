@@ -10,9 +10,9 @@
 .studies-inline-note {
   margin: 1rem 0 0;
   padding: 0.7rem 0.9rem;
-  border-left: 2px solid var(--gold);
+  border: 1px solid var(--line-soft);
   background: var(--ink-2);
-  border-radius: 0 var(--radius-control) var(--radius-control) 0;
+  border-radius: var(--radius-control);
   color: var(--text-muted);
   font-size: 0.85rem;
   line-height: 1.55;
@@ -227,8 +227,7 @@
   gap: 0.25rem;
   font-family: var(--font-mono);
   font-size: 0.66rem;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
+  letter-spacing: 0;
   color: var(--text-muted);
 }
 
@@ -369,8 +368,7 @@
 .studies-share-history-label {
   font-family: var(--font-mono);
   font-size: 0.64rem;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
+  letter-spacing: 0;
   color: var(--text-muted);
 }
 
@@ -411,8 +409,7 @@
 .studies-eyebrow {
   font-family: var(--font-mono);
   font-size: 0.75rem;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  letter-spacing: 0;
   color: var(--gold-bright);
 }
 
@@ -733,8 +730,7 @@
   gap: 0.4rem;
   font-family: var(--font-mono);
   font-size: 0.64rem;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
+  letter-spacing: 0;
 }
 
 .studies-rail-live {
@@ -878,8 +874,7 @@
 .studies-move-line-label {
   font-family: var(--font-mono);
   font-size: 0.68rem;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  letter-spacing: 0;
   color: var(--text-muted);
 }
 
@@ -1014,8 +1009,7 @@
 .studies-shared-label {
   font-family: var(--font-mono);
   font-size: 0.64rem;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  letter-spacing: 0;
   color: var(--text-muted);
 }
 

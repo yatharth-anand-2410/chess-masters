@@ -188,7 +188,7 @@ export default function StudyDetailPage() {
             </p>
             <div className="studies-empty-actions">
               <Link className="btn btn-sm studies-card-primary" href="/subscription">
-                See the plans ➔
+                See the plans
               </Link>
               <Link className="studies-card-link" href="/studies">
                 Back to your curriculum
@@ -225,7 +225,7 @@ export default function StudyDetailPage() {
                   className="btn btn-sm studies-card-primary"
                   href={`/s/${encodeURIComponent(id)}`}
                 >
-                  Open the shared reports ➔
+                  Open the shared reports
                 </Link>
               ) : null}
               <Link className="studies-card-link" href="/studies">
@@ -240,7 +240,7 @@ export default function StudyDetailPage() {
             payload={{ ...shared, view_count: shared.view_count ?? undefined }}
             footer={
               <p className="studies-shared-foot">
-                Shared by a coach · opens without sign-in.
+                Shared by a coach, opens without sign-in.
               </p>
             }
           />

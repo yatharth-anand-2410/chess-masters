@@ -374,7 +374,7 @@ export default function ShareMenu({
               {failure.tone === "upgrade" && (
                 <>
                   {" "}
-                  <Link href="/subscription">See coach plans →</Link>
+                  <Link href="/subscription">See coach plans</Link>
                 </>
               )}
             </p>

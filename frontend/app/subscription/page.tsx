@@ -518,7 +518,7 @@ export default function SubscriptionPage() {
             {signInBusy ? "Connecting to Google..." : "Continue with Google to subscribe"}
           </button>
           <p className="subscription-plan-helper">
-            14-day money-back guarantee · Secure checkout via Razorpay · Cancel anytime
+            14-day money-back guarantee, secure checkout via Razorpay, cancel anytime
           </p>
         </>
       );
@@ -562,7 +562,7 @@ export default function SubscriptionPage() {
         </button>
         {card.id === "student" && (
           <p className="subscription-plan-helper">
-            14-day money-back guarantee · Secure checkout via Razorpay · Cancel anytime
+            14-day money-back guarantee, secure checkout via Razorpay, cancel anytime
           </p>
         )}
       </>
@@ -622,7 +622,6 @@ export default function SubscriptionPage() {
       <Topbar user={user} onAuthChange={handleAuthChange} />
 
       <header className="subscription-hero">
-        <Pill tone="shell">Account &amp; Plans</Pill>
         <h1 className="subscription-title">Subscription &amp; Plan Management</h1>
         <p className="subscription-subtitle">
           Transparent chess improvement pricing. Powered by Razorpay with a 14-day money-back

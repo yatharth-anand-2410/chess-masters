@@ -112,16 +112,13 @@ export default function StudiesPage() {
       <main className="flex-1 w-full max-w-[var(--shell-max)] mx-auto px-4 sm:px-6 py-8">
         <div className="studies-head-row">
           <div>
-            <div className="flex items-center gap-2 mb-1.5">
-              <span className="studies-eyebrow">♞ Curriculum</span>
-              <Pill tone="shell" size="sm">
-                {selectedStudent
-                  ? `For ${selectedStudent.display_name}`
-                  : session.signedIn
-                    ? "Tailored to your leaks"
-                    : "Personalized from analyzed games"}
-              </Pill>
-            </div>
+            {selectedStudent && (
+              <div className="flex items-center gap-2 mb-1.5">
+                <Pill tone="shell" size="sm">
+                  {`For ${selectedStudent.display_name}`}
+                </Pill>
+              </div>
+            )}
             <h1 className="studies-page-title">
               Curated Lichess Studies &amp; Drills
             </h1>
@@ -167,7 +164,7 @@ export default function StudiesPage() {
               : `${studies.length} ${studies.length === 1 ? "Curated Study" : "Curated Studies"}`}
           </span>
           <span className="studies-count-note">
-            Personalized from real games · no template drills
+            Personalized from real games, no template drills
           </span>
         </div>
 
@@ -227,7 +224,7 @@ export default function StudiesPage() {
                   <p className="studies-card-origin">
                     {study.locked ? "🔒 " : ""}Library study: {study.study_title}
                     {typeof study.study_count === "number" && study.study_count > 1
-                      ? ` · ${study.study_count} studies cover ${study.theme_label ?? study.motif}`
+                      ? `, ${study.study_count} studies cover ${study.theme_label ?? study.motif}`
                       : ""}
                   </p>
                 ) : study.study_count ? (
@@ -238,7 +235,7 @@ export default function StudiesPage() {
 
                 {typeof study.move_number === "number" && study.game_id ? (
                   <p className="studies-card-origin">
-                    move {study.move_number} · game {study.game_id}
+                    move {study.move_number}, game {study.game_id}
                   </p>
                 ) : null}
 
@@ -248,11 +245,11 @@ export default function StudiesPage() {
                       className="btn btn-sm studies-card-primary"
                       href="/subscription"
                     >
-                      Unlock with a plan ➔
+                      Unlock with a plan
                     </Link>
                   ) : study.study_id ? (
                     <Link className="btn btn-sm studies-card-primary" href={openHref(study)}>
-                      Open Study ➔
+                      Open Study
                     </Link>
                   ) : study.source_url ? (
                     // No study of our own covers this motif yet, so the honest
@@ -264,7 +261,7 @@ export default function StudiesPage() {
                       target="_blank"
                       rel="noopener"
                     >
-                      Practice on Lichess ➔
+                      Practice on Lichess
                     </a>
                   ) : null}
                   {study.source_url && study.study_id && study.locked !== true ? (
@@ -331,7 +328,7 @@ function StudiesEmpty({ signedIn }: { signedIn: boolean }) {
       </p>
       <div className="studies-empty-actions">
         <Link className="btn btn-sm studies-card-primary" href="/">
-          Analyze a game ➔
+          Analyze a game
         </Link>
         <Link className="studies-card-link" href="/sample-report">
           See a sample report

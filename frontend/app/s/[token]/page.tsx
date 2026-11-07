@@ -292,12 +292,12 @@ export default function SharedStudentPage() {
             <p className="game-meta">
               {studentName}
               {openReportData?.analysis.result
-                ? ` · ${openReportData.analysis.result}`
+                ? `, ${openReportData.analysis.result}`
                 : ""}
               {openBatchData
-                ? ` · ${openBatchData.batch.game_count} games`
+                ? `, ${openBatchData.batch.game_count} games`
                 : ""}
-              {openDate ? ` · analyzed ${formatDate(openDate)}` : ""}
+              {openDate ? `, analyzed ${formatDate(openDate)}` : ""}
             </p>
           </div>
           {reportError && <div className="error-banner">{reportError}</div>}
@@ -347,7 +347,7 @@ export default function SharedStudentPage() {
                         </span>
                         <span className="history-batch-badge">Multi-game</span>
                         <span className="history-meta">
-                          Overall report · {item.batch.game_count}{" "}
+                          Overall report, {item.batch.game_count}{" "}
                           {item.batch.game_count === 1 ? "game" : "games"}
                         </span>
                       </div>
@@ -358,7 +358,7 @@ export default function SharedStudentPage() {
                         <span className="history-game-link">
                           {reportLoadingId === item.batch.id
                             ? "Opening..."
-                            : "Read →"}
+                            : "Read"}
                         </span>
                       </div>
                     </button>
@@ -391,7 +391,7 @@ export default function SharedStudentPage() {
                         <span className="history-game-link">
                           {reportLoadingId === item.analysis.id
                             ? "Opening..."
-                            : "Read →"}
+                            : "Read"}
                         </span>
                       </div>
                     </button>

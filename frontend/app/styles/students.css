@@ -353,8 +353,7 @@
     margin-bottom: 0.18rem;
     font-family: var(--font-mono);
     font-size: 0.62rem;
-    letter-spacing: 0.09em;
-    text-transform: uppercase;
+    letter-spacing: 0;
     color: var(--text-muted);
   }
 
@@ -553,8 +552,7 @@
   font-family: var(--font-mono);
   font-size: 0.68rem;
   font-weight: 600;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+  letter-spacing: 0;
   color: var(--gold-bright);
 }
 

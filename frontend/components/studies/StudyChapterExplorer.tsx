@@ -139,8 +139,8 @@ export default function StudyChapterExplorer({
                 <span className="studies-rail-moves">
                   {isDiagram
                     ? entry.initial_comment
-                      ? "Lesson · no moves"
-                      : "Position · no moves"
+                      ? "Lesson, no moves"
+                      : "Position, no moves"
                     : `${chapterMoveCount(entry)} ${
                         chapterMoveCount(entry) === 1 ? "move" : "moves"
                       }`}
@@ -159,7 +159,7 @@ export default function StudyChapterExplorer({
         {typeof study.total_annotations === "number" && (
           <p className="studies-rail-foot">
             {study.total_annotations} annotations parsed from the study PGN
-            {study.annotator ? ` · by ${study.annotator} on Lichess` : ""}.
+            {study.annotator ? `, by ${study.annotator} on Lichess` : ""}.
           </p>
         )}
       </aside>
@@ -202,9 +202,9 @@ export default function StudyChapterExplorer({
             )}
             <p className="studies-board-caption">
               {positionOnly
-                ? `Chapter ${activeChapterIndex + 1} · position only`
+                ? `Chapter ${activeChapterIndex + 1}, position only`
                 : activePly
-                  ? `Chapter ${activeChapterIndex + 1} · ply ${plyIndex + 1} of ${plies.length} · ${activePly.color} to move`
+                  ? `Chapter ${activeChapterIndex + 1}, ply ${plyIndex + 1} of ${plies.length}, ${activePly.color} to move`
                   : "No replayable position"}
             </p>
           </div>
@@ -213,7 +213,7 @@ export default function StudyChapterExplorer({
             <Pill tone="shell" size="sm">
               {positionOnly
                 ? chapter?.initial_comment
-                  ? "Study position · with the author's note"
+                  ? "Study position, with the author's note"
                   : "Study position"
                 : "Interactive drill chapter"}
             </Pill>
@@ -263,7 +263,7 @@ export default function StudyChapterExplorer({
                     className="studies-btn-quiet"
                     onClick={reveal}
                   >
-                    Try solution on board ➔
+                    Try solution on board
                   </button>
                   <a
                     className="studies-card-link"

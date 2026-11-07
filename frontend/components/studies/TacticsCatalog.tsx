@@ -173,7 +173,7 @@ function StudyLibrary({
       <div className="studies-section-head">
         <div>
           <h2 className="studies-section-title" id="library-title">
-            The study library · {library.owner ?? "curated"} on Lichess
+            The study library, {library.owner ?? "curated"} on Lichess
           </h2>
           <p className="studies-section-sub">
             {preview
@@ -184,11 +184,11 @@ function StudyLibrary({
           </p>
         </div>
         <span className="studies-count-pill">
-          {library.total_studies} Studies · {groups.length} Themes
+          {library.total_studies} Studies, {groups.length} Themes
           {preview
-            ? ` · ${unlocked} open to try`
+            ? `, ${unlocked} open to try`
             : locked > 0
-              ? ` · ${unlocked} open on your plan`
+              ? `, ${unlocked} open on your plan`
               : ""}
         </span>
       </div>
@@ -216,7 +216,7 @@ function StudyLibrary({
             {groups.map((entry) => (
               <option key={entry.key} value={entry.key}>
                 {entry.label} ({entry.count})
-                {entry.observed_count ? ` · yours ×${entry.observed_count}` : ""}
+                {entry.observed_count ? `, yours ×${entry.observed_count}` : ""}
               </option>
             ))}
           </select>
@@ -388,13 +388,13 @@ function LibraryStudyCard({
         {study.group_label}
         {group
           ? group.kind === "lichess"
-            ? " · Lichess puzzle theme"
+            ? ", Lichess puzzle theme"
             : group.kind === "unfiled"
-              ? " · not filed yet"
-              : " · coaching theme"
+              ? ", not filed yet"
+              : ", coaching theme"
           : ""}
-        {study.updated_at ? ` · updated ${formatDate(study.updated_at)}` : ""}
-        {indexChecked && !study.indexed ? " · not in the live index" : ""}
+        {study.updated_at ? `, updated ${formatDate(study.updated_at)}` : ""}
+        {indexChecked && !study.indexed ? ", not in the live index" : ""}
       </p>
 
       {group?.description ? (
@@ -420,11 +420,11 @@ function LibraryStudyCard({
       <div className="studies-card-actions">
         {study.locked ? (
           <Link className="btn btn-sm studies-card-primary" href="/subscription">
-            {preview ? "Sign in to open ➔" : "Unlock with a plan ➔"}
+            {preview ? "Sign in to open" : "Unlock with a plan"}
           </Link>
         ) : (
           <Link className="btn btn-sm studies-card-primary" href={openHref}>
-            Open study ➔
+            Open study
           </Link>
         )}
         <a
