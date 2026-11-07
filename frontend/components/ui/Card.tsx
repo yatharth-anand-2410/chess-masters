@@ -13,6 +13,8 @@ export const cardVariants = cva(
           "bg-[var(--ink-2)] text-[var(--text)] border border-[var(--line-soft)]",
         paper:
           "bg-[var(--paper)] text-[var(--paper-text)] border border-[var(--paper-line)]",
+        plain:
+          "bg-transparent text-[var(--text)] rounded-none border-t border-[var(--line-soft)] in-[[data-surface=paper]]:text-[var(--paper-text)] in-[[data-surface=paper]]:border-[var(--paper-line)]",
         empty:
           "bg-transparent text-[var(--text-muted)] border border-dashed border-[var(--line-soft)] in-[[data-surface=paper]]:text-[var(--paper-muted)] in-[[data-surface=paper]]:border-[var(--paper-line)]",
       },

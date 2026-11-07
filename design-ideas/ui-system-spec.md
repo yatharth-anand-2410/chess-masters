@@ -843,3 +843,26 @@ The rationale for *last* rather than *never* is that these pages already use the
 - Whether `analysis_messages` rows exist in production; only the schema (`0001_init.sql`) and the endpoint (`backend/main.py:1346`, `POST /api/analyses/{id}/messages/stream`) were read, plus the two PostgREST calls at `backend/services/db.py:285,298`.
 - The 436-line `subscription/page.tsx` was read via its class usages and structure, not line-by-line; its primitive mapping may miss a bespoke block.
 - No browser was run. The 390px finding is carried from the brief and independently corroborated by `2026-preview.html` line 831, but was **not** re-observed in a viewport in this session.
+
+---
+
+## 10. Addendum (2026-11-08): rules for the page migration
+
+Status: the figures in §1 and §2 are stale. `globals.css` is now about 5,200 lines and `frontend/app` has about 28 pages. The token and primitive sections still hold.
+
+**Surfaces**
+- Glass panels over the animated board use `--surface-glass` / `--surface-glass-strong`; recessed media (video, board) uses `--surface-well`. Never hard-code a hex for a surface.
+- `Card` has four surfaces: `shell`, `paper`, `plain` (hairline top rule only, no box) and `empty`. Use a boxed card only when the content is a real object (a game, a student, a plan). Sections of prose, lists and FAQs use `plain` or a `SectionHead` hairline.
+
+**One memorable element per page.** Use a real chess object (board, eval strip, leak list, plan comparison). The animated background board belongs to the landing page only.
+
+**Do not use**
+- ALL-CAPS eyebrow labels.
+- Middle-dot meta strings ("A · B · C"); use a CSS divider or separate lines.
+- A trailing "→" on links or buttons.
+- `border-left` accent cards.
+- A hairline border and a wide diffuse shadow together.
+
+**Motion.** One orchestrated moment per page, or motion that answers an action. Always honour `prefers-reduced-motion`.
+
+**Migration order** (traffic x risk, content last): simple app pages, then product surfaces (subscription, scout, shared report, coach), then content and legal pages. `analysis/[id]` and `progress` wait for their own redesign. Content and legal pages change styling only; headings, copy and JSON-LD stay identical.

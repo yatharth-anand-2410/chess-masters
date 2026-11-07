@@ -41,6 +41,11 @@
   --line-strong: rgba(255, 255, 255, 0.16);
   --line-soft: rgba(255, 255, 255, 0.05);
 
+  /* GLASS SURFACES (panels floating over the animated board) */
+  --surface-glass: rgba(10, 16, 20, 0.9);
+  --surface-glass-strong: rgba(10, 16, 20, 0.92);
+  --surface-well: #06090b; /* recessed media wells (video, board) */
+
   /* GOLD TOURNAMENT ACCENTS (SHELL / INK ONLY) */
   --gold: #c9993f;
   --gold-bright: #e2b65f;

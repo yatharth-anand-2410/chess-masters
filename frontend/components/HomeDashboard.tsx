@@ -1095,7 +1095,7 @@ export default function HomePage() {
       )}
 
       <section
-        className="trust-strip relative z-10 rounded-2xl bg-[#0a1014]/92 backdrop-blur-md border border-[var(--line)] shadow-lg"
+        className="trust-strip relative z-10 rounded-2xl bg-[var(--surface-glass-strong)] backdrop-blur-md border border-[var(--line)] shadow-lg"
         aria-label="About Chessmasters"
       >
         <span className="trust-strip-item">

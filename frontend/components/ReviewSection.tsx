@@ -161,7 +161,7 @@ export default function ReviewSection({ user, token, onAuthChange }: ReviewSecti
   return (
     <section className="review-panel landing-section">
       {/* Compact Header Bar */}
-      <div className="rounded-2xl bg-[#0a1014]/90 backdrop-blur-xl border border-[var(--line)] p-6 mb-5 flex flex-wrap items-center justify-between gap-4 shadow-xl">
+      <div className="rounded-2xl bg-[var(--surface-glass)] backdrop-blur-xl border border-[var(--line)] p-6 mb-5 flex flex-wrap items-center justify-between gap-4 shadow-xl">
         <div className="flex flex-wrap items-center gap-3">
           <h2 className="text-2xl font-serif font-bold text-[var(--text)] m-0">
             Player Reviews

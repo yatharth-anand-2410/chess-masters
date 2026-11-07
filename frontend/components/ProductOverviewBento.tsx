@@ -35,7 +35,7 @@ export default function ProductOverviewBento() {
       aria-labelledby="about-chessmasters-title"
     >
       {/* Minimalist Split Overview + 60s Video */}
-      <div className="rounded-2xl bg-[#0a1014]/90 backdrop-blur-xl border border-[var(--line)] p-6 sm:p-9 shadow-2xl">
+      <div className="rounded-2xl bg-[var(--surface-glass)] backdrop-blur-xl border border-[var(--line)] p-6 sm:p-9 shadow-2xl">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
           <div className="lg:col-span-7">
             <h2
@@ -75,7 +75,7 @@ export default function ProductOverviewBento() {
             >
               Watch the 60-second walkthrough
             </h3>
-            <div className="explainer-video-container rounded-xl overflow-hidden border border-[var(--line)] bg-[#06090b] shadow-lg">
+            <div className="explainer-video-container rounded-xl overflow-hidden border border-[var(--line)] bg-[var(--surface-well)] shadow-lg">
               <video
                 controls
                 preload="metadata"
@@ -115,7 +115,7 @@ export default function ProductOverviewBento() {
             href="/faq"
             className="text-xs font-medium text-[var(--gold-bright)] hover:underline"
           >
-            Read full FAQ →
+            Read the full FAQ
           </Link>
         </div>
 
