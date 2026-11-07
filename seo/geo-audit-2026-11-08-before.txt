@@ -1,0 +1,235 @@
+⏳ Fetching page, robots.txt, llms.txt and AI files...
+⏳ Analyzing schema, meta tags and content...
+⏳ Checking CDN access for AI bots...
+⏳ Running trust, brand and extra checks...
+✅ Analysis complete.
+
+
+🔍 🔍 🔍 🔍 🔍 🔍 🔍 🔍 🔍 🔍 🔍 🔍 🔍 🔍 🔍 🔍 🔍 🔍 🔍 🔍 
+  GEO AUDIT — https://www.chessmasterss.in
+  github.com/auriti-labs/geo-optimizer-skill
+🔍 🔍 🔍 🔍 🔍 🔍 🔍 🔍 🔍 🔍 🔍 🔍 🔍 🔍 🔍 🔍 🔍 🔍 🔍 🔍 
+
+   Status: 200 | Size: 57,309 bytes | Duration: 4455ms
+
+============================================================
+  1. ROBOTS.TXT — AI Bot Access
+============================================================
+  ✅ robots.txt found
+  ✅ GPTBot allowed ✓
+  ✅ OAI-SearchBot allowed ✓
+  ✅ ChatGPT-User allowed ✓
+  ✅ ClaudeBot allowed ✓
+  ✅ Claude-SearchBot allowed ✓
+  ✅ Claude-User allowed ✓
+  ✅ PerplexityBot allowed ✓
+  ✅ Perplexity-User allowed ✓
+  ✅ Googlebot allowed ✓
+  ✅ Google-Extended allowed ✓
+  ✅ Google-CloudVertexBot allowed ✓
+  ✅ Bingbot allowed ✓
+  ✅ Applebot-Extended allowed ✓
+  ✅ cohere-ai allowed ✓
+  ✅ DuckAssistBot allowed ✓
+  ✅ Bytespider allowed ✓
+  ✅ meta-externalagent allowed ✓
+  ✅ Meta-ExternalFetcher allowed ✓
+  ✅ facebookexternalhit allowed ✓
+  ✅ Amazonbot allowed ✓
+  ✅ AI2Bot allowed ✓
+  ✅ AI2Bot-Dolma allowed ✓
+  ✅ xAI-Bot allowed ✓
+  ✅ Applebot allowed ✓
+  ✅ PetalBot allowed ✓
+  ✅ YouBot allowed ✓
+  ✅ CCBot allowed ✓
+  ✅ All critical CITATION bots are correctly configured
+
+============================================================
+  2. LLMS.TXT — AI Index File (Other AI agents · not used by Google Search)
+============================================================
+  ✅ llms.txt found (~336 words)
+  ✅ H1 present
+  ✅ H2 sections present
+  ✅ Links found
+
+============================================================
+  3. SCHEMA JSON-LD — Structured Data
+============================================================
+  ✅ Schema Organization ✓
+  ✅ Schema WebSite ✓
+  ✅ Schema WebPage ✓
+  ✅ Schema SoftwareApplication ✓
+  ✅ Schema WebApplication ✓
+  ✅ Schema FAQPage ✓
+  ✅ Schema VideoObject ✓
+
+============================================================
+  4. META TAG — SEO & Open Graph
+============================================================
+  ✅ Title: AI Chess Game Analyzer for Chess.com & Lichess · Chessmasters
+  ✅ Meta description (149 characters) ✓
+  ✅ Canonical: https://www.chessmasterss.in
+  ✅ og:title ✓
+  ✅ og:description ✓
+  ✅ og:image ✓
+
+============================================================
+  5. CONTENT QUALITY — GEO Best Practices
+============================================================
+  ✅ H1: Your AI chess game analyzer
+  ✅ 15 headings
+  ✅ 7 numbers/statistics found ✓
+  ✅ ~720 words
+  ✅ 2 external links ✓
+
+============================================================
+  6. TECHNICAL SIGNALS
+============================================================
+  ✅ Language: en
+  ✅ RSS/Atom feed found
+  ✅ Freshness signal: 2026-10-20
+
+============================================================
+  7. AI DISCOVERY ENDPOINTS
+============================================================
+  ✅ /.well-known/ai.txt found
+  ✅ /ai/summary.json valid
+  ✅ /ai/faq.json (10 FAQs)
+
+============================================================
+  8. BRAND & ENTITY SIGNALS
+============================================================
+  [██░░░] 5/12
+  ⚠️  Brand name inconsistent across schema, meta and content
+  ⚠️  No Knowledge Graph links (Wikipedia, Wikidata, LinkedIn)
+  ✅ About page linked
+  ✅ Contact information present
+  ✅ 10 FAQs found
+
+============================================================
+  9. CDN AI CRAWLER ACCESS
+============================================================
+  ✅ All AI crawlers can access the site
+
+============================================================
+  10. JS RENDERING CHECK
+============================================================
+  ✅ 710 words and 15 headings found in raw HTML. Content is accessible without JavaScript.
+
+============================================================
+  11. PROMPT INJECTION DETECTION
+============================================================
+  ✅ Severity: CLEAN (0 pattern)
+  ℹ️  UGC injection surface: 'review-panel' region, 'review-signin' region
+
+============================================================
+  12. TRUST STACK SCORE
+============================================================
+  Grade: C (14/25) — Trust level: medium
+  [██░░░] Technical Trust: 2/5
+  [████░] Identity Trust: 4/5
+  [███░░] Social Trust: 3/5
+  [██░░░] Academic Trust: 2/5
+  [███░░] Consistency Trust: 3/5
+
+============================================================
+  13. RAG CHUNK READINESS
+============================================================
+  Sections: 1 (0 in 100-150 word range)
+  Avg section words: 88.0
+  Definition opening: ❌
+  Heading boundaries: 1500%
+  Anchor sentences: 31
+  Chunk readiness: 33/100
+
+============================================================
+  14. EMBEDDING PROXIMITY
+============================================================
+  ⏭️  Skipped: sentence-transformers not installed (pip install geo-optimizer-skill[embedding])
+
+============================================================
+  15. CONTENT DECAY PREDICTION
+============================================================
+  Risk: 🟡 MEDIUM | Evergreen: 84/100
+  Earliest decay: ~365 days
+  [temporal] IDE AIM) · Updated 20 October 2026 · Psychology profile after 3
+  [temporal] ail info@chessmasterss.in . © 2026 Chessmasters . Chessmasters i
+
+============================================================
+  16. PLATFORM CITATION PROFILE
+============================================================
+  CHATGPT: 73/100
+    ✅ GPTBot allowed in robots.txt
+    ✅ llms.txt present
+    ✅ FAQ schema present
+  PERPLEXITY: 77/100
+    ✅ PerplexityBot allowed
+    ✅ llms.txt with links
+    ✅ Content freshness signals present
+    💡 Add external links to authoritative sources
+  GOOGLE_AI: 93/100
+    ✅ Googlebot allowed (feeds Search and AI Overviews)
+    ✅ Rich schema (3 types)
+    ✅ Complete meta tags
+
+============================================================
+  17. CONTEXT WINDOW OPTIMIZATION
+============================================================
+  Tokens: ~923 (710 words)
+  Front-loading: 21% | Filler: 1%
+  Truncation risk: 🟢 low
+  Fits: perplexity, chatgpt, claude
+  Efficiency: 70/100
+
+============================================================
+  18. INSTRUCTION FOLLOWING READINESS
+============================================================
+  Actions: 15 labeled, 0 unlabeled (100/100)
+  Forms: 1/1 labeled, 1 typed (100/100)
+  Error recovery: aria-live ❌ | roles ❌
+  Readiness: 75/100 (ready)
+
+============================================================
+  19. MULTIMODAL READINESS
+============================================================
+  Images: 2/2 with descriptive alt (100%) | captions: 0
+  Video: 1 found | VideoObject schema: ✅ | captions/transcript: ✅
+  Readiness: good
+
+============================================================
+  GOOGLE AI SEARCH
+============================================================
+  ✓ G-INDEX: HTTP 200, indexable, Googlebot allowed (5/5)
+  ✓ G-SNIPPET: No snippet restrictions (5/5)
+  ✓ G-CANONICAL: One absolute canonical matching the final URL (3/3)
+  ✓ G-DATES: Visible date consistent with structured data (2/2)
+  ✓ G-BYLINE: Author declared in structured data (2/2)
+  ✓ G-LINKS: 31 crawlable <a href> links (1/1)
+  ✓ G-VIEWPORT: meta viewport present (1/1)
+  ✓ G-SITEMAP: Sitemap declared: https://www.chessmasterss.in/sitemap.xml (1/1)
+  ? G-GENAI-CONTROL: Check Search Console > Settings > Search generative AI control (0/0)
+
+============================================================
+  📊 FINAL GEO SCORE
+============================================================
+
+  [█████████████████░░░] 87/100
+
+  🏆 EXCELLENT — Site is well optimized for AI search engines!
+
+  Score bands: 0–35 = critical | 36–67 = foundation | 68–85 = good | 86–100 = excellent
+
+  📋 PRIORITY NEXT STEPS:
+  1. Use consistent brand name across title, og:title, H1, and schema Organization
+  2. Add sameAs links in Organization schema to Wikipedia, Wikidata, LinkedIn, or Crunchbase for Knowledge Graph disambiguation
+  3. Keyword stuffing detected: 'game' at 5.0% density — diversify vocabulary
+  4. This page exposes user-generated content ('review-panel' region, 'review-signin' region). It is an injection surface — a third party can place text there that AI crawlers read. Keep it moderated and mark its links rel="ugc".
+  5. Consider adding WebMCP toolname/tooldescription attributes to interactive elements for Chrome AI agent support
+
+  💡 One-shot audit. The free plan at https://geoready.dev tracks 1 domain
+     with a weekly drift email — plus score history and AI citation tracking.
+
+  🏅 87/100 is embed-worthy. Add it to your README:
+     [![GEO Score](https://geoready.dev/badge?url=https%3A%2F%2Fwww.chessmasterss.in)](https://geoready.dev?utm_source=badge)
+

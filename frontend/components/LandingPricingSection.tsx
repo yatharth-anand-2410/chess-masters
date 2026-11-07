@@ -87,7 +87,7 @@ export default function LandingPricingSection({
       className="landing-section"
       aria-labelledby="landing-pricing-title"
     >
-      <div className="text-center w-full mb-6 p-6 rounded-2xl bg-[var(--surface-glass)] backdrop-blur-xl border border-[var(--line)] shadow-xl">
+      <div className="text-center w-full mb-8 px-2">
         <h2
           id="landing-pricing-title"
           className="text-2xl sm:text-4xl font-serif font-bold text-[var(--text)] tracking-tight m-0"

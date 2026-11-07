@@ -242,7 +242,7 @@ export function ScrollChessBackground({
         className="absolute inset-0 z-[1]"
         style={{
           background:
-            "radial-gradient(ellipse 620px 100% at 50% 50%, rgba(6, 10, 12, 0.82), rgba(6, 10, 12, 0.45) 70%, transparent 100%)",
+            "radial-gradient(ellipse 800px 100% at 50% 50%, rgba(6, 10, 12, 0.82), rgba(6, 10, 12, 0.45) 70%, transparent 100%)",
         }}
       />
 

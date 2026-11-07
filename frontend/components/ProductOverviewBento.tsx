@@ -35,14 +35,14 @@ export default function ProductOverviewBento() {
       aria-labelledby="about-chessmasters-title"
     >
       {/* Minimalist Split Overview + 60s Video */}
-      <div className="rounded-2xl bg-[var(--surface-glass)] backdrop-blur-xl border border-[var(--line)] p-6 sm:p-9 shadow-2xl">
+      <div className="border-y border-[var(--line)] bg-[var(--surface-glass)] px-2 py-8 sm:px-6 sm:py-10">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
           <div className="lg:col-span-7">
             <h2
               id="about-chessmasters-title"
               className="text-2xl sm:text-3xl font-serif font-bold text-[var(--text)] tracking-tight m-0"
             >
-              What is Chessmasters?
+              What is Chessmasters? An AI chess game analyzer
             </h2>
             <p className="homepage-about-lede text-sm sm:text-base text-[var(--text-muted)] leading-relaxed mt-3 mb-0">
               Paste a finished Chess.com or Lichess game. Stockfish finds the blunders, and you get a
@@ -73,7 +73,7 @@ export default function ProductOverviewBento() {
               id="video-explainer-title"
               className="text-base font-serif font-semibold text-[var(--text)] m-0"
             >
-              Watch the 60-second walkthrough
+              Watch: How Chessmasters Analyzes Your Game
             </h3>
             <div className="explainer-video-container rounded-xl overflow-hidden border border-[var(--line)] bg-[var(--surface-well)] shadow-lg">
               <video
@@ -109,7 +109,7 @@ export default function ProductOverviewBento() {
       <div className="w-full mt-16 px-2 sm:px-0">
         <div className="flex flex-wrap items-baseline justify-between gap-2 pb-4 border-b border-[var(--line)]">
           <h2 className="text-xl sm:text-2xl font-serif font-bold text-[var(--text)] m-0">
-            Common Questions
+            Frequently asked questions
           </h2>
           <Link
             href="/faq"

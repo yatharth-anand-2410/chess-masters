@@ -140,7 +140,7 @@ export default function SampleReportsFeed() {
       className="landing-section"
       aria-labelledby="featured-reports-title"
     >
-      <div className="rounded-2xl bg-[var(--surface-glass)] backdrop-blur-xl border border-[var(--line)] p-6 sm:p-9 shadow-2xl">
+      <div className="rounded-2xl bg-[var(--surface-glass)] backdrop-blur-xl border border-[var(--gold)]/45 p-6 sm:p-10 shadow-[0_30px_70px_-30px_rgba(201,153,63,0.35)]">
         <div className="flex flex-wrap items-baseline justify-between gap-4 pb-5 border-b border-[var(--line)]">
           <div>
             <h2

@@ -6,7 +6,7 @@ import type { FaqItem } from "./schema";
  */
 export const FAQS: FaqItem[] = [
   {
-    question: "How does Chessmasters analyze my game?",
+    question: "What is Chessmasters?",
     answer:
       "Chessmasters is an AI chess game analyzer for Chess.com and Lichess. Paste a finished game and you receive a plain-English coaching report with five sections: Strength, Weakness, Game Overview, Focus Areas, and Resources.",
   },
