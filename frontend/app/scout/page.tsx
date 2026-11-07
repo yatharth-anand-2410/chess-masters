@@ -64,7 +64,7 @@ export default function ScoutHubPage() {
   const locked = gate === "signed-out" || gate === "locked";
 
   return (
-    <div className="min-h-screen bg-[var(--ink-1)] text-[var(--text)] flex flex-col">
+    <div className="min-h-screen text-[var(--text)] flex flex-col">
       <Topbar />
 
       <main className="flex-1 max-w-4xl w-full mx-auto px-4 sm:px-6 py-12 flex flex-col items-center justify-center text-center">

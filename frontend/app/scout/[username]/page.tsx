@@ -110,7 +110,7 @@ export default function ScoutPlayerDossier({ params }: ScoutDossierProps) {
   }, [gate, decodedUsername, selectedPlatform]);
 
   return (
-    <div className="min-h-screen bg-[var(--ink-1)] text-[var(--text)] flex flex-col">
+    <div className="min-h-screen text-[var(--text)] flex flex-col">
       <Topbar />
 
       {gate !== "unlocked" ? (

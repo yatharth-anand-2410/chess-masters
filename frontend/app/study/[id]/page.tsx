@@ -142,7 +142,7 @@ export default function StudyDetailPage() {
   }));
 
   return (
-    <div className="min-h-screen bg-[var(--ink-1)] text-[var(--text)] flex flex-col">
+    <div className="min-h-screen text-[var(--text)] flex flex-col">
       <Topbar />
 
       <main className="flex-1 w-full max-w-[var(--shell-max)] mx-auto px-4 sm:px-6 py-6 flex flex-col gap-6">
