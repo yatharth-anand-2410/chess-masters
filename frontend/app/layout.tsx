@@ -11,6 +11,7 @@ import "./styles/subscription.css";
 import "./styles/studies.css";
 import JsonLd from "../components/JsonLd";
 import SiteFooter from "../components/SiteFooter";
+import SiteBackground from "../components/animations/SiteBackground";
 import AICoachDrawer from "../components/AICoachDrawer";
 import ManageStudentsModal from "../components/ManageStudentsModal";
 import {
@@ -81,6 +82,7 @@ export default function RootLayout({
     <html lang="en">
       <body className={`${display.variable} ${body.variable} ${mono.variable}`}>
         <JsonLd data={schemaGraph([ORGANIZATION_SCHEMA, WEBSITE_SCHEMA])} />
+        <SiteBackground />
         {children}
         <AICoachDrawer />
         <ManageStudentsModal />

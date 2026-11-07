@@ -854,7 +854,9 @@ Status: the figures in §1 and §2 are stale. `globals.css` is now about 5,200 l
 - Glass panels over the animated board use `--surface-glass` / `--surface-glass-strong`; recessed media (video, board) uses `--surface-well`. Never hard-code a hex for a surface.
 - `Card` has four surfaces: `shell`, `paper`, `plain` (hairline top rule only, no box) and `empty`. Use a boxed card only when the content is a real object (a game, a student, a plan). Sections of prose, lists and FAQs use `plain` or a `SectionHead` hairline.
 
-**One memorable element per page.** Use a real chess object (board, eval strip, leak list, plan comparison). The animated background board belongs to the landing page only.
+**One memorable element per page.** Use a real chess object (board, eval strip, leak list, plan comparison).
+
+**Background board (decision 2026-11-08).** One animated board sits behind the whole site, mounted once in `app/layout.tsx` via `SiteBackground` so it persists across navigation. The landing page uses `intensity="hero"`; every other page uses `intensity="ambient"` (about a third of the opacity, wider vignette). It is decorative (`aria-hidden`), loaded client-side only, and sits at `-z-10` so in-flow content always paints above it. Respects `prefers-reduced-motion`. Content that must stay legible (tables, reports, prose) should sit on a surface token, not directly on the board.
 
 **Do not use**
 - ALL-CAPS eyebrow labels.

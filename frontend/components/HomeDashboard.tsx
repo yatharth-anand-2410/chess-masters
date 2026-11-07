@@ -25,7 +25,6 @@ import UpgradePrompt from "./UpgradePrompt";
 import ProductOverviewBento from "./ProductOverviewBento";
 import SampleReportsFeed from "./SampleReportsFeed";
 import LandingPricingSection from "./LandingPricingSection";
-import ScrollChessBackground from "./animations/ScrollChessBackground";
 import type { InsightsData } from "./insights";
 import { initAnalytics, trackEvent } from "../lib/analytics";
 import { warmBackend } from "../lib/backend-wake";
@@ -920,8 +919,6 @@ export default function HomePage() {
 
   return (
     <main id="top" className="dashboard relative">
-      <ScrollChessBackground />
-
       <Topbar
         user={user}
         usage={usage}

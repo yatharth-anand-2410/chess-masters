@@ -24,6 +24,8 @@ export interface ScrollChessBackgroundProps {
   previewMode?: boolean;
   onSceneChange?: (sceneIndex: number, sceneId: ScrollChessSceneId) => void;
   className?: string;
+  /** "hero" is the landing page; "ambient" sits quietly behind every other page. */
+  intensity?: "hero" | "ambient";
 }
 
 type PieceColor = "w" | "b";
@@ -169,7 +171,9 @@ function EtchedChessPiece({
  */
 export function ScrollChessBackground({
   className,
+  intensity = "hero",
 }: ScrollChessBackgroundProps) {
+  const ambient = intensity === "ambient";
   const prefersReducedMotion = useReducedMotion();
   const { scrollYProgress } = useScroll();
 
@@ -224,7 +228,7 @@ export function ScrollChessBackground({
     <div
       aria-hidden="true"
       className={cn(
-        "pointer-events-none fixed inset-0 z-0 overflow-hidden select-none",
+        "pointer-events-none fixed inset-0 -z-10 overflow-hidden select-none",
         className
       )}
     >
@@ -242,7 +246,9 @@ export function ScrollChessBackground({
         className="absolute inset-0 z-[1]"
         style={{
           background:
-            "radial-gradient(ellipse 800px 100% at 50% 50%, rgba(6, 10, 12, 0.82), rgba(6, 10, 12, 0.45) 70%, transparent 100%)",
+            ambient
+              ? "radial-gradient(ellipse 1100px 100% at 50% 50%, rgba(6, 10, 12, 0.7), rgba(6, 10, 12, 0.4) 75%, transparent 100%)"
+              : "radial-gradient(ellipse 800px 100% at 50% 50%, rgba(6, 10, 12, 0.82), rgba(6, 10, 12, 0.45) 70%, transparent 100%)",
         }}
       />
 
@@ -261,7 +267,10 @@ export function ScrollChessBackground({
             transformStyle: "preserve-3d",
             willChange: "transform",
           }}
-          className="relative w-[min(114vw,1140px)] aspect-square opacity-45"
+          className={cn(
+            "relative w-[min(114vw,1140px)] aspect-square",
+            ambient ? "opacity-[0.13]" : "opacity-45"
+          )}
         >
           <div className="relative w-full h-full rounded-[22px] p-3.5 bg-[#090e12]/90 border border-[rgba(226,182,95,0.38)] shadow-[0_40px_110px_rgba(0,0,0,0.92)]">
             <div className="relative w-full h-full rounded-[14px] overflow-hidden grid grid-cols-8 grid-rows-8 border border-[rgba(226,182,95,0.24)]">
