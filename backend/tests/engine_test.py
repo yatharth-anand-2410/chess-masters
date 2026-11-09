@@ -9,6 +9,7 @@ Run from the backend directory:
 
 from __future__ import annotations
 
+import math
 import os
 import shutil
 import sys
@@ -173,3 +174,118 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
+
+# --- Lichess-aligned move grading and game accuracy -------------------------
+#
+# Source: lila modules/tree/src/main/Advice.scala (winning-chance judgements,
+# mate rules) and modules/analyse/src/main/AccuracyPercent.scala.
+
+
+def _grade(before_cp: int, after_cp: int, color: str = "white") -> str:
+    return engine._quality_for_move(before_cp, after_cp, color)
+
+
+def test_small_slip_while_winning_is_not_a_blunder():
+    # +8 -> +5.5 is a 250cp swing, but the game is still won.
+    assert _grade(800, 550) not in (engine.QUALITY_MISTAKE, engine.QUALITY_BLUNDER)
+
+
+def test_throwing_an_equal_position_is_a_blunder():
+    assert _grade(100, -200) == engine.QUALITY_BLUNDER
+
+
+def test_grading_is_from_the_movers_point_of_view():
+    # Black moves from -1 (good for Black) to +2: a blunder for Black.
+    assert _grade(-100, 200, "black") == engine.QUALITY_BLUNDER
+    # The same numbers for White are an improvement.
+    assert _grade(-100, 200, "white") in (engine.QUALITY_BEST, engine.QUALITY_GOOD)
+
+
+def test_walking_into_a_forced_mate_is_a_blunder():
+    assert _grade(50, -engine.MATE_SCORE + 3) == engine.QUALITY_BLUNDER
+
+
+def test_walking_into_mate_when_already_lost_is_only_an_inaccuracy():
+    assert _grade(-1200, -engine.MATE_SCORE + 3) == engine.QUALITY_INACCURACY
+
+
+def test_letting_a_forced_mate_slip_while_still_crushing_is_an_inaccuracy():
+    assert _grade(engine.MATE_SCORE - 2, 1500) == engine.QUALITY_INACCURACY
+
+
+def test_letting_a_forced_mate_slip_into_equality_is_a_blunder():
+    assert _grade(engine.MATE_SCORE - 2, 0) == engine.QUALITY_BLUNDER
+
+
+def test_delaying_a_forced_mate_is_not_judged():
+    assert _grade(engine.MATE_SCORE - 2, engine.MATE_SCORE - 4) in (
+        engine.QUALITY_BEST,
+        engine.QUALITY_GOOD,
+    )
+
+
+def _moves_from_curve(curve_cp: list[int]) -> list:
+    moves = []
+    for index in range(len(curve_cp) - 1):
+        color = "white" if index % 2 == 0 else "black"
+        moves.append(
+            engine.MoveInfo(
+                move_number=index // 2 + 1,
+                san="x",
+                color=color,
+                phase=engine.PHASE_MIDDLEGAME,
+                fen_before="",
+                played_move="",
+                best_move=None,
+                best_move_san=None,
+                pv=[],
+                pv_san=[],
+                eval_before_cp=curve_cp[index],
+                eval_after_cp=curve_cp[index + 1],
+                centipawn_loss=0,
+                quality=engine.QUALITY_BEST,
+            )
+        )
+    return moves
+
+
+def test_perfect_game_scores_100():
+    moves = _moves_from_curve([20] * 41)
+    assert engine.StockfishAnalyzer._compute_overall_accuracy(moves, "white") == 100.0
+
+
+def test_one_blunder_costs_more_than_an_arithmetic_mean_would():
+    # 40 moves at a steady +0.2, then White hangs a piece on move 21.
+    curve = [20] * 21 + [-300] * 20
+    moves = _moves_from_curve(curve)
+    white = [m for m in moves if m.color == "white"]
+    arithmetic = sum(engine._move_accuracy(m) for m in white) / len(white)
+    accuracy = engine.StockfishAnalyzer._compute_overall_accuracy(moves, "white")
+    assert accuracy is not None
+    assert accuracy < arithmetic - 5
+
+
+def test_per_move_accuracy_matches_lichess_formula():
+    # 0 -> -300cp for White: win% 50 -> ~25; lila gives raw + 1 bonus.
+    move = _moves_from_curve([0, -300])[0]
+    win_before = 50.0
+    win_after = 50 + 50 * (2 / (1 + math.exp(0.00368208 * 300)) - 1)
+    expected = 103.1668100711649 * math.exp(-0.04354415386753951 * (win_before - win_after)) - 3.166924740191411 + 1
+    assert abs(engine._move_accuracy(move) - expected) < 1e-6
+
+
+def test_quality_counts_are_the_players_own_moves():
+    # White plays well; Black blunders twice.
+    curve = [0, 0, 300, 300, 700, 700]
+    moves = _moves_from_curve(curve)
+    for move in moves:
+        move.quality = engine._quality_for_move(
+            move.eval_before_cp, move.eval_after_cp, move.color
+        )
+    white = engine._quality_counts(moves, "white")
+    black = engine._quality_counts(moves, "black")
+    assert white[engine.QUALITY_BLUNDER] == 0
+    assert black[engine.QUALITY_BLUNDER] == 2
+    # Unknown colour: count everything rather than guess.
+    assert engine._quality_counts(moves, None)[engine.QUALITY_BLUNDER] == 2

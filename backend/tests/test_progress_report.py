@@ -97,6 +97,9 @@ def _row(
     quality_blunders: int = 2,
     include_summary: bool = True,
     status: str = "completed",
+    played_at: Optional[str] = None,
+    acpl: Optional[float] = None,
+    metric_version: Optional[int] = None,
 ) -> Dict[str, Any]:
     rating = 1500 + index * 10 if rating is None else rating
     accuracy = 80.0 if accuracy is None else accuracy
@@ -146,6 +149,12 @@ def _row(
             },
             "psychology": _primitives(accuracy, 1.0 if index % 2 == 0 else 0.0),
         }
+        if played_at is not None:
+            row["game_summary"]["played_at"] = played_at
+        if acpl is not None:
+            row["game_summary"]["acpl"] = acpl
+        if metric_version is not None:
+            row["game_summary"]["metric_version"] = metric_version
     return row
 
 
@@ -425,74 +434,63 @@ def test_healthy_report_counts_and_identity(monkeypatch: pytest.MonkeyPatch) -> 
 def test_healthy_elo_accuracy_and_phases(monkeypatch: pytest.MonkeyPatch) -> None:
     report = _healthy_report(monkeypatch)
 
+    # Ratings come from the primary pool only: 8 Lichess blitz games. The
+    # 4 Chess.com rapid games (up to 1640) are a different ladder.
+    assert report.elo.pool == "lichess · blitz"
     assert (report.elo.starting, report.elo.current, report.elo.peak) == (
         1500.0,
-        1640.0,
-        1640.0,
+        1570.0,
+        1570.0,
     )
-    assert report.elo.net_gain == 140.0
-    assert report.elo.status == "accelerating"
+    assert report.elo.net_gain == 70.0
+    # 8 games in the pool is too few for two five-game windows: no trajectory.
+    assert report.elo.status == ""
     assert len(report.elo.series) == 12
     assert report.elo.series[0].rating == 1500.0
     assert report.elo.series[-1].speed == "rapid"
+    assert report.elo.series[-1].platform == "chess.com"
     assert report.elo.series[0].result == "win"
     assert report.elo.series[1].result == "loss"
 
-    # Accuracy: first third (83, 85, 82, 86) vs last third (84, 86, 85, 87).
-    assert report.accuracy.baseline == 84.0
-    assert report.accuracy.current == 85.5
+    # Accuracy: first five (83, 85, 82, 86, 90) vs last five (93, 84, 86, 85, 87).
+    assert report.accuracy.baseline == 85.2
+    assert report.accuracy.current == 87.0
     assert len(report.accuracy.series) == 12
 
     # Phase accuracies climb by exactly one point per game.
-    assert report.phases.opening.baseline == 79.5
-    assert report.phases.opening.current == 87.5
-    assert report.phases.middlegame.baseline == 71.5
-    assert report.phases.middlegame.current == 79.5
-    assert report.phases.endgame.baseline == 63.5
-    assert report.phases.endgame.current == 71.5
+    assert report.phases.opening.baseline == 80.0
+    assert report.phases.opening.current == 87.0
+    assert report.phases.middlegame.baseline == 72.0
+    assert report.phases.middlegame.current == 79.0
+    assert report.phases.endgame.baseline == 64.0
+    assert report.phases.endgame.current == 71.0
     assert report.phases.best_phase == "Opening"
     assert report.phases.lagging_phase == "Endgame"
     assert len(report.phases.series) == 12
 
-    # ACPL is the mean centipawn loss of the flagged moments per game.
-    assert report.acpl.baseline == 266.7
-    assert report.acpl.recent == 185.0
-    assert report.acpl.net_drift == -81.7
-    assert report.acpl.direction == "sharpening"
-    assert report.acpl.series[0].acpl == 266.7
-    assert report.acpl.series[-1].acpl == 185.0
+    # These rows predate the stored true ACPL: no ACPL is invented for them.
+    assert report.acpl.baseline is None
+    assert report.acpl.recent is None
+    assert report.acpl.direction == "stable"
+    assert report.acpl.series == []
 
 
 def test_healthy_movement_matrix(monkeypatch: pytest.MonkeyPatch) -> None:
     report = _healthy_report(monkeypatch)
 
     items = {item.key: item for item in report.movement}
-    assert list(items) == ["rating", "acpl", "time_trouble", "phase_accuracy", "tilt"]
-
-    rating = items["rating"]
-    assert (rating.before, rating.after, rating.delta) == (1515.0, 1610.0, 95.0)
-    assert rating.unit == "Elo"
-    assert rating.direction == "up"
-    assert rating.higher_is_better is True
-
-    acpl = items["acpl"]
-    assert (acpl.before, acpl.after, acpl.delta) == (266.7, 185.0, -81.7)
-    assert acpl.unit == "cp"
-    assert acpl.direction == "down"
-    assert acpl.higher_is_better is False
+    # No rating (pool too small), no ACPL (not stored), no tilt (games are a
+    # day apart, never one session).
+    assert list(items) == ["time_trouble", "phase_accuracy"]
 
     clock = items["time_trouble"]
-    assert (clock.before, clock.after, clock.delta) == (66.7, 0.0, -66.7)
+    assert (clock.before, clock.after, clock.delta) == (61.5, 0.0, -61.5)
     assert clock.unit == "%"
     assert clock.higher_is_better is False
 
     phase = items["phase_accuracy"]
-    assert (phase.before, phase.after, phase.delta) == (71.5, 79.5, 8.0)
+    assert (phase.before, phase.after, phase.delta) == (72.0, 79.0, 7.0)
     assert phase.higher_is_better is True
-
-    tilt = items["tilt"]
-    assert (tilt.before, tilt.after, tilt.delta) == (-3.5, -1.5, 2.0)
-    assert tilt.higher_is_better is True
 
     assert all(item.insufficient in (None, False) for item in report.movement)
 
@@ -506,19 +504,18 @@ def test_healthy_pillars_carry_real_numbers(monkeypatch: pytest.MonkeyPatch) -> 
     assert all(item.status == "needs_work" for item in pillars.needs_work)
 
     improved_titles = [item.title for item in pillars.improved]
-    assert "Rating drift (window average)" in improved_titles
     assert "Sub-30s blunder rate" in improved_titles
+    assert "Phase accuracy" in improved_titles
     clock = next(
         item for item in pillars.improved if item.title == "Sub-30s blunder rate"
     )
-    assert "8/12 → 0/4" in clock.metric
+    assert "8/13 → 0/5" in clock.metric
     assert all("→" in item.metric for item in pillars.improved)
 
-    improving_titles = [item.title for item in pillars.improving]
-    assert "Post-loss tilt" in improving_titles
-    assert "Accuracy" in improving_titles
-    accuracy = next(item for item in pillars.improving if item.title == "Accuracy")
-    assert accuracy.metric == "Accuracy: 84% → 85.5%"
+    # Accuracy moved 85.2% -> 87% while single games swing by 3-4 points:
+    # within noise, so it is not claimed as improvement.
+    all_titles = improved_titles + [item.title for item in pillars.improving]
+    assert "Accuracy" not in all_titles
 
     needs_titles = [item.title for item in pillars.needs_work]
     assert "Pin leak" in needs_titles
@@ -595,8 +592,9 @@ def test_healthy_radar_persona_and_focus_rules(
     persona = report.persona
     assert persona.archetype != ""
     assert "1500" in persona.summary_verdict
-    assert "1640" in persona.summary_verdict
-    assert persona.next_milestone == "Reach 1700 Elo (+60 from 1640)"
+    assert "1570" in persona.summary_verdict
+    assert "lichess · blitz" in persona.summary_verdict
+    assert persona.next_milestone == "Reach 1600 Elo (+30 from 1570)"
     assert persona.vulnerability_badge == "Sub-30s clock panic"
 
     assert 2 <= len(report.focus_rules) <= 4
@@ -757,6 +755,8 @@ def test_payload_matches_typescript_contract(monkeypatch: pytest.MonkeyPatch) ->
         "practice_plan",
         "games_used",
         "insufficient",
+        "trend_ready",
+        "games_needed_for_trend",
     }
     assert set(payload["identity"]) == {
         "accounts",
@@ -777,13 +777,24 @@ def test_payload_matches_typescript_contract(monkeypatch: pytest.MonkeyPatch) ->
         "peak",
         "net_gain",
         "status",
+        "pool",
+        "pools",
         "series",
+    }
+    assert set(payload["elo"]["pools"][0]) == {
+        "platform",
+        "speed",
+        "games",
+        "starting",
+        "current",
+        "peak",
     }
     assert set(payload["elo"]["series"][0]) == {
         "date",
         "game_id",
         "result",
         "speed",
+        "platform",
         "rating",
         "accuracy",
         "acpl",
@@ -862,9 +873,191 @@ def test_legacy_progress_attributes_still_resolve(
     """``services/copilot.py`` reads the pre-rollout attribute names."""
     report = _healthy_report(monkeypatch)
 
-    assert report.elo_trajectory.current_rating == 1640.0
+    # Lichess blitz is the primary pool (8 of 12 games); Chess.com rapid's
+    # 1640 is a different ladder.
+    assert report.elo_trajectory.current_rating == 1570.0
     assert report.persona_profile.archetype == report.persona.archetype
     assert (
         report.three_pillar_mastery.what_needs_work[0].title
         == report.pillars.needs_work[0].title
     )
+
+
+# ---------------------------------------------------------------------------
+# (d) Honest trends: play date, true ACPL, rating pools, sample size, noise
+# ---------------------------------------------------------------------------
+
+
+def _iso(day_offset: float) -> str:
+    return (BASE_DAY + timedelta(days=day_offset)).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def test_games_are_ordered_and_filtered_by_when_they_were_played(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A batch analyzed today but played over two months sorts by play date."""
+    analyzed_today = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    now = datetime.now(timezone.utc)
+    rows = [
+        _row(
+            index,
+            created_at=analyzed_today,
+            rating=1500 + index,
+            played_at=(now - timedelta(days=60 - index * 10)).strftime(
+                "%Y-%m-%dT%H:%M:%S"
+            ),
+        )
+        for index in range(6)
+    ]
+    rows.reverse()  # the database hands them back newest-analysis first
+    FakeDb(rows).install(monkeypatch)
+
+    report = progress.build_student_progress("real-user-7")
+    assert [point.rating for point in report.elo.series] == [
+        1500, 1501, 1502, 1503, 1504, 1505
+    ]
+
+    recent = progress.build_student_progress("real-user-7", days=25)
+    # Played 10, 20 days ago (and today's analysis date must not matter).
+    assert recent.identity.filtered_games == 2
+
+
+def test_acpl_comes_from_every_move_not_the_worst_ones(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    rows = [
+        _row(index, acpl=40.0 + index, moments=[_moment("Pin", 10, 300)])
+        for index in range(4)
+    ]
+    FakeDb(rows).install(monkeypatch)
+
+    report = progress.build_student_progress("real-user-8")
+    assert [point.acpl for point in report.acpl.series] == [40.0, 41.0, 42.0, 43.0]
+
+
+def test_rows_without_a_true_acpl_are_left_out_of_the_acpl_series(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    rows = [_row(index, moments=[_moment("Pin", 10, 300)]) for index in range(4)]
+    FakeDb(rows).install(monkeypatch)
+
+    report = progress.build_student_progress("real-user-9")
+    assert report.acpl.series == []
+
+
+def test_rating_never_mixes_platforms_or_speeds(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    rows = [_row(index, rating=1500 + index * 10) for index in range(8)] + [
+        _row(
+            8 + index,
+            rating=1100 + index * 10,
+            speed="rapid",
+            time_control="600+0",
+            platform_summary="chess.com",
+        )
+        for index in range(4)
+    ]
+    FakeDb(rows).install(monkeypatch)
+
+    report = progress.build_student_progress("real-user-10")
+    assert report.elo.pool == "lichess · blitz"
+    assert (report.elo.starting, report.elo.current) == (1500.0, 1570.0)
+    assert report.elo.net_gain == 70.0
+    pools = {(pool.platform, pool.speed): pool for pool in report.elo.pools}
+    assert pools[("chess.com", "rapid")].games == 4
+    assert pools[("chess.com", "rapid")].current == 1130.0
+    assert all(point.platform for point in report.elo.series)
+
+
+def test_a_handful_of_games_shows_the_series_but_calls_no_trend(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    rows = [
+        _row(index, accuracy=60.0 + index * 6, moments=[_moment("Pin", 10, 250)])
+        for index in range(6)
+    ]
+    FakeDb(rows).install(monkeypatch)
+
+    report = progress.build_student_progress("real-user-11")
+    assert report.insufficient is False
+    assert len(report.accuracy.series) == 6
+    assert report.trend_ready is False
+    assert report.games_needed_for_trend == 4
+    assert report.accuracy.baseline is None
+    assert report.movement == []
+    assert report.pillars.improved == []
+    assert report.pillars.improving == []
+    assert report.persona.archetype == ""
+    assert report.focus_rules == []
+    # Counting facts are not trends and still show.
+    assert report.root_causes
+
+
+def test_noise_is_not_reported_as_improvement(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Accuracy swings 55..95 game to game; the recent window averages a
+    # couple of points higher by chance. That is not a trend.
+    swings = [55, 95, 60, 90, 58, 92, 57, 94, 62, 96, 59, 93]
+    rows = [_row(index, accuracy=float(value)) for index, value in enumerate(swings)]
+    FakeDb(rows).install(monkeypatch)
+
+    report = progress.build_student_progress("real-user-12")
+    assert report.trend_ready is True
+    titles = [
+        item.title
+        for group in (report.pillars.improved, report.pillars.improving, report.pillars.needs_work)
+        for item in group
+    ]
+    assert "Accuracy" not in titles
+
+
+def test_a_real_shift_is_reported(monkeypatch: pytest.MonkeyPatch) -> None:
+    accuracies = [70, 71, 69, 70, 72, 74, 80, 86, 85, 87, 86, 88]
+    rows = [
+        _row(index, accuracy=float(value)) for index, value in enumerate(accuracies)
+    ]
+    FakeDb(rows).install(monkeypatch)
+
+    report = progress.build_student_progress("real-user-13")
+    improved = [item.title for item in report.pillars.improved]
+    assert "Accuracy" in improved
+
+
+def test_tilt_only_pairs_games_from_the_same_session(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Alternating results, but every game is three days after the last one.
+    rows = [
+        _row(
+            index,
+            result="1-0" if index % 2 == 0 else "0-1",
+            accuracy=90.0 if index % 2 == 0 else 60.0,
+            played_at=_iso(index * 3),
+        )
+        for index in range(12)
+    ]
+    FakeDb(rows).install(monkeypatch)
+
+    report = progress.build_student_progress("real-user-14")
+    assert "tilt" not in [item.key for item in report.movement]
+
+
+def test_accuracy_definitions_are_never_compared_across_versions(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Old arithmetic-mean accuracies vs new Lichess accuracies is not a trend."""
+    rows = [_row(index, accuracy=90.0) for index in range(6)] + [
+        _row(6 + index, accuracy=70.0, metric_version=2) for index in range(6)
+    ]
+    FakeDb(rows).install(monkeypatch)
+
+    report = progress.build_student_progress("real-user-15")
+    titles = [
+        item.title
+        for group in (report.pillars.improved, report.pillars.improving, report.pillars.needs_work)
+        for item in group
+    ]
+    assert "Accuracy" not in titles
+    assert report.accuracy.baseline is None

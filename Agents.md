@@ -4,7 +4,7 @@ We are building a full-stack web application that allows users to paste a chess 
 ## System Architecture
 *   **Backend:** Python 3.11+, FastAPI, `python-chess` (for Stockfish integration), and the modern `google-genai` SDK.
 *   **Frontend:** React / Next.js, `react-markdown` (for rendering streamed markdown and custom UI components like `<EvalChart>`).
-*   **AI/LLM:** Google Gemini 1.5 Flash via Server-Sent Events (SSE).
+*   **AI/LLM:** Google Gemini Flash / Flash-Lite (3.x; model chain in `backend/services/analyzer.py`) via Server-Sent Events (SSE).
 
 ## Backend Mechanics
 1.  **Game Extraction:**
@@ -18,6 +18,14 @@ We are building a full-stack web application that allows users to paste a chess 
 1.  **Form Input:** A toggle for Lichess vs. Chess.com. If Lichess -> ask for URL. If Chess.com -> ask for Username + URL.
 2.  **SSE Streaming:** Use `EventSource` to listen to the backend `/api/stream-analysis` endpoint. 
 3.  **Real-Time Rendering:** Display `status_update` events as UI loading badges, and pass `content_chunk` events into `react-markdown` to stream the text onto the screen.
+
+## Game Metrics (what every number means)
+*   **Move grading** follows Lichess (`lila` `Advice.scala`): a move is an inaccuracy / mistake / blunder when the mover's winning chances (on [-1, 1], eval ceiled at ±1000cp) drop by ≥0.1 / 0.2 / 0.3, with Lichess's separate rules for creating or losing a forced mate. Never by raw centipawn swing.
+*   **Accuracy** follows Lichess `AccuracyPercent`: per-move accuracy from the win% drop (+1 uncertainty bonus), game accuracy = mean of the volatility-weighted mean and the harmonic mean.
+*   **ACPL** is the average centipawn loss over *every* move the player made (clamped at ±600cp), stored as `game_summary.acpl`. Never the mean of the key mistakes.
+*   **Blunder counts** (`statistics`, `game_summary.quality`) are the player's own moves only.
+*   **`game_summary.metric_version`** (`telemetry.METRIC_VERSION`) changes whenever a definition above changes. Progress only compares games of the same version; `scripts/backfill_game_summary.py` upgrades old rows from their stored replay.
+*   **Progress honesty:** games are ordered by when they were *played* (`game_summary.played_at`). Ratings are never compared across a (platform, speed) pool. No trend, verdict or persona is shown below two windows of five games, and a change within two standard errors is reported as noise. Tilt only pairs games from the same session (same platform, ≤3h apart).
 
 ## Lichess Study Library (curated studies & tactics)
 *   **Two layers, no database.** `backend/data/study_library.json` is the hand-curated overlay (which motif or coach group each study teaches, order, hidden, titles as a fallback). Lichess itself is the content layer: `GET /api/study/by/{owner}` returns every study the account owns in one request, private and unlisted included, cached in memory. Nothing about the library is ever persisted.

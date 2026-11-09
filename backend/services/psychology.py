@@ -17,6 +17,7 @@ Two layers:
 from __future__ import annotations
 
 import statistics
+from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Sequence, Tuple
 
 from services import engine
@@ -52,6 +53,8 @@ MIN_CLOCK_BUCKET_MOVES = 10
 # game against itself keeps a naturally accurate game from being measured
 # against a sloppy one.
 TILT_DROP_ACCURACY_POINTS = 8.0
+#: Games further apart than this are not one session (no tilt carry-over).
+SESSION_GAP = timedelta(hours=3)
 
 DIMENSION_ORDER: Tuple[str, ...] = (
     "consistency",
@@ -525,10 +528,27 @@ def _composure_dimension(
     return _dimension("composure", score, evidence)
 
 
+def _same_session(previous: Dict[str, object], current: Dict[str, object]) -> bool:
+    """Whether two games are close enough in time for a loss to carry over.
+
+    A batch is one session by construction and carries no timestamps; games
+    pulled from history do, and two of them days apart say nothing about tilt.
+    """
+    before = previous.get("played_at")
+    after = current.get("played_at")
+    if not isinstance(before, datetime) or not isinstance(after, datetime):
+        return True
+    if previous.get("platform") != current.get("platform"):
+        return False
+    return timedelta(0) <= after - before <= SESSION_GAP
+
+
 def _tilt_dimension(games: List[Dict[str, object]]) -> Optional[Dict[str, object]]:
     after_loss: List[float] = []
     after_win: List[float] = []
     for previous, current in zip(games, games[1:]):
+        if not _same_session(previous, current):
+            continue
         previous_primitive = previous.get("psychology") or {}
         current_primitive = current.get("psychology") or {}
         accuracy = current_primitive.get("overall_accuracy")

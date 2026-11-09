@@ -21,7 +21,12 @@ from typing import Any, Dict, List, Mapping, Optional
 import chess
 import chess.pgn
 
-from services import engine, psychology
+from services import engine, extractor, psychology
+
+#: Bumped when the meaning of a stored metric changes, so Progress never
+#: averages two definitions together. 2 = Lichess winning-chance grading,
+#: Lichess game accuracy, true ACPL and the date the game was played.
+METRIC_VERSION = 2
 
 # Speed buckets. These strings cross the API boundary as ``SpeedBucket`` in
 # frontend/lib/api.ts and index ``game_summary->>'speed'``, so they are fixed.
@@ -134,7 +139,11 @@ def build_game_summary(
         "opponent_elo": _elo(
             headers.get("BlackElo" if color == "white" else "WhiteElo")
         ),
+        "played_at": analysis.started_at
+        or (extractor.parse_game_metadata(pgn)["started_at"] if pgn else None),
+        "metric_version": METRIC_VERSION,
         "accuracy": analysis.overall_accuracy,
+        "acpl": player_acpl(analysis.moves, color),
         "phase_accuracies": {
             phase: phase_accuracies.get(phase) for phase in engine.PHASES
         },
@@ -145,6 +154,104 @@ def build_game_summary(
         },
         "psychology": _psychology(analysis, engine_data),
     }
+
+
+def player_acpl(
+    moves: List[engine.MoveInfo], color: Optional[str]
+) -> Optional[float]:
+    """Average centipawn loss over every move the player made.
+
+    Not just the key mistakes: averaging only the worst moves measures how big
+    the blunders were, not how accurately the game was played.
+    """
+    losses = [move.centipawn_loss for move in moves if move.color == color]
+    if not losses:
+        return None
+    return round(sum(losses) / len(losses), 1)
+
+
+def upgrade_game_summary(
+    summary: Optional[Mapping[str, Any]],
+    replay: Optional[Mapping[str, Any]],
+    pgn: Optional[str],
+) -> Optional[Dict[str, object]]:
+    """Recompute an old row's metrics under the current definitions.
+
+    Pure function for ``scripts/backfill_game_summary.py``: no engine run. The
+    stored replay already holds every position's evaluation, each move's
+    colour and the FEN after it, which is all the grading and accuracy maths
+    needs. Returns ``None`` when the row is current or has no replay to
+    recompute from (those rows stay on their old version, and Progress never
+    compares them with new ones).
+    """
+    summary = dict(summary or {})
+    if summary.get("metric_version") == METRIC_VERSION:
+        return None
+    if not isinstance(replay, Mapping):
+        return None
+    stored_moves = replay.get("moves")
+    curve = replay.get("eval_curve_pawns")
+    if not isinstance(stored_moves, list) or not isinstance(curve, list):
+        return None
+    if not stored_moves or len(curve) != len(stored_moves) + 1:
+        return None
+    color = _resolve_color(replay.get("player_color"), None)
+    if color not in ("white", "black"):
+        return None
+
+    curve_cp = [int(round(float(value) * 100)) for value in curve]
+    endgame_start_ply: Optional[int] = None
+    for ply, stored in enumerate(stored_moves, start=1):
+        fen = stored.get("fen") if isinstance(stored, Mapping) else None
+        if endgame_start_ply is None and isinstance(fen, str):
+            board = chess.Board(fen)
+            if not (board.pieces(chess.QUEEN, chess.WHITE) or board.pieces(chess.QUEEN, chess.BLACK)):
+                endgame_start_ply = ply
+
+    moves: List[engine.MoveInfo] = []
+    for ply, stored in enumerate(stored_moves, start=1):
+        move_color = stored.get("color") if isinstance(stored, Mapping) else None
+        if move_color not in ("white", "black"):
+            return None
+        before, after = curve_cp[ply - 1], curve_cp[ply]
+        moves.append(
+            engine.MoveInfo(
+                move_number=(ply + 1) // 2,
+                san=str(stored.get("san") or ""),
+                color=move_color,
+                phase=engine._phase_for_ply(ply, endgame_start_ply),
+                fen_before="",
+                played_move="",
+                best_move=None,
+                best_move_san=None,
+                pv=[],
+                pv_san=[],
+                eval_before_cp=before,
+                eval_after_cp=after,
+                centipawn_loss=engine._centipawn_loss(before, after, move_color),
+                quality=engine._quality_for_move(before, after, move_color),
+            )
+        )
+
+    counts = engine._quality_counts(moves, color)
+    summary.update(
+        {
+            "played_at": summary.get("played_at")
+            or (extractor.parse_game_metadata(pgn)["started_at"] if pgn else None),
+            "metric_version": METRIC_VERSION,
+            "accuracy": engine.StockfishAnalyzer._compute_overall_accuracy(moves, color),
+            "acpl": player_acpl(moves, color),
+            "phase_accuracies": engine.StockfishAnalyzer._compute_phase_accuracies(
+                moves, color
+            ),
+            "quality": {
+                "blunder": counts[engine.QUALITY_BLUNDER],
+                "mistake": counts[engine.QUALITY_MISTAKE],
+                "inaccuracy": counts[engine.QUALITY_INACCURACY],
+            },
+        }
+    )
+    return summary
 
 
 def build_replay(

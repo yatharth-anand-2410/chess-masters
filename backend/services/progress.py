@@ -41,6 +41,15 @@ MIN_GAMES = 4
 MAX_ROOT_CAUSES = 5
 MAX_PILLAR_ITEMS = 4
 THIRD_DIVISOR = 3
+#: Each side of a before/after comparison needs at least this many games, so
+#: no trend is ever called from fewer than ``2 * TREND_WINDOW_MIN`` games.
+TREND_WINDOW_MIN = 5
+#: A change smaller than this many standard errors is reported as noise.
+TREND_SE_MULTIPLIER = 2.0
+#: Two games further apart than this are not the same session (tilt).
+SESSION_GAP = psychology.SESSION_GAP
+#: Stored metric definitions before ``game_summary.metric_version`` existed.
+LEGACY_METRIC_VERSION = 1
 
 SpeedBucket = Literal[
     "bullet",
@@ -112,10 +121,13 @@ class ProgressIdentity(BaseModel):
 
 
 class ProgressSeriesPoint(BaseModel):
-    date: str = Field(..., description="Analysis timestamp of the game")
+    date: str = Field(
+        ..., description="When the game was played (analysis time for old rows)"
+    )
     game_id: Optional[str] = None
     result: Optional[str] = Field(None, description="'win', 'loss' or 'draw'")
     speed: Optional[SpeedBucket] = None
+    platform: Optional[str] = None
     rating: Optional[float] = None
     accuracy: Optional[float] = None
     acpl: Optional[float] = None
@@ -124,12 +136,27 @@ class ProgressSeriesPoint(BaseModel):
     endgame: Optional[float] = None
 
 
+class RatingPool(BaseModel):
+    """One rating ladder: a platform and a speed. Ratings never cross pools."""
+
+    platform: str
+    speed: SpeedBucket
+    games: int
+    starting: float
+    current: float
+    peak: float
+
+
 class EloProgress(BaseModel):
-    starting: float = Field(0, description="First rated game in the window")
-    current: float = Field(0, description="Latest rated game in the window")
-    peak: float = Field(0, description="Highest rating in the window")
-    net_gain: float = Field(0, description="current - starting")
+    starting: float = Field(0, description="First rated game in the primary pool")
+    current: float = Field(0, description="Latest rated game in the primary pool")
+    peak: float = Field(0, description="Highest rating in the primary pool")
+    net_gain: float = Field(0, description="current - starting, primary pool only")
     status: str = Field("", description="Trajectory shape, '' when not classifiable")
+    pool: Optional[str] = Field(
+        None, description="Primary pool label, e.g. 'lichess · blitz'"
+    )
+    pools: List[RatingPool] = Field(default_factory=list)
     series: List[ProgressSeriesPoint] = Field(default_factory=list)
 
 
@@ -269,6 +296,10 @@ class StudentProgressReport(BaseModel):
     practice_plan: List[PracticePlanItem] = Field(default_factory=list)
     games_used: int = 0
     insufficient: bool = True
+    #: True once there are enough games to compare a baseline with recent play.
+    #: Below it the series are shown but no trend, verdict or persona is called.
+    trend_ready: bool = False
+    games_needed_for_trend: int = 0
 
     # -- Legacy read-only shims ------------------------------------------
     # ``services/copilot.py`` and the pre-rollout regression tests still read
@@ -339,6 +370,7 @@ class _Game:
     blunders: Optional[int]
     moments: List[Dict[str, Any]]
     psychology_primitives: Optional[Dict[str, Any]] = None
+    metric_version: int = LEGACY_METRIC_VERSION
 
 
 @dataclass(frozen=True)
@@ -356,6 +388,8 @@ class _Signal:
     metric: str
     detail: str
     in_movement: bool = False
+    #: Changes no larger than this are within game-to-game noise.
+    noise: float = 0.0
 
     @property
     def delta(self) -> float:
@@ -627,9 +661,15 @@ def _extract_game(row: Dict[str, Any]) -> Optional[_Game]:
     if _is_number(summary.get("accuracy")):
         accuracy = _round(float(summary["accuracy"]))
 
-    cpl_values = [_moment_cpl(moment) for moment in moments]
-    acpl = _mean(cpl_values)
-    acpl = _round(acpl) if acpl is not None else None
+    # True ACPL over every move, stored since metric version 2. Rows without it
+    # are left out of the ACPL series rather than given the mean of their
+    # worst moves, which measures blunder size, not accuracy.
+    acpl = _round(float(summary["acpl"])) if _is_number(summary.get("acpl")) else None
+    metric_version = (
+        int(summary["metric_version"])
+        if _is_number(summary.get("metric_version"))
+        else LEGACY_METRIC_VERSION
+    )
 
     phases = _as_dict(summary.get("phase_accuracies"))
     psychology_primitives = summary.get("psychology")
@@ -653,13 +693,22 @@ def _extract_game(row: Dict[str, Any]) -> Optional[_Game]:
     ).strip()
     platform = str(summary.get("platform") or row.get("platform") or "").strip().lower()
 
+    # When the game was played, not when it was analyzed: a batch of old games
+    # analyzed today must not all land on today. Old rows fall back to the
+    # analysis time until the backfill gives them a play date.
     created_at = row.get("created_at")
-    date = created_at if isinstance(created_at, str) and created_at else ""
+    summary_played = summary.get("played_at")
+    played_at = _parse_timestamp(summary_played)
+    if played_at is not None and isinstance(summary_played, str):
+        date = summary_played
+    else:
+        played_at = _parse_timestamp(created_at)
+        date = created_at if isinstance(created_at, str) and created_at else ""
 
     game = _Game(
         analysis_id=str(row.get("id") or ""),
         date=date,
-        played_at=_parse_timestamp(created_at),
+        played_at=played_at,
         result=_player_result(row.get("result"), color),
         speed=speed,
         platform=platform,
@@ -673,6 +722,7 @@ def _extract_game(row: Dict[str, Any]) -> Optional[_Game]:
         blunders=blunders,
         moments=moments,
         psychology_primitives=primitives,
+        metric_version=metric_version,
     )
     return game
 
@@ -682,11 +732,15 @@ def _extract_game(row: Dict[str, Any]) -> Optional[_Game]:
 # ---------------------------------------------------------------------------
 
 
-def _split_thirds(games: Sequence[_Game]) -> Tuple[List[_Game], List[_Game]]:
-    """First third (baseline) and last third (recent) of the filtered games."""
-    if not games:
+def _split_windows(games: Sequence[_Game]) -> Tuple[List[_Game], List[_Game]]:
+    """Earliest and latest windows to compare, or ``([], [])`` if too few.
+
+    Each window holds a third of the games but never fewer than
+    :data:`TREND_WINDOW_MIN`: comparing one game with one game is noise.
+    """
+    if len(games) < 2 * TREND_WINDOW_MIN:
         return [], []
-    size = max(1, len(games) // THIRD_DIVISOR)
+    size = max(TREND_WINDOW_MIN, len(games) // THIRD_DIVISOR)
     return list(games[:size]), list(games[-size:])
 
 
@@ -696,12 +750,49 @@ def _window_mean(
     return _mean(getter(game) for game in games)
 
 
+def _window_values(games: Sequence[_Game], getter) -> List[float]:
+    return [float(value) for value in (getter(game) for game in games) if _is_number(value)]
+
+
+def _noise(before: Sequence[float], after: Sequence[float]) -> float:
+    """How big a difference of two window means can be by chance alone.
+
+    ``TREND_SE_MULTIPLIER`` standard errors of the difference (sample variance
+    per window). Infinite when a window is too small to estimate its spread.
+    """
+    if len(before) < 2 or len(after) < 2:
+        return math.inf
+
+    def variance(values: Sequence[float]) -> float:
+        mean = sum(values) / len(values)
+        return sum((value - mean) ** 2 for value in values) / (len(values) - 1)
+
+    standard_error = math.sqrt(
+        variance(before) / len(before) + variance(after) / len(after)
+    )
+    return TREND_SE_MULTIPLIER * standard_error
+
+
+def _same_session(previous: _Game, current: _Game) -> bool:
+    """Back-to-back games on one platform, close enough to carry a mood."""
+    if previous.played_at is None or current.played_at is None:
+        return False
+    if previous.platform != current.platform:
+        return False
+    gap = current.played_at - previous.played_at
+    return timedelta(0) <= gap <= SESSION_GAP
+
+
 def _tilt_of(games: Sequence[_Game]) -> Optional[float]:
-    """Accuracy after a loss minus accuracy after a win (negative = tilt)."""
+    """Accuracy after a loss minus accuracy after a win (negative = tilt).
+
+    Only pairs from the same session count: the analyzed games are a sample the
+    player chose, so two neighbours in the list can be weeks apart.
+    """
     after_loss: List[float] = []
     after_win: List[float] = []
     for previous, current in zip(games, games[1:]):
-        if current.accuracy is None:
+        if current.accuracy is None or not _same_session(previous, current):
             continue
         if previous.result == "loss":
             after_loss.append(current.accuracy)
@@ -727,14 +818,14 @@ def _clock_blunder_counts(games: Sequence[_Game]) -> Tuple[int, int]:
     return under_30, clocked
 
 
+def _game_phase_mean(game: _Game) -> Optional[float]:
+    phases = [game.opening, game.middlegame, game.endgame]
+    available = [value for value in phases if value is not None]
+    return sum(available) / len(available) if available else None
+
+
 def _phase_window_mean(games: Sequence[_Game]) -> Optional[float]:
-    values: List[float] = []
-    for game in games:
-        phases = [game.opening, game.middlegame, game.endgame]
-        available = [value for value in phases if value is not None]
-        if available:
-            values.append(sum(available) / len(available))
-    return _mean(values)
+    return _mean(_game_phase_mean(game) for game in games)
 
 
 def _blunder_window_mean(games: Sequence[_Game]) -> Optional[float]:
@@ -747,12 +838,27 @@ def _blunder_window_mean(games: Sequence[_Game]) -> Optional[float]:
 
 
 def _build_signals(
-    baseline: Sequence[_Game], recent: Sequence[_Game]
+    baseline: Sequence[_Game],
+    recent: Sequence[_Game],
+    *,
+    metric_windows: Tuple[Sequence[_Game], Sequence[_Game]],
+    rating_windows: Tuple[Sequence[_Game], Sequence[_Game]],
 ) -> List[_Signal]:
-    signals: List[_Signal] = []
+    """Before/after signals.
 
-    rating_before = _window_mean(baseline, lambda game: game.rating)
-    rating_after = _window_mean(recent, lambda game: game.rating)
+    ``metric_windows`` hold only games graded under one metric definition
+    (accuracy, ACPL, phases and blunder counts change meaning across versions);
+    ``rating_windows`` hold only the primary rating pool.
+    """
+    signals: List[_Signal] = []
+    metric_baseline, metric_recent = metric_windows
+    rating_baseline, rating_recent = rating_windows
+
+    def noise_of(windows, getter) -> float:
+        return _noise(_window_values(windows[0], getter), _window_values(windows[1], getter))
+
+    rating_before = _window_mean(rating_baseline, lambda game: game.rating)
+    rating_after = _window_mean(rating_recent, lambda game: game.rating)
     if rating_before is not None and rating_after is not None:
         before, after = _round(rating_before), _round(rating_after)
         signals.append(
@@ -767,15 +873,16 @@ def _build_signals(
                 notable=8,
                 metric=f"Rating: {_fmt(before)} → {_fmt(after)} Elo",
                 detail=(
-                    "Mean player rating across the first third of the filtered "
-                    "games versus the latest third."
+                    "Mean rating in your main rating pool: earliest games "
+                    "versus the latest ones."
                 ),
                 in_movement=True,
+                noise=noise_of(rating_windows, lambda game: game.rating),
             )
         )
 
-    acpl_before = _window_mean(baseline, lambda game: game.acpl)
-    acpl_after = _window_mean(recent, lambda game: game.acpl)
+    acpl_before = _window_mean(metric_baseline, lambda game: game.acpl)
+    acpl_after = _window_mean(metric_recent, lambda game: game.acpl)
     if acpl_before is not None and acpl_after is not None:
         before, after = _round(acpl_before), _round(acpl_after)
         signals.append(
@@ -788,12 +895,10 @@ def _build_signals(
                 after=after,
                 material=4,
                 notable=1.5,
-                metric=f"Key-move centipawn loss: {_fmt(before)} → {_fmt(after)} cp",
-                detail=(
-                    "Mean centipawn loss of the blunders and mistakes the engine "
-                    "flagged in each game."
-                ),
+                metric=f"Average centipawn loss: {_fmt(before)} → {_fmt(after)} cp",
+                detail="Average centipawn loss over every move you played.",
                 in_movement=True,
+                noise=noise_of(metric_windows, lambda game: game.acpl),
             )
         )
 
@@ -824,8 +929,8 @@ def _build_signals(
             )
         )
 
-    phase_before = _phase_window_mean(baseline)
-    phase_after = _phase_window_mean(recent)
+    phase_before = _phase_window_mean(metric_baseline)
+    phase_after = _phase_window_mean(metric_recent)
     if phase_before is not None and phase_after is not None:
         before, after = _round(phase_before), _round(phase_after)
         signals.append(
@@ -844,6 +949,7 @@ def _build_signals(
                     "captured for each game."
                 ),
                 in_movement=True,
+                noise=noise_of(metric_windows, _game_phase_mean),
             )
         )
 
@@ -874,8 +980,8 @@ def _build_signals(
             )
         )
 
-    accuracy_before = _window_mean(baseline, lambda game: game.accuracy)
-    accuracy_after = _window_mean(recent, lambda game: game.accuracy)
+    accuracy_before = _window_mean(metric_baseline, lambda game: game.accuracy)
+    accuracy_after = _window_mean(metric_recent, lambda game: game.accuracy)
     if accuracy_before is not None and accuracy_after is not None:
         before, after = _round(accuracy_before), _round(accuracy_after)
         signals.append(
@@ -889,12 +995,13 @@ def _build_signals(
                 material=3,
                 notable=1,
                 metric=f"Accuracy: {_fmt(before, '%')} → {_fmt(after, '%')}",
-                detail="Per-game accuracy across the baseline versus recent third.",
+                detail="Per-game accuracy: earliest games versus the latest ones.",
+                noise=noise_of(metric_windows, lambda game: game.accuracy),
             )
         )
 
-    blunder_before = _blunder_window_mean(baseline)
-    blunder_after = _blunder_window_mean(recent)
+    blunder_before = _blunder_window_mean(metric_baseline)
+    blunder_after = _blunder_window_mean(metric_recent)
     if blunder_before is not None and blunder_after is not None:
         before, after = _round(blunder_before), _round(blunder_after)
         signals.append(
@@ -909,6 +1016,7 @@ def _build_signals(
                 notable=0.15,
                 metric=f"Blunders per game: {_fmt(before)} → {_fmt(after)}",
                 detail="Engine-flagged blunders per game in each window.",
+                noise=noise_of(metric_windows, lambda game: game.blunders),
             )
         )
 
@@ -970,6 +1078,7 @@ def _movement_items(signals: Sequence[_Signal]) -> List[MovementItem]:
         if not signal.in_movement:
             continue
         delta = _round(signal.delta)
+        within_noise = abs(signal.delta) <= signal.noise
         items.append(
             MovementItem(
                 key=signal.key,
@@ -980,6 +1089,7 @@ def _movement_items(signals: Sequence[_Signal]) -> List[MovementItem]:
                 unit=signal.unit,
                 direction="up" if delta >= 0 else "down",
                 higher_is_better=signal.higher_is_better,
+                insufficient=True if within_noise else None,
             )
         )
     return items
@@ -1006,6 +1116,8 @@ def _build_pillars(
 
     for signal in signals:
         progress = signal.progress
+        if abs(progress) <= signal.noise:
+            continue  # within game-to-game noise: not a claim we can make
         if progress >= signal.material:
             improved.append((progress, _pillar_item(signal, "mastered")))
         elif progress >= signal.notable:
@@ -1218,7 +1330,15 @@ def _radar_window(
         for entry in primitives
         if _is_number(entry.get("overall_accuracy"))
     ]
-    tilt_games = [{"psychology": entry} for entry in primitives]
+    tilt_games = [
+        {
+            "psychology": game.psychology_primitives,
+            "played_at": game.played_at,
+            "platform": game.platform,
+        }
+        for game in games
+        if isinstance(game.psychology_primitives, dict)
+    ]
 
     # The private builders below are the review surface's own rubric, reused so
     # the radar and the single-game psychology panel always agree.
@@ -1355,9 +1475,10 @@ def _build_persona(
     verdict_parts: List[str] = []
     if elo.current > 0:
         net = _fmt(elo.net_gain, signed=True)
+        pool = f" in {elo.pool}" if elo.pool else ""
         verdict_parts.append(
             f"Rating moved from {_fmt(elo.starting)} to {_fmt(elo.current)} "
-            f"({net} Elo) across the games in this window"
+            f"({net} Elo){pool}"
         )
     if verdict_signal is not None:
         verdict_parts.append(
@@ -1473,6 +1594,49 @@ def _focus_rules(
     return unique[:4]
 
 
+def _pool_key(game: _Game) -> Tuple[str, str]:
+    return (game.platform or "unknown", game.speed)
+
+
+def _rating_pools(games: Sequence[_Game]) -> List[RatingPool]:
+    """One entry per (platform, speed) ladder, most-played first.
+
+    A Lichess blitz rating and a Chess.com rapid rating are different scales;
+    a "net gain" across them would be meaningless.
+    """
+    grouped: Dict[Tuple[str, str], List[float]] = {}
+    last_seen: Dict[Tuple[str, str], int] = {}
+    for index, game in enumerate(games):
+        if game.rating is None:
+            continue
+        key = _pool_key(game)
+        grouped.setdefault(key, []).append(float(game.rating))
+        last_seen[key] = index
+    ordered = sorted(grouped, key=lambda key: (-len(grouped[key]), -last_seen[key]))
+    return [
+        RatingPool(
+            platform=key[0],
+            speed=key[1],  # type: ignore[arg-type]
+            games=len(grouped[key]),
+            starting=grouped[key][0],
+            current=grouped[key][-1],
+            peak=max(grouped[key]),
+        )
+        for key in ordered
+    ]
+
+
+def _primary_pool_games(
+    games: Sequence[_Game], pools: Sequence[RatingPool]
+) -> List[_Game]:
+    if not pools:
+        return []
+    primary = (pools[0].platform, pools[0].speed)
+    return [
+        game for game in games if game.rating is not None and _pool_key(game) == primary
+    ]
+
+
 def _build_accounts(games: Sequence[_Game]) -> List[TrackedAccount]:
     accounts: Dict[Tuple[str, str], Dict[str, Any]] = {}
     for index, game in enumerate(games):
@@ -1527,6 +1691,7 @@ def _build_series(
             "game_id": game.analysis_id or None,
             "result": game.result,
             "speed": game.speed,
+            "platform": game.platform or None,
         }
         if game.rating is not None:
             elo.append(ProgressSeriesPoint(**base, rating=game.rating))
@@ -1958,6 +2123,7 @@ def _build_synthetic_progress(
         ],
         games_used=14,
         insufficient=False,
+        trend_ready=True,
     )
 
 
@@ -2019,15 +2185,25 @@ def build_student_progress(
 
     games_used = len(games)
     enough = games_used >= MIN_GAMES
-    baseline, recent = _split_thirds(games)
+    trend_ready = games_used >= 2 * TREND_WINDOW_MIN
+    baseline, recent = _split_windows(games)
+    # Accuracy, ACPL, phases and blunder counts only compare games graded under
+    # the newest metric definition present; mixing definitions fakes a trend.
+    latest_version = max((game.metric_version for game in games), default=LEGACY_METRIC_VERSION)
+    metric_baseline, metric_recent = _split_windows(
+        [game for game in games if game.metric_version == latest_version]
+    )
     elo_series, acpl_series, accuracy_series, phase_series = _build_series(games)
 
-    ratings = [game.rating for game in games if game.rating is not None]
-    starting = float(ratings[0]) if ratings else 0.0
-    current = float(ratings[-1]) if ratings else 0.0
-    peak = float(max(ratings)) if ratings else 0.0
-    rating_before = _window_mean(baseline, lambda game: game.rating)
-    rating_after = _window_mean(recent, lambda game: game.rating)
+    pools = _rating_pools(games)
+    pool_games = _primary_pool_games(games, pools)
+    rating_baseline, rating_recent = _split_windows(pool_games)
+    ratings = [float(game.rating) for game in pool_games if game.rating is not None]
+    starting = ratings[0] if ratings else 0.0
+    current = ratings[-1] if ratings else 0.0
+    peak = max(ratings) if ratings else 0.0
+    rating_before = _window_mean(rating_baseline, lambda game: game.rating)
+    rating_after = _window_mean(rating_recent, lambda game: game.rating)
     elo = EloProgress(
         starting=starting,
         current=current,
@@ -2035,21 +2211,29 @@ def build_student_progress(
         net_gain=round(current - starting, 1),
         status=(
             _elo_status(rating_before, rating_after, current, starting, peak)
-            if enough and len(ratings) >= 2
+            if rating_before is not None and rating_after is not None
             else ""
         ),
+        pool=(
+            f"{pools[0].platform} · {pools[0].speed}" if pools else None
+        ),
+        pools=pools,
         series=elo_series,
     )
 
-    acpl_before = _window_mean(baseline, lambda game: game.acpl) if enough else None
-    acpl_after = _window_mean(recent, lambda game: game.acpl) if enough else None
+    acpl_before = _window_mean(metric_baseline, lambda game: game.acpl)
+    acpl_after = _window_mean(metric_recent, lambda game: game.acpl)
+    acpl_noise = _noise(
+        _window_values(metric_baseline, lambda game: game.acpl),
+        _window_values(metric_recent, lambda game: game.acpl),
+    )
     net_drift = (
         _round(acpl_after - acpl_before)
         if acpl_before is not None and acpl_after is not None
         else None
     )
     direction: str = "stable"
-    if net_drift is not None:
+    if net_drift is not None and abs(net_drift) > acpl_noise:
         if net_drift < -2:
             direction = "sharpening"
         elif net_drift > 2:
@@ -2062,8 +2246,8 @@ def build_student_progress(
         series=acpl_series,
     )
 
-    accuracy_before = _window_mean(baseline, lambda game: game.accuracy) if enough else None
-    accuracy_after = _window_mean(recent, lambda game: game.accuracy) if enough else None
+    accuracy_before = _window_mean(metric_baseline, lambda game: game.accuracy)
+    accuracy_after = _window_mean(metric_recent, lambda game: game.accuracy)
     accuracy = AccuracyProgress(
         baseline=_round(accuracy_before) if accuracy_before is not None else None,
         current=_round(accuracy_after) if accuracy_after is not None else None,
@@ -2071,8 +2255,8 @@ def build_student_progress(
     )
 
     def phase_span(name: str) -> PhaseSpan:
-        before = _window_mean(baseline, lambda game: getattr(game, name)) if enough else None
-        after = _window_mean(recent, lambda game: getattr(game, name)) if enough else None
+        before = _window_mean(metric_baseline, lambda game: getattr(game, name))
+        after = _window_mean(metric_recent, lambda game: getattr(game, name))
         return PhaseSpan(
             baseline=_round(before) if before is not None else None,
             current=_round(after) if after is not None else None,
@@ -2111,20 +2295,29 @@ def build_student_progress(
         series=phase_series,
     )
 
-    signals = _build_signals(baseline, recent) if enough else []
-    movement = _movement_items(signals) if enough else []
+    signals = (
+        _build_signals(
+            baseline,
+            recent,
+            metric_windows=(metric_baseline, metric_recent),
+            rating_windows=(rating_baseline, rating_recent),
+        )
+        if trend_ready
+        else []
+    )
+    movement = _movement_items(signals)
     root_causes = _root_causes(games)
     panic = _panic_buckets(games)
     key_errors = sum(len(game.moments) for game in games)
-    radar = _radar_metrics(baseline, recent) if enough else []
+    radar = _radar_metrics(baseline, recent) if trend_ready else []
     pillars = (
         _build_pillars(signals, root_causes, panic, key_errors)
-        if enough
+        if trend_ready
         else PillarGroups()
     )
     persona = (
         _build_persona(elo, signals, radar, root_causes, panic, key_errors)
-        if enough
+        if trend_ready
         else PersonaProfile(
             archetype="",
             summary_verdict="",
@@ -2134,7 +2327,7 @@ def build_student_progress(
         )
     )
     focus_rules = (
-        _focus_rules(signals, root_causes, panic, phases) if enough else []
+        _focus_rules(signals, root_causes, panic, phases) if trend_ready else []
     )
 
     return StudentProgressReport(
@@ -2160,4 +2353,6 @@ def build_student_progress(
         focus_rules=focus_rules,
         games_used=games_used,
         insufficient=not enough,
+        trend_ready=trend_ready,
+        games_needed_for_trend=max(0, 2 * TREND_WINDOW_MIN - games_used),
     )

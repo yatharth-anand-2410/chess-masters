@@ -18,9 +18,6 @@ if TYPE_CHECKING:
     from services import extractor
 
 MATE_SCORE = 100000
-BLUNDER_THRESHOLD_CP = 200
-MISTAKE_THRESHOLD_CP = 100
-INACCURACY_THRESHOLD_CP = 50
 
 QUALITY_BEST = "best"
 QUALITY_GOOD = "good"
@@ -35,12 +32,32 @@ PHASES = (PHASE_OPENING, PHASE_MIDDLEGAME, PHASE_ENDGAME)
 
 OPENING_MOVE_LIMIT = 10
 
-# Chess.com-style accuracy curve constants.
-ACCURACY_A = 103.1668
-ACCURACY_B = 3.1669
-ACCURACY_K = 0.04354
+# Lichess accuracy and move-grading constants. Source: lila
+# modules/analyse/src/main/AccuracyPercent.scala, modules/tree/src/main/
+# Advice.scala and scalachess eval.scala (WinPercent).
+ACCURACY_A = 103.1668100711649
+ACCURACY_B = 3.166924740191411
+ACCURACY_K = 0.04354415386753951
+#: Lichess adds one point per move for imperfect analysis.
+ACCURACY_UNCERTAINTY_BONUS = 1.0
 EVAL_LOGISTIC_K = 0.00368208
+#: Evals are ceiled here before converting to win% (scalachess Cp.CEILING).
+WIN_PERCENT_CEILING_CP = 1000
+#: Centipawn loss (ACPL, key-moment selection) still clamps at this value.
 EVAL_CLAMP_CP = 600
+#: Drops in winning chances (on the [-1, 1] scale), inclusive, worst first.
+BLUNDER_WC_DROP = 0.3
+MISTAKE_WC_DROP = 0.2
+INACCURACY_WC_DROP = 0.1
+#: Any score this close to MATE_SCORE is a forced mate.
+MATE_THRESHOLD_CP = MATE_SCORE - 1000
+#: Below this centipawn loss an unjudged move is "best", otherwise "good".
+BEST_MOVE_MAX_LOSS_CP = 20
+#: Game-accuracy volatility windows (AccuracyPercent.gameAccuracy).
+ACCURACY_WINDOW_MIN = 2
+ACCURACY_WINDOW_MAX = 8
+ACCURACY_WEIGHT_MIN = 0.5
+ACCURACY_WEIGHT_MAX = 12.0
 
 DEFAULT_DEPTH = 12
 DEFAULT_TIME_LIMIT_SECONDS = 0.2
@@ -316,16 +333,72 @@ class EnginePool:
                 pass
 
 
-def _quality_for_loss(loss_cp: int) -> str:
-    if loss_cp > BLUNDER_THRESHOLD_CP:
+def _is_mate(cp: int) -> bool:
+    return abs(cp) >= MATE_THRESHOLD_CP
+
+
+def _winning_chances(cp_mover: float) -> float:
+    """Lichess winning chances on [-1, 1] for an eval from the mover's side."""
+    ceiled = max(-WIN_PERCENT_CEILING_CP, min(WIN_PERCENT_CEILING_CP, cp_mover))
+    return 2 / (1 + math.exp(-EVAL_LOGISTIC_K * ceiled)) - 1
+
+
+def _mate_judgement(before: int, after: int) -> Optional[str]:
+    """Lichess MateAdvice. ``before``/``after`` are from the mover's side.
+
+    Returns ``""`` when a mate sequence was only delayed (no judgement) and
+    ``None`` when neither position involves a forced mate.
+    """
+    mate_for_before = _is_mate(before) and before > 0
+    mate_against_before = _is_mate(before) and before < 0
+    mate_for_after = _is_mate(after) and after > 0
+    mate_against_after = _is_mate(after) and after < 0
+
+    if mate_against_after and not mate_against_before and not mate_for_before:
+        # MateCreated: the move walked into a forced mate.
+        if before < -999:
+            return QUALITY_INACCURACY
+        if before < -700:
+            return QUALITY_MISTAKE
         return QUALITY_BLUNDER
-    if loss_cp > MISTAKE_THRESHOLD_CP:
-        return QUALITY_MISTAKE
-    if loss_cp > INACCURACY_THRESHOLD_CP:
-        return QUALITY_INACCURACY
-    if loss_cp > 20:
-        return QUALITY_GOOD
-    return QUALITY_BEST
+    if mate_for_before and not mate_for_after:
+        # MateLost: a forced mate the mover had is gone.
+        after_cp = 0 if mate_against_after else after
+        if mate_against_after:
+            return QUALITY_BLUNDER
+        if after_cp > 999:
+            return QUALITY_INACCURACY
+        if after_cp > 700:
+            return QUALITY_MISTAKE
+        return QUALITY_BLUNDER
+    if _is_mate(before) or _is_mate(after):
+        return ""  # MateDelayed or already lost: Lichess does not judge it.
+    return None
+
+
+def _quality_for_move(before_cp: int, after_cp: int, color: str) -> str:
+    """Grade a move by its drop in winning chances, as Lichess does.
+
+    A raw centipawn swing overstates errors in decided positions (+8 to +5.5 is
+    still winning) and understates them near equality; winning chances do not.
+    """
+    sign = 1 if color == "white" else -1
+    before = before_cp * sign
+    after = after_cp * sign
+
+    judgement = _mate_judgement(before, after)
+    if judgement is None:
+        delta = _winning_chances(before) - _winning_chances(after)
+        if delta >= BLUNDER_WC_DROP:
+            judgement = QUALITY_BLUNDER
+        elif delta >= MISTAKE_WC_DROP:
+            judgement = QUALITY_MISTAKE
+        elif delta >= INACCURACY_WC_DROP:
+            judgement = QUALITY_INACCURACY
+    if judgement:
+        return judgement
+    loss = _centipawn_loss(before_cp, after_cp, color)
+    return QUALITY_GOOD if loss > BEST_MOVE_MAX_LOSS_CP else QUALITY_BEST
 
 
 def _phase_for_ply(ply: int, endgame_start_ply: Optional[int]) -> str:
@@ -337,7 +410,7 @@ def _phase_for_ply(ply: int, endgame_start_ply: Optional[int]) -> str:
 
 
 def _win_percentage(eval_cp_mover: float) -> float:
-    return 50 + 50 * (2 / (1 + math.exp(-EVAL_LOGISTIC_K * eval_cp_mover)) - 1)
+    return 50 + 50 * _winning_chances(eval_cp_mover)
 
 
 def _clamp_eval(eval_cp: int) -> int:
@@ -358,9 +431,94 @@ def _move_accuracy(move: MoveInfo) -> float:
     eval_after_mover = (
         move.eval_after_cp if move.color == "white" else -move.eval_after_cp
     )
-    win_diff = _win_percentage(eval_before_mover) - _win_percentage(eval_after_mover)
-    accuracy = ACCURACY_A * math.exp(-ACCURACY_K * win_diff) - ACCURACY_B
-    return max(0.0, min(100.0, accuracy))
+    return _accuracy_from_win_percents(
+        _win_percentage(eval_before_mover), _win_percentage(eval_after_mover)
+    )
+
+
+def _accuracy_from_win_percents(before: float, after: float) -> float:
+    """Lichess AccuracyPercent.fromWinPercents (mover's win% before/after)."""
+    if after >= before:
+        return 100.0
+    win_diff = before - after
+    raw = ACCURACY_A * math.exp(-ACCURACY_K * win_diff) - ACCURACY_B
+    return max(0.0, min(100.0, raw + ACCURACY_UNCERTAINTY_BONUS))
+
+
+def _std_dev(values: Sequence[float]) -> float:
+    mean = sum(values) / len(values)
+    return math.sqrt(sum((value - mean) ** 2 for value in values) / len(values))
+
+
+def _move_weights(moves: Sequence["MoveInfo"]) -> List[float]:
+    """Volatility weight per move (Lichess gameAccuracy).
+
+    Win% (White's view) over the game, the start position included; each move
+    is weighted by the standard deviation of a sliding window around it, so
+    errors in sharp positions count for more than drift in quiet ones.
+    """
+    if not moves:
+        return []
+    win_percents = [_win_percentage(moves[0].eval_before_cp)] + [
+        _win_percentage(move.eval_after_cp) for move in moves
+    ]
+    window = max(
+        ACCURACY_WINDOW_MIN, min(ACCURACY_WINDOW_MAX, (len(win_percents) - 1) // 10)
+    )
+    lead = [win_percents[:window]] * max(0, min(window, len(win_percents)) - 2)
+    if len(win_percents) <= window:
+        sliding = [win_percents]
+    else:
+        sliding = [
+            win_percents[start : start + window]
+            for start in range(len(win_percents) - window + 1)
+        ]
+    windows = (lead + sliding)[: len(moves)]
+    return [
+        max(ACCURACY_WEIGHT_MIN, min(ACCURACY_WEIGHT_MAX, _std_dev(values)))
+        for values in windows
+    ]
+
+
+def _game_accuracy(
+    moves: Sequence["MoveInfo"],
+    color: str,
+    weights: Sequence[float],
+    include: Optional[Sequence[bool]] = None,
+) -> Optional[float]:
+    """Mean of the volatility-weighted mean and the harmonic mean.
+
+    The harmonic mean is what makes a single blunder hurt: one 10% move in a
+    sea of 100% moves pulls it down far more than an arithmetic mean would.
+    """
+    pairs = [
+        (_move_accuracy(move), weight)
+        for index, (move, weight) in enumerate(zip(moves, weights))
+        if move.color == color and (include is None or include[index])
+    ]
+    if not pairs:
+        return None
+    weighted = sum(acc * weight for acc, weight in pairs) / sum(w for _, w in pairs)
+    harmonic = len(pairs) / sum(1 / max(1.0, acc) for acc, _ in pairs)
+    return round((weighted + harmonic) / 2, 1)
+
+
+def _quality_counts(
+    moves: Sequence["MoveInfo"], player_color: Optional[str]
+) -> Dict[str, int]:
+    """Blunder / mistake / inaccuracy counts for the player's own moves.
+
+    Every reader (game card, batch totals, Progress, the coaching prompt)
+    treats these as the player's; counting the opponent's errors too inflated
+    them. With no known colour, every move counts rather than a guess.
+    """
+    counts = {QUALITY_BLUNDER: 0, QUALITY_MISTAKE: 0, QUALITY_INACCURACY: 0}
+    for move in moves:
+        if player_color in ("white", "black") and move.color != player_color:
+            continue
+        if move.quality in counts:
+            counts[move.quality] += 1
+    return counts
 
 
 def _server_eval_score(evaluation: "extractor.ServerEval") -> PositionScore:
@@ -446,11 +604,6 @@ class StockfishAnalyzer:
                 active_pool.close()
 
         moves: List[MoveInfo] = []
-        statistics = {
-            QUALITY_BLUNDER: 0,
-            QUALITY_MISTAKE: 0,
-            QUALITY_INACCURACY: 0,
-        }
         eval_curve_cp = [score.cp for score in scores]
 
         for index, node in enumerate(mainline, start=1):
@@ -462,9 +615,7 @@ class StockfishAnalyzer:
             after = scores[index]
 
             loss = _centipawn_loss(before.cp, after.cp, color)
-            quality = _quality_for_loss(loss)
-            if quality in statistics:
-                statistics[quality] += 1
+            quality = _quality_for_move(before.cp, after.cp, color)
 
             move_number = (index + 1) // 2
             timed = (move_times or {}).get((color, move_number))
@@ -502,7 +653,7 @@ class StockfishAnalyzer:
             eco=game.headers.get("ECO"),
             eval_curve_pawns=[round(cp / 100, 2) for cp in eval_curve_cp],
             moves=moves,
-            statistics=statistics,
+            statistics=_quality_counts(moves, player_color),
             phase_accuracies=self._compute_phase_accuracies(moves, player_color),
             overall_accuracy=self._compute_overall_accuracy(moves, player_color),
             started_at=started_at,
@@ -673,11 +824,7 @@ class StockfishAnalyzer:
     ) -> Optional[float]:
         if player_color not in ("white", "black"):
             return None
-        player_moves = [move for move in moves if move.color == player_color]
-        if not player_moves:
-            return None
-        total = sum(_move_accuracy(move) for move in player_moves)
-        return round(total / len(player_moves), 1)
+        return _game_accuracy(moves, player_color, _move_weights(moves))
 
     @staticmethod
     def _compute_phase_accuracies(
@@ -686,16 +833,16 @@ class StockfishAnalyzer:
     ) -> Dict[str, Optional[float]]:
         if player_color not in ("white", "black"):
             return {phase: None for phase in PHASES}
-        player_moves = [move for move in moves if move.color == player_color]
-        accuracies: Dict[str, Optional[float]] = {}
-        for phase in PHASES:
-            phase_moves = [move for move in player_moves if move.phase == phase]
-            if not phase_moves:
-                accuracies[phase] = None
-                continue
-            total = sum(_move_accuracy(move) for move in phase_moves)
-            accuracies[phase] = round(total / len(phase_moves), 1)
-        return accuracies
+        weights = _move_weights(moves)
+        return {
+            phase: _game_accuracy(
+                moves,
+                player_color,
+                weights,
+                include=[move.phase == phase for move in moves],
+            )
+            for phase in PHASES
+        }
 
 
 def move_san(board: chess.Board, move: chess.Move) -> Optional[str]:

@@ -627,6 +627,45 @@ async def stream_analysis(
         pool: Optional[engine.EnginePool] = None
         create_task: Optional[asyncio.Task] = None
         description_task: Optional[asyncio.Task] = None
+        # Set only once this request has actually consumed the guest trial, so
+        # a failure can hand back exactly what it took and nothing more.
+        guest_trial_ip: Optional[str] = None
+
+        async def _fail_analysis(message: str) -> None:
+            """A failed analysis costs nothing and never stays "processing".
+
+            Resolves the history row even when the engine failed before the
+            row id was read, marks it failed, refunds the signed-in credit and
+            releases a consumed guest trial. Every step is best effort: the
+            player still gets the error event.
+            """
+            nonlocal analysis_id
+            if analysis_id is None and create_task is not None:
+                try:
+                    analysis_row = await create_task
+                    analysis_id = str(analysis_row["id"])
+                except Exception:  # pragma: no cover — row never existed
+                    logger.exception("History row for a failed analysis was not created")
+            if user_id and analysis_id:
+                try:
+                    await asyncio.to_thread(
+                        db.update_analysis,
+                        user_id,
+                        analysis_id,
+                        {"status": "failed", "error_message": message},
+                    )
+                except Exception:  # pragma: no cover — best effort
+                    logger.exception("Failed to mark analysis %s failed", analysis_id)
+            if user_id:
+                try:
+                    await _refund_analysis_credits(user_id, 1)
+                except Exception:  # pragma: no cover — best effort
+                    logger.exception("Failed to refund credit for a failed analysis")
+            if guest_trial_ip is not None:
+                try:
+                    await asyncio.to_thread(db.release_guest_analysis, guest_trial_ip)
+                except Exception:  # pragma: no cover — best effort
+                    logger.exception("Failed to release the guest trial")
 
         async def _client_gone() -> bool:
             """True when the player cancelled or closed the page mid-analysis."""
@@ -693,10 +732,13 @@ async def stream_analysis(
                     pass
 
             if user_id is None:
+                guest_ip = _client_ip(request)
                 guest_usage = await asyncio.to_thread(
-                    db.consume_guest_analysis, _client_ip(request)
+                    db.consume_guest_analysis, guest_ip
                 )
-                if not guest_usage.get("allowed", False):
+                if guest_usage.get("allowed", False):
+                    guest_trial_ip = guest_ip
+                else:
                     yield sse_event(
                         "error",
                         {
@@ -847,42 +889,18 @@ async def stream_analysis(
             )
         except (extractor.ExtractionError, engine.EngineError) as exc:
             logger.error("Analysis failed: %s", exc)
-            if user_id and analysis_id:
-                await asyncio.to_thread(
-                    db.update_analysis,
-                    user_id,
-                    analysis_id,
-                    {"status": "failed", "error_message": str(exc)},
-                )
-            if user_id:
-                await _refund_analysis_credits(user_id, 1)
+            await _fail_analysis(str(exc))
             yield sse_event("error", {"message": str(exc)})
         except genai_errors.APIError as exc:
             message = str(getattr(exc, "message", exc))
             if "quota" in message.lower() or "resource_exhausted" in message.lower():
                 message = "AI service quota exceeded. Please try again later."
             logger.error("Gemini API error: %s", message)
-            if user_id and analysis_id:
-                await asyncio.to_thread(
-                    db.update_analysis,
-                    user_id,
-                    analysis_id,
-                    {"status": "failed", "error_message": message},
-                )
-            if user_id:
-                await _refund_analysis_credits(user_id, 1)
+            await _fail_analysis(message)
             yield sse_event("error", {"message": message})
         except Exception as exc:
             logger.exception("Unexpected error during analysis")
-            if user_id and analysis_id:
-                await asyncio.to_thread(
-                    db.update_analysis,
-                    user_id,
-                    analysis_id,
-                    {"status": "failed", "error_message": str(exc)},
-                )
-            if user_id:
-                await _refund_analysis_credits(user_id, 1)
+            await _fail_analysis(str(exc))
             yield sse_event(
                 "error",
                 {"message": "An unexpected error occurred during analysis."},

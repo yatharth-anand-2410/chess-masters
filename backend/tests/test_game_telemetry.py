@@ -311,3 +311,101 @@ def test_extract_verdict_ignores_reports_without_the_section() -> None:
 def test_extract_verdict_rejects_an_empty_or_fragmentary_section() -> None:
     assert telemetry.extract_verdict("## Verdict\n\n## Strength\n- Fine.\n") is None
     assert telemetry.extract_verdict("## Verdict\nToo short.\n") is None
+
+
+def test_build_game_summary_records_when_the_game_was_played() -> None:
+    analysis = _two_move_analysis()
+    analysis.started_at = "2026-10-15T18:04:11"
+
+    summary = telemetry.build_game_summary(
+        analysis=analysis,
+        engine_data={},
+        player_color="white",
+        username="student",
+        platform="lichess",
+        pgn=TOY_PGN,
+    )
+
+    assert summary["played_at"] == "2026-10-15T18:04:11"
+    assert summary["metric_version"] == telemetry.METRIC_VERSION
+
+
+def test_build_game_summary_falls_back_to_the_pgn_date() -> None:
+    analysis = _two_move_analysis()
+    analysis.started_at = None
+
+    summary = telemetry.build_game_summary(
+        analysis=analysis,
+        engine_data={},
+        player_color="white",
+        username="student",
+        platform="lichess",
+        pgn=TOY_PGN,
+    )
+
+    assert summary["played_at"] == "2026-10-15"
+
+
+def test_build_game_summary_acpl_covers_every_player_move() -> None:
+    analysis = _two_move_analysis()
+    analysis.moves.append(
+        _move(2, "Nf3", "white", _AFTER_E5, "g1f3", centipawn_loss=40)
+    )
+
+    summary = telemetry.build_game_summary(
+        analysis=analysis,
+        engine_data={},
+        player_color="white",
+        username="student",
+        platform="lichess",
+        pgn=TOY_PGN,
+    )
+
+    # White played e4 (0 loss) and Nf3 (40 loss); Black's 60 is not counted.
+    assert summary["acpl"] == 20.0
+
+
+def _stored_replay(curve_pawns: List[float]) -> dict:
+    """A replay as it is stored on old rows: per-move colour/FEN and the curve."""
+    board = chess.Board()
+    sans = ["e4", "e5", "Nf3", "Nc6", "Bb5", "a6"][: len(curve_pawns) - 1]
+    moves = []
+    for ply, san in enumerate(sans, start=1):
+        color = "white" if board.turn == chess.WHITE else "black"
+        board.push(board.parse_san(san))
+        moves.append({"ply": ply, "san": san, "color": color, "fen": board.fen()})
+    return {"moves": moves, "eval_curve_pawns": curve_pawns, "player_color": "white"}
+
+
+def test_upgrade_recomputes_metrics_from_the_stored_replay() -> None:
+    old_summary = {
+        "speed": "blitz",
+        "accuracy": 99.0,
+        "quality": {"blunder": 5, "mistake": 0, "inaccuracy": 0},
+    }
+    # White blunders on move 2 (Nf3 drops from +0.3 to -3.0); Black is fine.
+    replay = _stored_replay([0.2, 0.3, 0.3, -3.0, -3.0, -3.0, -3.0])
+
+    upgraded = telemetry.upgrade_game_summary(old_summary, replay, TOY_PGN)
+
+    assert upgraded is not None
+    assert upgraded["metric_version"] == telemetry.METRIC_VERSION
+    assert upgraded["played_at"] == "2026-10-15"
+    assert upgraded["quality"] == {"blunder": 1, "mistake": 0, "inaccuracy": 0}
+    assert upgraded["acpl"] == 110.0  # (0 + 330 + 0) / 3 White moves
+    assert upgraded["accuracy"] < 80
+    assert upgraded["phase_accuracies"]["opening"] == upgraded["accuracy"]
+    # Untouched fields survive.
+    assert upgraded["speed"] == "blitz"
+
+
+def test_upgrade_leaves_rows_without_a_replay_alone() -> None:
+    assert telemetry.upgrade_game_summary({"accuracy": 80.0}, None, TOY_PGN) is None
+    assert (
+        telemetry.upgrade_game_summary(
+            {"accuracy": 80.0, "metric_version": telemetry.METRIC_VERSION},
+            _stored_replay([0.2, 0.3]),
+            TOY_PGN,
+        )
+        is None
+    )

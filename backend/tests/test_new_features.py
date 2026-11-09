@@ -160,11 +160,12 @@ class TestNewFeaturesEndToEnd(unittest.TestCase):
         self.assertEqual(report.elo.starting, 1500)
         self.assertEqual(report.elo.current, 1550)
         self.assertTrue(len(report.elo.series) == 6)
-        self.assertTrue(report.movement)
-        self.assertTrue(len(report.pillars.needs_work) > 0)
+        # Six games: series and leak counts, but too few to call a trend.
+        self.assertFalse(report.trend_ready)
+        self.assertEqual(report.movement, [])
+        self.assertEqual(report.focus_rules, [])
         self.assertTrue(len(report.root_causes) > 0)
         self.assertEqual(sum(cause.count for cause in report.root_causes), 6)
-        self.assertTrue(len(report.focus_rules) > 0)
         # The synthetic showcase profile never reaches a real account id.
         self.assertEqual(report.identity.accounts[0].username, "tester")
         self.assertNotEqual(report.elo.current, 2145)

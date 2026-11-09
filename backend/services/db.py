@@ -971,6 +971,31 @@ def consume_guest_analysis(
     return response.json()
 
 
+def release_guest_analysis(ip: str) -> None:
+    """Give back a guest trial that was consumed by an analysis that failed.
+
+    The counterpart of :func:`consume_guest_analysis`: a guest whose game could
+    not be analyzed must not lose the one free try. Never goes below zero.
+    """
+    url, _key = _config()
+    if not configured():
+        raise AuthError("Supabase is not configured on the server.")
+    if not ip:
+        return
+    response = _post(
+        f"{url}/rest/v1/rpc/release_guest_analysis",
+        json={"p_ip": ip},
+        headers=_service_headers(),
+        timeout=TIMEOUT,
+    )
+    if response.status_code == 404:
+        raise AuthError(
+            "Guest release function is not deployed. Run migration "
+            "0019_release_guest_trial.sql in the Supabase SQL Editor."
+        )
+    response.raise_for_status()
+
+
 def claim_guest_trial(user_id: str) -> Dict[str, Any]:
     """Count the guest trial against a new account's free analyses once.
 

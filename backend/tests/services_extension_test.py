@@ -357,14 +357,18 @@ def test_student_progress_report():
     assert report.elo.net_gain == 50
     assert len(report.elo.series) == 6
     assert report.accuracy.series[-1].accuracy == 85.0
-    assert report.movement  # six games are enough for before/after windows
+    # Six games show the series but are too few to call a trend (two windows
+    # of five are needed): no movement, pillars, persona or focus rules.
+    assert report.trend_ready is False
+    assert report.games_needed_for_trend == 4
+    assert report.movement == []
+    assert report.pillars.needs_work == []
+    assert report.persona.archetype == ""
+    assert report.focus_rules == []
 
-    # Leaks are the real motifs of the seeded moments.
+    # Leaks are counting facts, not trends: the real motifs of the moments.
     assert sum(cause.count for cause in report.root_causes) == 6
     assert {cause.category for cause in report.root_causes} == {"Pin", "Fork"}
-    assert report.pillars.needs_work
-    assert report.persona.archetype != ""
-    assert report.focus_rules
 
     # The synthetic showcase profile (Aarav, 2077 -> 2145) is never used for a
     # real account.
@@ -458,7 +462,8 @@ def test_copilot_heuristic_fallback():
 
 def test_copilot_reads_the_real_progress_attributes():
     """Copilot anchors on ``persona`` / ``pillars`` / ``elo`` (no legacy shims)."""
-    rows = [_progress_row(index, accuracy=80.0 + index) for index in range(6)]
+    # Ten games: enough for a trend, so a persona exists for copilot to read.
+    rows = [_progress_row(index, accuracy=80.0 + index) for index in range(10)]
     with _patch_progress_db(rows):
         req = copilot.CopilotQueryRequest(
             query="Where am I losing points?",
@@ -471,7 +476,7 @@ def test_copilot_reads_the_real_progress_attributes():
 
     joined = " ".join(res.anchored_facts)
     assert "tester" in joined
-    assert "1550 Elo" in joined
+    assert "1590 Elo" in joined
     assert "Pin" in joined or "Fork" in joined
     assert "Current Cohort Telemetry" in res.answer
 
