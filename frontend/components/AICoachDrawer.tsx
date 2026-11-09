@@ -28,27 +28,27 @@ import type { User } from "@supabase/supabase-js";
 export const QUICK_QUERY_CHIPS = [
   {
     id: "turning_point",
-    label: "⚡ Analyze this game's turning point",
+    label: "Where did this game turn?",
     prompt: "What was the critical turning point in this game, and how could it have been saved?",
   },
   {
     id: "last_3_games",
-    label: "📊 Analyze my recent games",
+    label: "What keeps going wrong in my recent games?",
     prompt: "Analyze my recent games and identify my most frequent error patterns.",
   },
   {
     id: "most_mistakes",
-    label: "🎯 Where am I making the most mistakes?",
+    label: "Which phase costs me the most?",
     prompt: "Where am I losing the most evaluation points: opening, middlegame, or endgame?",
   },
   {
     id: "what_practice",
-    label: "🏋️ What should I practice right now?",
+    label: "What should I practice next?",
     prompt: "What specific tactical motifs or drills should I practice right now?",
   },
   {
     id: "nav_progress",
-    label: "🧭 Navigate to my Progress & Leaks",
+    label: "Open my Progress page",
     prompt: "Navigate to my Progress & Leaks",
   },
 ] as const;

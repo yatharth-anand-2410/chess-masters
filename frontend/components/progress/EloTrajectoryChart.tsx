@@ -34,12 +34,22 @@ function ratingLabel(value: number | null | undefined): string {
   return typeof value === "number" && value > 0 ? formatNumber(value, 0) : "—";
 }
 
-/** Real-rating Elo trajectory with a gold area fill and per-game result dots. */
+/**
+ * Rating trajectory for one ladder only. A Lichess blitz rating and a
+ * Chess.com rapid rating are different scales, so the line follows the primary
+ * pool the backend chose (the one with the most games); older payloads without
+ * pools fall back to every rated game.
+ */
 export default function EloTrajectoryChart({ elo, insufficient }: Props) {
+  const primary = asArray(elo?.pools)[0];
   const points = asArray(elo?.series).filter(
     (point): point is ProgressSeriesPoint & { rating: number } =>
-      typeof point?.rating === "number" && Number.isFinite(point.rating) && point.rating > 0
+      typeof point?.rating === "number" &&
+      Number.isFinite(point.rating) &&
+      point.rating > 0 &&
+      (!primary || (point.platform === primary.platform && point.speed === primary.speed))
   );
+  const otherPools = asArray(elo?.pools).slice(1);
   const usable = points.length >= 2;
   const scale = makeValueScale(
     points.map((point) => point.rating),
@@ -62,7 +72,7 @@ export default function EloTrajectoryChart({ elo, insufficient }: Props) {
       <div className="progress-chart-head">
         <div>
           <div className="progress-chart-title-row">
-            <b>Elo Rating Trajectory</b>
+            <b>Rating{elo?.pool ? ` · ${elo.pool}` : ""}</b>
             {netGain !== null && netGain !== 0 ? (
               <span className={`progress-pill ${netGain > 0 ? "progress-pill-green" : "progress-pill-red"}`}>
                 {formatSigned(netGain, 0)} Net Elo
@@ -70,7 +80,13 @@ export default function EloTrajectoryChart({ elo, insufficient }: Props) {
             ) : null}
           </div>
           <p className="progress-chart-sub">
-            {elo?.status ? elo.status : "Rating movement across the filtered games"}
+            {elo?.status
+              ? elo.status
+              : otherPools.length
+                ? `Also played: ${otherPools
+                    .map((pool) => `${pool.platform} · ${pool.speed} (${formatNumber(pool.current, 0)})`)
+                    .join(", ")}`
+                : "Your rating across these games"}
           </p>
         </div>
         <div className="progress-chart-legend">

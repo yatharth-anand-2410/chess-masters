@@ -9,19 +9,19 @@ import { cn } from "../lib/utils";
 
 const PILLARS = [
   {
-    title: "Plain-English 5-Section Report",
+    title: "A report you can read",
     detail:
-      "Stockfish evaluations translated into Strength, Weakness, Game Overview, Do / Don't Focus Rules, and Lichess drills.",
+      "Stockfish finds the moves that mattered; the report explains them in five sections: Strength, Weakness, Game Overview, Focus Areas and Resources, with Lichess drills for each.",
   },
   {
-    title: "6-Dimension Chess Psychology",
+    title: "How you play under pressure",
     detail:
-      "Unlocks after 3 games to measure clock panic under 30 seconds, tilt resistance, and advantage conversion.",
+      "After 3 games: how often you blunder with under 30 seconds left, whether a loss carries into your next game, and how often you convert winning positions.",
   },
   {
-    title: "Multi-Game Session Batching",
+    title: "Several games at once",
     detail:
-      "Import your Lichess or Chess.com profile and batch-analyze your last 5, 10, or 20 games to uncover recurring leaks.",
+      "Pick your last 5, 10 or 20 games from Lichess or Chess.com and see which mistakes keep coming back.",
   },
 ];
 

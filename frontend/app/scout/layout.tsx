@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import React from "react";
 
 export const metadata: Metadata = {
-  title: "Opponent Scouting Dossiers & Repertoire Prep · Chessmasters",
+  // The root layout's title template appends " · Chessmasters".
+  title: "Opponent Scouting Dossiers & Repertoire Prep",
   description:
     "Generate comprehensive tactical and psychological scouting reports for any Chess.com or Lichess opponent. Uncover time trouble habits, opening traps, and tilt triggers.",
   alternates: { canonical: "/scout", types: { "application/rss+xml": "/feed.xml" } },

@@ -22,6 +22,8 @@ import {
   Zap,
   Info,
   HelpCircle,
+  MessageSquare,
+  ArrowUpRight,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { apiGetCached, CACHE_TTL } from "../../lib/api-cache";
@@ -496,7 +498,7 @@ export function Topbar({
             aria-label="Open AI Coach Drawer (⌘K)"
           >
             <span className="inline-flex items-center gap-2">
-              <span className="text-[var(--gold-bright)] text-xs">✦</span>
+              <MessageSquare size={13} className="text-[var(--gold-bright)]" aria-hidden="true" />
               {!sidebarCollapsed && <span className="font-medium text-xs">Ask AI Coach</span>}
             </span>
             {!sidebarCollapsed && (
@@ -513,8 +515,7 @@ export function Topbar({
               title="Manage Pro Subscription"
               className={`inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-[var(--radius-control)] bg-[var(--gold)]/15 border border-[var(--gold)]/40 text-[var(--gold-bright)] hover:bg-[var(--gold)]/25 transition-all whitespace-nowrap cursor-pointer`}
             >
-              <span>👑</span>
-              {!sidebarCollapsed && <span>Pro Student</span>}
+              {sidebarCollapsed ? <span>Pro</span> : <span>Pro Student</span>}
             </Link>
           ) : (
             <Link
@@ -522,7 +523,7 @@ export function Topbar({
               title="Upgrade to Pro"
               className="inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-bold rounded-[var(--radius-control)] bg-gradient-to-r from-[#c9993f] to-[#e2b65f] text-[#141712] shadow-[0_2px_8px_rgba(201,153,63,0.25)] hover:shadow-[0_4px_14px_rgba(226,182,95,0.45)] transition-all whitespace-nowrap cursor-pointer"
             >
-              <span>👑</span>
+              <ArrowUpRight size={14} aria-hidden="true" />
               {!sidebarCollapsed && <span>Upgrade to Pro</span>}
             </Link>
           )}
@@ -592,7 +593,7 @@ export function Topbar({
                         </span>
                         {usage?.plan === "paid" && (
                           <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-[var(--gold)]/15 text-[var(--gold-bright)] border border-[var(--gold)]/30">
-                            👑 Pro
+                            Pro
                           </span>
                         )}
                       </div>
@@ -628,7 +629,7 @@ export function Topbar({
                           }}
                           className="w-full text-left px-3.5 py-2 hover:bg-[var(--ink-3)] text-[var(--gold-bright)] transition-colors flex items-center justify-between"
                         >
-                          <span>👥 Manage Student Profiles</span>
+                          <span className="flex items-center gap-2"><Users size={14} aria-hidden="true" /> Manage Student Profiles</span>
                           <span className="text-[10px] font-mono bg-[var(--gold)]/20 px-1.5 py-0.5 rounded text-[var(--gold-bright)]">
                             Pro
                           </span>
@@ -704,13 +705,13 @@ export function Topbar({
             className="p-1.5 text-[var(--gold-bright)] hover:bg-[var(--ink-2)] rounded-md border border-[var(--line)] text-xs"
             title="Ask AI"
           >
-            ✦
+            <MessageSquare size={14} aria-hidden="true" />
           </button>
           <Link
             href="/subscription"
             className="px-2.5 py-1 text-[11px] font-bold rounded bg-gradient-to-r from-[#c9993f] to-[#e2b65f] text-[#141712]"
           >
-            👑 Pro
+            Pro
           </Link>
         </div>
       </div>
@@ -802,7 +803,7 @@ export function Topbar({
                       className="px-3 py-2.5 rounded-lg transition-colors flex items-center justify-between text-[var(--gold-bright)] hover:bg-[var(--ink-2)] text-left"
                     >
                       <span className="flex items-center gap-2">
-                        <span>👥</span>
+                        <Users size={14} aria-hidden="true" />
                         <span>Manage Students</span>
                       </span>
                       <span className="text-[10px] font-mono bg-[var(--gold)]/20 px-1.5 py-0.5 rounded text-[var(--gold-bright)]">
@@ -819,8 +820,8 @@ export function Topbar({
                   onClick={handleOpenAI}
                   className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg bg-[var(--ink-2)] border border-[var(--line)] text-xs font-semibold text-[var(--text)] hover:border-[var(--gold)]/40"
                 >
-                  <span className="text-[var(--gold)]">✦</span>
-                  <span>Ask AI Assistant (⌘K)</span>
+                  <MessageSquare size={14} className="text-[var(--gold)]" aria-hidden="true" />
+                  <span>Ask the coach (⌘K)</span>
                 </button>
 
                 {!effectiveUser ? (

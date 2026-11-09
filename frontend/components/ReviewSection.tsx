@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { User } from "@supabase/supabase-js";
-import { MessageSquarePlus, Star, CheckCircle2 } from "lucide-react";
+import { MessageSquarePlus, Star } from "lucide-react";
 import {
   apiPost,
   type ReviewsResponse,
@@ -312,10 +312,8 @@ export default function ReviewSection({ user, token, onAuthChange }: ReviewSecti
                       <div className="text-sm font-semibold text-[var(--text)] truncate">
                         {review.display_name}
                       </div>
-                      <div className="text-[11px] text-emerald-400 flex items-center gap-1">
-                        <CheckCircle2 size={11} />
-                        <span>Verified Player</span>
-                      </div>
+                      {/* Reviews require a Google sign-in; that is all this label claims. */}
+                      <div className="text-[11px] text-[var(--text-muted)]">Signed-in player</div>
                     </div>
                   </div>
                   <div className="shrink-0">

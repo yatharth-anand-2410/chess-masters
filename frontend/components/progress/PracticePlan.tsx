@@ -104,7 +104,7 @@ function PracticeRow({ item, rank }: { item: PracticePlanItem; rank: number }) {
                   className="progress-practice-study is-locked"
                   title="Available with a paid plan"
                 >
-                  🔒 {study.title}
+                  {study.title} (locked)
                 </span>
               ) : (
                 <Link

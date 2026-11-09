@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import React from "react";
 
 export const metadata: Metadata = {
-  title: "Curated Chess Studies & Master Training Library · Chessmasters",
+  // The root layout's title template appends " · Chessmasters".
+  title: "Curated Chess Studies & Master Training Library",
   description:
     "Master curated Lichess studies tailored to your recurring weaknesses. Drill tactics, master openings, and build practical endgame habits with Arena International Master curricula.",
   alternates: { canonical: "/studies", types: { "application/rss+xml": "/feed.xml" } },

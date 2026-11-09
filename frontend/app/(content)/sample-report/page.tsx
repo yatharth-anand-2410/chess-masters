@@ -117,8 +117,8 @@ export default function SampleReportPage() {
         <span className="report-block-tag">Section 2 · Weakness</span>
         <h3>The turning points, with the motif behind each one</h3>
         <p>
-          For the losing side, the report would start at 9…b5, a pawn grab
-          played while the bishop on g5 pinned the knight to the queen. It would
+          For the losing side, the report would start at 9…b5, a pawn thrust
+          at the c4 bishop played while the bishop on g5 pinned the knight to the queen. It would
           show the punishment beginning with 10.Nxb5, then trace the two
           sacrifices that followed — 13.Rxd7 removing a defender, and 16.Qb8+!
           deflecting the knight before 17.Rd8# — and name the lesson: pieces

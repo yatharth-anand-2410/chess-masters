@@ -39,7 +39,7 @@ const TIERS: TierSpec[] = [
   {
     id: "student",
     name: "Pro Student",
-    badge: "Most Popular",
+    badge: "Recommended",
     price: `₹${PRODUCT_FACTS.proPriceInr}`,
     cadence: "/ month",
     description: "For club & tournament players (800–2200 Elo) serious about rating growth.",
@@ -49,8 +49,8 @@ const TIERS: TierSpec[] = [
     features: [
       { bold: `${PRODUCT_FACTS.proAnalysesPerPeriod} AI coaching reports`, text: "per billing period" },
       { bold: "Batch analyze up to 20 games", text: "(Last 5, Last 10, Last 20 presets)" },
-      { bold: "3-Pillar Student Progress", text: "& Recurring Leaks dashboard" },
-      { bold: "Full 6-Dimension Psychology", text: "Radar (Tilt, Clock Panic, Style)" },
+      { bold: "Progress page", text: "what's improving and what keeps costing you" },
+      { bold: "Pressure profile", text: "clock panic, tilt and converting won games" },
       { bold: "Interactive Mistake Replay", text: "Drills & Curated Lichess Studies" },
       { bold: "Opponent Scouting Dossiers", text: "(Opening Trie & Clock Leaks)" },
       { text: "Follow-up AI Coach Q&A on any move" },
@@ -92,11 +92,11 @@ export default function LandingPricingSection({
           id="landing-pricing-title"
           className="text-2xl sm:text-4xl font-serif font-bold text-[var(--text)] tracking-tight m-0"
         >
-          Built for Every Stage of Your Chess Journey
+          Pricing
         </h2>
         <p className="text-sm sm:text-base text-[var(--text-muted)] mt-2 mb-0">
-          Start free with 5 full game reports. Upgrade to Pro Student or Master Coach when
-          you are ready for deep session batches, psychology telemetry, and student rosters.
+          Five full reports free. Pro Student adds 100 reports a month and the Progress page;
+          Master Coach adds student rosters.
         </p>
       </div>
 
@@ -195,7 +195,7 @@ export default function LandingPricingSection({
       <div className="mt-5 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs text-[var(--text-muted)]">
         <span className="inline-flex items-center gap-1.5">
           <ShieldCheck size={14} className="text-[var(--gold-bright)]" />
-          14-day money-back guarantee
+          Full refund within 7 days if you haven&apos;t analyzed a game
         </span>
         <span>·</span>
         <span>Secure recurring checkout via Razorpay</span>

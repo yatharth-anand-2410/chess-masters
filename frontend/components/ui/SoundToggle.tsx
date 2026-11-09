@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { Volume2, VolumeX } from "lucide-react";
 import { isSoundEnabled, playSound, subscribeSound, toggleSound } from "../../lib/sound";
 
 type SoundToggleProps = {
@@ -40,7 +41,7 @@ export default function SoundToggle({
         playSound("click");
       }}
     >
-      <span aria-hidden="true">{on ? "🔊" : "🔇"}</span>
+      {on ? <Volume2 size={15} aria-hidden="true" /> : <VolumeX size={15} aria-hidden="true" />}
       {withLabel && <span>{on ? "Sound ON" : "Muted"}</span>}
     </button>
   );

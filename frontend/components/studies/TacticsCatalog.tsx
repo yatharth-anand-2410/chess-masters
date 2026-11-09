@@ -372,7 +372,7 @@ function LibraryStudyCard({
             className="studies-library-lock"
             title={preview ? "Sign in to open the library" : "Available with a paid plan"}
           >
-            🔒
+            Locked
           </span>
         ) : observed > 0 ? (
           <span

@@ -90,7 +90,7 @@ export default function DrillSection({
           <header className="review-arena-head">
             <div>
               <b className="review-arena-kicker">
-                ⚡ Replay drill arena
+                Replay your mistakes
                 {typeof firstMove === "number" ? ` · Move ${firstMove}` : ""}
               </b>
               <p className="review-arena-lede">
@@ -146,7 +146,7 @@ export default function DrillSection({
                   <div>
                     {fromLibrary ? (
                       <span className="review-resource-tag">
-                        {resource.locked ? "🔒 Study library" : "Study library"}
+                        {resource.locked ? "Study library · locked" : "Study library"}
                       </span>
                     ) : null}
                     <b>{resource.title}</b>

@@ -565,6 +565,8 @@ export type ProgressSeriesPoint = {
   game_id?: string | null;
   result?: "win" | "loss" | "draw" | null;
   speed?: SpeedBucket | null;
+  /** Platform the game was played on; with `speed` it names the rating pool. */
+  platform?: string | null;
   rating?: number | null;
   accuracy?: number | null;
   acpl?: number | null;
@@ -618,6 +620,16 @@ export type ProgressPanicBucket = {
   worst?: boolean;
 };
 
+/** One rating ladder (platform + speed). Ratings are never compared across pools. */
+export type RatingPool = {
+  platform: string;
+  speed: SpeedBucket;
+  games: number;
+  starting: number;
+  current: number;
+  peak: number;
+};
+
 export type ProgressReport = {
   student_id: string;
   student_name: string;
@@ -634,6 +646,9 @@ export type ProgressReport = {
     peak: number;
     net_gain: number;
     status: string;
+    /** Primary pool label, e.g. "lichess · blitz"; starting/current/peak/net_gain describe it. */
+    pool?: string | null;
+    pools?: RatingPool[];
     series: ProgressSeriesPoint[];
   };
   acpl: {
@@ -678,6 +693,13 @@ export type ProgressReport = {
   games_used: number;
   /** True when fewer than 4 games match the filter — panels must show an honest empty state. */
   insufficient: boolean;
+  /**
+   * False until there are enough games for two five-game windows. The series
+   * still render, but no trend, verdict, persona or focus rule is claimed.
+   */
+  trend_ready?: boolean;
+  /** How many more analyzed games until trends can be shown. */
+  games_needed_for_trend?: number;
 };
 
 /** GET /api/billing/config */

@@ -50,7 +50,7 @@ export default function PersonaHero({ report, fallbackName }: Props) {
               <span className="progress-pill progress-pill-green">✓ {persona.strength_badge}</span>
             ) : null}
             {persona.vulnerability_badge ? (
-              <span className="progress-pill progress-pill-red">⚠ {persona.vulnerability_badge}</span>
+              <span className="progress-pill progress-pill-red">! {persona.vulnerability_badge}</span>
             ) : null}
           </div>
 

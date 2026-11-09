@@ -23,8 +23,8 @@ const TOP = 24;
 const BOTTOM = 122;
 
 function directionPill(direction: ProgressReport["acpl"]["direction"]) {
-  if (direction === "sharpening") return { tone: "progress-pill-green", label: "Sharpening ✓" };
-  if (direction === "decaying") return { tone: "progress-pill-red", label: "Decaying ⚠" };
+  if (direction === "sharpening") return { tone: "progress-pill-green", label: "Sharpening" };
+  if (direction === "decaying") return { tone: "progress-pill-red", label: "Slipping" };
   return { tone: "progress-pill-neutral", label: "Stable" };
 }
 

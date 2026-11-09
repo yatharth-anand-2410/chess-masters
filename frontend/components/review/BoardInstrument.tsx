@@ -488,7 +488,6 @@ export default function BoardInstrument({
         {clock && (
           <span className={`review-clock-chip${lowClock ? " is-danger" : ""}`}>
             {clock}
-            {lowClock ? " ⚡" : ""}
           </span>
         )}
       </div>

@@ -999,11 +999,11 @@ export default function AnalyzerForm({
               <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Time control filter">
                 {(
                   [
-                    { id: "all", label: "All Controls" },
-                    { id: "bullet", label: "⚡ Bullet" },
-                    { id: "blitz", label: "🔥 Blitz" },
-                    { id: "rapid", label: "⏱ Rapid" },
-                    { id: "classical", label: "🏛 Classical" },
+                    { id: "all", label: "All" },
+                    { id: "bullet", label: "Bullet" },
+                    { id: "blitz", label: "Blitz" },
+                    { id: "rapid", label: "Rapid" },
+                    { id: "classical", label: "Classical" },
                   ] as const
                 ).map((tc) => (
                   <button

@@ -124,8 +124,8 @@ const PLAN_CARDS: PlanCard[] = [
     fallbackPrice: "₹399",
     features: [
       { lead: "100", text: "AI coaching reports per billing period" },
-      { lead: "Student Progress & Leaks", text: "(3-Pillar)" },
-      { lead: "Full 6-Dimension Psychology", text: "Panel" },
+      { lead: "Progress page", text: "what's improving, what isn't" },
+      { lead: "Pressure profile", text: "clock, tilt, conversion" },
       { lead: "Interactive Replay Drills" },
       { lead: "Opponent Scouting", text: "Dossiers" },
     ],
@@ -518,7 +518,7 @@ export default function SubscriptionPage() {
             {signInBusy ? "Connecting to Google..." : "Continue with Google to subscribe"}
           </button>
           <p className="subscription-plan-helper">
-            14-day money-back guarantee, secure checkout via Razorpay, cancel anytime
+            Secure checkout via Razorpay. Cancel anytime. Full refund within 7 days if you haven&apos;t analyzed a game.
           </p>
         </>
       );
@@ -562,7 +562,7 @@ export default function SubscriptionPage() {
         </button>
         {card.id === "student" && (
           <p className="subscription-plan-helper">
-            14-day money-back guarantee, secure checkout via Razorpay, cancel anytime
+            Secure checkout via Razorpay. Cancel anytime. Full refund within 7 days if you haven&apos;t analyzed a game.
           </p>
         )}
       </>
@@ -624,8 +624,7 @@ export default function SubscriptionPage() {
       <header className="subscription-hero">
         <h1 className="subscription-title">Subscription &amp; Plan Management</h1>
         <p className="subscription-subtitle">
-          Transparent chess improvement pricing. Powered by Razorpay with a 14-day money-back
-          guarantee.
+          Billed monthly through Razorpay. Cancel or pause anytime; full refund within 7 days if you haven&apos;t analyzed a game.
         </p>
 
         {activeTier !== "free" && (

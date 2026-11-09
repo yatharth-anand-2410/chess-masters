@@ -382,6 +382,9 @@ function ProgressPageContent() {
 
   const gamesUsed = report && typeof report.games_used === "number" ? report.games_used : null;
   const insufficient = report?.insufficient === true;
+  // Older backends omit trend_ready; treat them as ready so nothing regresses.
+  const trendReady = report ? report.trend_ready !== false : false;
+  const gamesNeededForTrend = report?.games_needed_for_trend ?? 0;
   const noGamesAtAll = report ? (report.identity?.total_games ?? 0) === 0 : false;
   const noGamesInFilter = report ? gamesUsed === 0 && !noGamesAtAll : false;
 
@@ -543,10 +546,25 @@ function ProgressPageContent() {
               </div>
             ) : null}
 
-            <PersonaHero report={report} fallbackName={viewingStudent?.display_name} />
-            <PillarCards report={report} />
-            <MovementMatrix report={report} />
-            <RadarOverlay report={report} />
+            {!insufficient && !trendReady ? (
+              <div className="progress-notice" role="status">
+                <BarChart3 size={16} aria-hidden="true" />
+                <span>
+                  Analyze {gamesNeededForTrend} more {gamesNeededForTrend === 1 ? "game" : "games"} to
+                  see trends. With fewer than 10 games, a change from one game to the next is mostly
+                  luck, so the charts below show every game and nothing more.
+                </span>
+              </div>
+            ) : null}
+
+            {trendReady ? (
+              <>
+                <PersonaHero report={report} fallbackName={viewingStudent?.display_name} />
+                <PillarCards report={report} />
+                <MovementMatrix report={report} />
+                <RadarOverlay report={report} />
+              </>
+            ) : null}
 
             <section className="progress-telemetry-grid" aria-label="Longitudinal telemetry">
               <EloTrajectoryChart elo={report.elo} insufficient={insufficient} />

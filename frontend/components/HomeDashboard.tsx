@@ -949,7 +949,6 @@ export default function HomePage() {
                 <div className="mb-3.5 p-3 rounded-xl bg-[var(--ink-2)] border border-[var(--gold)]/30 flex flex-wrap items-center justify-between gap-2.5 shadow-xs">
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-semibold text-[var(--gold-bright)] flex items-center gap-1.5">
-                      <span className="text-sm">👤</span>
                       <span>Attach to Student:</span>
                     </span>
                     <select

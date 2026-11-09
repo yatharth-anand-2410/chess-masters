@@ -222,7 +222,7 @@ export default function StudiesPage() {
 
                 {study.study_id && study.study_title ? (
                   <p className="studies-card-origin">
-                    {study.locked ? "🔒 " : ""}Library study: {study.study_title}
+                    Library study: {study.study_title}{study.locked ? " (locked)" : ""}
                     {typeof study.study_count === "number" && study.study_count > 1
                       ? `, ${study.study_count} studies cover ${study.theme_label ?? study.motif}`
                       : ""}

@@ -103,7 +103,7 @@ const FEATURED_REPORTS: FeaturedSampleReport[] = [
     opening: "C41 Philidor Defense",
     accuracyWhite: "98.9%",
     accuracyBlack: "68.5%",
-    criticalFen: "4kb1r/p2n1ppp/4q3/4p1B1/4P3/1Q6/PPP2PPP/2KR4 w k - 1 16",
+    criticalFen: "4kb1r/p2n1ppp/4q3/4p1B1/4P3/1Q6/PPP2PPP/2KR4 w k - 0 16",
     criticalOrientation: "white",
     criticalMoveLabel: "16. Qb8+!! — Queen Sacrifice Deflects the Knight",
     arrows: [
@@ -111,11 +111,11 @@ const FEATURED_REPORTS: FeaturedSampleReport[] = [
       { orig: "d1", dest: "d8", color: "green" },
     ],
     verdict:
-      "Black grabbed a b2 pawn at move 9 while uncastled, allowing White to stack every piece on open central files and finish with 16.Qb8+!! Nxb8 17.Rd8#.",
+      "Black spent move 9 on ...b5?, chasing the c4 bishop while still uncastled. White gave up the knight on b5, doubled on the open d-file and finished with 16.Qb8+!! Nxb8 17.Rd8#.",
     strength:
       "Every White move developed a new piece with tempo, castling long to bring the d1-rook immediately into the attack against the pinned d7-knight.",
     weakness:
-      "9...b5? chased material while the f8-bishop and h8-rook were still asleep and the e8-king had no escape squares.",
+      "9...b5? opened the a4-e8 diagonal to Black's own king while the f8 bishop and h8 rook were still undeveloped.",
     overview:
       "The textbook illustration of how a lead in development and an absolute pin convert into a forced mating net.",
     focusRule: {
@@ -147,10 +147,10 @@ export default function SampleReportsFeed() {
               id="featured-reports-title"
               className="text-2xl sm:text-3xl font-serif font-bold text-[var(--text)] m-0"
             >
-              Sample Championship Reports
+              Sample reports
             </h2>
             <p className="text-sm text-[var(--text-muted)] mt-1.5 mb-0 max-w-xl">
-              Explore how Chessmasters translates iconic championship turning points into plain-English lessons.
+              Famous games, written up the way your own games will be.
             </p>
           </div>
 

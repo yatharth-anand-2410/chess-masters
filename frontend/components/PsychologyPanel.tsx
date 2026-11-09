@@ -292,7 +292,7 @@ export default function PsychologyPanel({ profile }: PsychologyPanelProps) {
       <div className="review-psych-head">
         <div>
           <span className="review-psych-kicker">
-            🧠 Cognitive psychology verdict (lead analysis)
+            How you played under pressure
           </span>
           <h3 className="review-psych-title">Mental Toughness &amp; Cognitive Biases</h3>
         </div>

@@ -17,22 +17,22 @@ const PILLAR_GROUPS: PillarGroup[] = [
     key: "improved",
     tone: "improved",
     icon: "✓",
-    title: "What Has Improved",
-    subtitle: "Mastered — converted into instinct",
+    title: "Improved",
+    subtitle: "Clearly better than your earlier games",
   },
   {
     key: "improving",
     tone: "improving",
-    icon: "⚡",
-    title: "What Is Improving",
-    subtitle: "Habits showing positive statistical drift",
+    icon: "↗",
+    title: "Getting better",
+    subtitle: "Moving the right way, not by a wide margin yet",
   },
   {
     key: "needs_work",
     tone: "needs-work",
-    icon: "⚠",
-    title: "What Still Needs Work",
-    subtitle: "Critical leaks costing you the most rating",
+    icon: "!",
+    title: "Still costing you",
+    subtitle: "Where most of your points go",
   },
 ];
 
@@ -88,7 +88,7 @@ export default function PillarCards({ report }: Props) {
     <section className="progress-pillars-section" aria-label="3-pillar mastery tracker">
       <div className="progress-section-head">
         <div>
-          <h2 className="progress-section-title">3-Pillar Mastery Tracker</h2>
+          <h2 className="progress-section-title">What&apos;s improving, what&apos;s slipping</h2>
           <p className="progress-section-sub">
             Categorised from the games in the current filter window
           </p>
